@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row row-cards">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="card-title">Hello, Gitea Tracker 👋</h2>
+        <p class="text-muted">
+          This is the Phase 0 skeleton. The real application will be built incrementally
+          across the next phases. Right now this page just verifies that Flask is running,
+          assets are loading, and the database file is reachable.
+        </p>
+
+        <hr>
+
+        <h3>System status</h3>
+
+        <div class="datagrid">
+          <div class="datagrid-item">
+            <div class="datagrid-title">Python</div>
+            <div class="datagrid-content">
+              <span id="python-version">checking...</span>
+            </div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Flask</div>
+            <div class="datagrid-content">
+              <span class="status status-green">running</span>
+            </div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Database file</div>
+            <div class="datagrid-content">
+              <code>{{ db_path }}</code>
+            </div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title">Database connection</div>
+            <div class="datagrid-content">
+              {% if db_status.ok %}
+                <span class="status status-green">{{ db_status.message }}</span>
+              {% else %}
+                <span class="status status-red">{{ db_status.message }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if db_status.ok and db_status.tables %}
+          <h4 class="mt-4">Tables created ({{ db_status.tables | length }})</h4>
+          <div class="d-flex flex-wrap gap-1">
+            {% for t in db_status.tables %}
+              <span class="badge bg-blue-lt">{{ t }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <hr class="mt-4">
+
+        <h3>Frontend libraries</h3>
+        <p>If the buttons below work, HTMX and Alpine.js are loaded correctly.</p>
+
+        <div class="d-flex gap-3 align-items-center">
+          <!-- Alpine.js test -->
+          <div x-data="{ count: 0 }">
+            <button class="btn btn-primary" @click="count++">
+              Alpine.js click: <span x-text="count"></span>
+            </button>
+          </div>
+
+          <!-- HTMX test -->
+          <button class="btn btn-outline-primary"
+                  hx-get="/healthz"
+                  hx-target="#htmx-result"
+                  hx-swap="innerHTML">
+            HTMX ping /healthz
+          </button>
+          <span id="htmx-result" class="text-muted"></span>
+        </div>
+
+        <hr class="mt-4">
+
+        <h3>Next steps</h3>
+        <ol>
+          <li>Verify this page loads in your browser at <code>http://localhost:5000</code></li>
+          <li>Verify the two test buttons above work</li>
+          <li>Verify all tables show up in the badges above</li>
+          <li>If everything is green, Phase 0 is done — let me know and we move to Phase 1
+            (importing your real Excel data and showing it as a read-only table).</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Show Python version via a tiny inline call (just for the placeholder)
+  document.getElementById('python-version').textContent = 'see server logs';
+</script>
+{% endblock %}

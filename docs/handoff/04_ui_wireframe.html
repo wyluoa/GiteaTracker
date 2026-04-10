@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Gitea Tracker - UI Wireframe v2</title>
+<style>
+  body { font-family: -apple-system, "Noto Sans TC", sans-serif; background: #f5f7fa; margin: 0; padding: 20px; color: #1f2d3d; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  h2 { font-size: 15px; color: #556; margin-top: 32px; border-bottom: 2px solid #dde; padding-bottom: 6px; }
+  .note { background: #fffae6; border-left: 3px solid #f1c40f; padding: 8px 12px; margin: 8px 0 16px; font-size: 13px; color: #665; }
+  .mockup { background: white; border: 1px solid #cfd6df; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.05); margin-bottom: 12px; overflow: hidden; }
+
+  /* Top bar */
+  .topbar { background: #2c3e50; color: white; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+  .topbar .logo { font-weight: bold; }
+  .topbar nav a { color: #cdd; margin: 0 10px; text-decoration: none; }
+  .topbar nav a.active { color: white; border-bottom: 2px solid #3498db; padding-bottom: 4px; }
+  .topbar .user { font-size: 12px; }
+
+  /* Toolbar */
+  .toolbar { background: #eef2f6; padding: 8px 16px; display: flex; gap: 6px; align-items: center; font-size: 12px; border-bottom: 1px solid #cfd6df; flex-wrap: wrap; }
+  .toolbar input, .toolbar select { padding: 4px 6px; border: 1px solid #bcc; border-radius: 3px; font-size: 12px; }
+  .toolbar button { padding: 4px 10px; background: #3498db; color: white; border: 0; border-radius: 3px; cursor: pointer; font-size: 12px; }
+  .toolbar button.secondary { background: #95a5a6; }
+  .toolbar button.meeting { background: #f39c12; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .red-line-marker { color: #c0392b; font-weight: bold; }
+
+  /* Batch action bar */
+  .batch-bar { background: #fff3cd; padding: 8px 16px; border-bottom: 1px solid #f1c40f; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+  .batch-bar strong { color: #8a6d00; }
+
+  /* Main table */
+  table.tracker { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.tracker th, table.tracker td { border: 1px solid #dde3ea; padding: 4px 6px; text-align: left; vertical-align: top; }
+  table.tracker thead th { background: #f0f4f8; position: sticky; top: 0; font-weight: 600; font-size: 11px; }
+  table.tracker tr.week-header td { background: #dfe8f1; font-weight: bold; color: #2c3e50; font-size: 12px; }
+  table.tracker tr.red-line-divider td { padding: 0; height: 0; border: 0; background: repeating-linear-gradient(90deg, #c0392b 0 10px, transparent 10px 20px); border-top: 2px dashed #c0392b; }
+  table.tracker td.cb { width: 20px; text-align: center; }
+  table.tracker td.issue-id { font-weight: bold; width: 42px; }
+  table.tracker td.topic { min-width: 160px; max-width: 200px; }
+  table.tracker td.topic .title { font-weight: 500; }
+  table.tracker td.topic .meta { color: #889; font-size: 10px; }
+  table.tracker td.node-cell { width: 58px; cursor: pointer; position: relative; }
+  table.tracker td.node-cell .state { display: inline-block; padding: 1px 5px; border-radius: 2px; font-size: 10px; color: white; font-weight: 600; }
+  table.tracker td.node-cell .checkin { display: block; font-size: 9px; color: #678; margin-top: 2px; }
+  table.tracker td.node-cell .short-note { display: block; font-size: 9px; color: #96704b; font-style: italic; margin-top: 1px; }
+  table.tracker td.node-cell .badge { position: absolute; top: 1px; right: 2px; background: #3498db; color: white; font-size: 8px; border-radius: 7px; padding: 0 4px; line-height: 12px; }
+
+  /* State colors */
+  .state.done       { background: #27ae60; }   /* 深綠 - 已上線 */
+  .state.uat-done   { background: #3498db; }   /* 藍 - 測完未上線 */
+  .state.uat        { background: #e67e22; }   /* 橘 - 測試中 */
+  .state.dev        { background: #95a5a6; }   /* 灰 - 開發中 */
+  .state.tbd        { background: #8e44ad; }   /* 紫 - 未決 */
+  .state.unneeded   { background: #bdc3c7; color: #556; }
+  .state.empty      { background: #ecf0f1; color: #aaa; font-style: italic; }
+
+  /* 紅線以上的 UAT / TBD: 狀態色塊改紅色, cell 背景不變 */
+  td.node-cell.red-alert .state.uat,
+  td.node-cell.red-alert .state.tbd { background: #c0392b; }
+
+  /* 自上次查看以來有變動 */
+  td.new-change { background: #fff9c4; }
+
+  /* Ready to close 標記 */
+  tr.ready-to-close td.issue-id::after { content: " ✓"; color: #27ae60; }
+
+  /* On hold 區塊 */
+  .on-hold-section { background: #fef2f2; padding: 8px 16px; font-size: 12px; border-top: 1px solid #e74c3c; color: #7b2020; }
+  .on-hold-section strong { font-size: 13px; }
+
+  /* Side panel */
+  .side-panel { background: white; border: 1px solid #cfd6df; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.05); padding: 14px; max-width: 580px; font-size: 12px; }
+  .side-panel h3 { margin: 0 0 4px; font-size: 15px; }
+  .side-panel .subtitle { color: #889; font-size: 11px; margin-bottom: 10px; }
+  .side-panel .field { margin: 6px 0; }
+  .side-panel .field label { display: inline-block; width: 100px; color: #556; font-size: 11px; vertical-align: top; }
+  .side-panel .field input, .side-panel .field select, .side-panel .field textarea { padding: 3px 6px; border: 1px solid #bcc; border-radius: 3px; font-size: 12px; }
+  .timeline { margin-top: 12px; border-top: 1px solid #e5eaef; padding-top: 10px; }
+  .timeline-actions { margin-bottom: 8px; }
+  .timeline-actions button { font-size: 11px; padding: 3px 8px; background: #ecf0f1; color: #333; border: 1px solid #bcc; border-radius: 3px; cursor: pointer; margin-right: 4px; }
+  .timeline-actions .meeting-btn { background: #fff8e1; border-color: #f1c40f; }
+  .timeline-entry { padding: 8px 0; border-bottom: 1px dashed #e5eaef; }
+  .timeline-entry .head { font-size: 11px; color: #667; }
+  .timeline-entry .head strong { color: #234; }
+  .timeline-entry.state-change .head::before { content: "◐ "; color: #3498db; }
+  .timeline-entry.comment .head::before { content: "💬 "; }
+  .timeline-entry.meeting-note { background: #fff8e1; padding: 8px; border-radius: 3px; }
+  .timeline-entry.meeting-note .head::before { content: "📋 Meeting Note · "; color: #f39c12; font-weight: bold; }
+  .timeline-entry .body { margin-top: 4px; color: #333; }
+  .timeline-entry .attachments { margin-top: 4px; }
+  .timeline-entry .attachments .thumb { display: inline-block; width: 40px; height: 40px; background: #ecf0f1; border: 1px solid #ccc; border-radius: 3px; text-align: center; line-height: 40px; font-size: 10px; color: #889; margin-right: 4px; }
+
+  /* Meeting Mode */
+  .meeting-mode-header { background: #fff8e1; border-left: 4px solid #f39c12; padding: 12px 16px; }
+  .meeting-mode-header h3 { margin: 0 0 4px; font-size: 15px; color: #8a5a00; }
+  .meeting-item { border-bottom: 1px solid #eee; padding: 10px 16px; display: grid; grid-template-columns: 60px 1fr 2fr; gap: 10px; align-items: start; font-size: 12px; }
+  .meeting-item .iid { font-weight: bold; }
+  .meeting-item textarea { width: 100%; min-height: 40px; padding: 4px; border: 1px solid #ccd; border-radius: 3px; font-family: inherit; font-size: 11px; }
+
+  /* Dashboard */
+  .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px; }
+  .card { background: #f8fafc; border: 1px solid #e1e7ef; border-radius: 4px; padding: 12px; font-size: 12px; }
+  .card h4 { margin: 0 0 8px; font-size: 13px; color: #2c3e50; border-bottom: 1px solid #e1e7ef; padding-bottom: 4px; }
+  .card .primary-stat { font-size: 28px; font-weight: bold; color: #c0392b; line-height: 1; }
+  .card .primary-label { font-size: 10px; color: #c0392b; font-weight: 600; display: block; margin-bottom: 6px; }
+  .card .secondary-stat { font-size: 13px; color: #556; }
+  .card .tertiary { font-size: 10px; color: #889; margin-top: 4px; }
+  .card.special { background: #fff8e1; }
+  .card.hold { background: #fef2f2; }
+
+  /* Legend */
+  .legend { padding: 8px 16px; background: #f8fafc; font-size: 11px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .legend .item { display: flex; align-items: center; gap: 4px; }
+  .legend .swatch { display: inline-block; padding: 1px 6px; border-radius: 2px; color: white; font-weight: 600; font-size: 10px; }
+  .legend .swatch.done     { background: #27ae60; }
+  .legend .swatch.uat-done { background: #3498db; }
+  .legend .swatch.uat      { background: #e67e22; }
+  .legend .swatch.dev      { background: #95a5a6; }
+  .legend .swatch.tbd      { background: #8e44ad; }
+  .legend .swatch.unneeded { background: #bdc3c7; color: #556; }
+  .legend .swatch.red-alert{ background: #c0392b; }
+</style>
+</head>
+<body>
+
+<h1>Gitea Tracker — UI Wireframe v2</h1>
+<p style="font-size: 12px; color: #667;">v2 更新:UAT done 改藍色、紅線以上紅底白字、加上 A12 欄位、short note 顯示、批次操作、On Hold 收合區、會議模式、Dashboard 紅線以上大字強調。</p>
+
+<h2>顏色對照</h2>
+<div class="mockup">
+  <div class="legend">
+    <div class="item"><span class="swatch done">Done</span> 已上線</div>
+    <div class="item"><span class="swatch uat-done">UAT✓</span> 測完待上線</div>
+    <div class="item"><span class="swatch uat">UAT</span> 測試中</div>
+    <div class="item"><span class="swatch dev">Dev</span> 開發中</div>
+    <div class="item"><span class="swatch tbd">TBD</span> 未決</div>
+    <div class="item"><span class="swatch unneeded">—</span> 不需處理</div>
+    <div class="item"><span class="swatch red-alert">UAT</span> 紅線以上的 UAT / TBD</div>
+    <div class="item"><span style="background:#fff9c4; padding:1px 6px; font-size:10px; border:1px solid #f1c40f;">黃底</span> 自上次查看有變動</div>
+  </div>
+</div>
+
+<h2>① 主畫面 (Ongoing 列表)</h2>
+<div class="note">由舊到新排序、週次分組、批次操作 checkbox、紅線以上 UAT/TBD 紅底、短註記顯示、On Hold 收合區。</div>
+<div class="mockup">
+  <div class="topbar">
+    <div><span class="logo">Gitea Tracker</span></div>
+    <nav>
+      <a href="#" class="active">Ongoing</a>
+      <a href="#">Closed</a>
+      <a href="#">Dashboard</a>
+      <a href="#">Calendar</a>
+      <a href="#">Admin</a>
+    </nav>
+    <div class="user">WY (Super User) ▾</div>
+  </div>
+  <div class="toolbar">
+    <input type="search" placeholder="搜尋 topic / 題號 / JIRA..." style="width: 180px;">
+    <select><option>全部 Owner</option></select>
+    <select><option>全部狀態</option></select>
+    <select><option>全部週次</option></select>
+    <span class="spacer"></span>
+    <span class="red-line-marker">🚩 紅線: wk322</span>
+    <button class="meeting">📋 進入 wk325 會議模式</button>
+    <button class="secondary">標記全部已讀</button>
+    <button class="secondary">匯出 Excel</button>
+    <button>+ 新增題目</button>
+  </div>
+
+  <div class="batch-bar">
+    <strong>已選 2 題:</strong>
+    <span>將</span>
+    <select style="font-size:11px;"><option>選擇 Node</option><option>A10</option><option>N3</option></select>
+    <span>改成</span>
+    <select style="font-size:11px;"><option>選擇狀態</option><option>Done</option><option>UAT done</option></select>
+    <input type="text" placeholder="更新說明 (共用)" style="width:200px; font-size:11px;">
+    <button style="background:#27ae60;">套用</button>
+    <button class="secondary">取消選取</button>
+  </div>
+
+  <table class="tracker">
+    <thead>
+      <tr>
+        <th class="cb"><input type="checkbox"></th>
+        <th>#</th>
+        <th>Topic</th>
+        <th>Owner</th>
+        <th>A10</th><th>A12</th><th>A14</th><th>N2</th><th>A16</th><th>N3</th><th>N4/N5</th><th>N6/N7</th><th>000</th><th>MtM</th>
+        <th>UAT Path</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="week-header"><td colspan="15">📅 wk321 &nbsp; (2025-05-19~25) &nbsp;▾ &nbsp; 共 1 題</td></tr>
+      <tr class="ready-to-close">
+        <td class="cb"><input type="checkbox"></td>
+        <td class="issue-id">156</td>
+        <td class="topic"><div class="title">request title</div><div class="meta">Requestor: Alice · JIRA-1234</div></td>
+        <td>WY</td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell red-alert"><span class="state uat">UAT</span><span class="checkin">5/20</span></td>
+        <td class="node-cell red-alert"><span class="state uat">UAT</span></td>
+        <td class="node-cell red-alert"><span class="state uat">UAT</span></td>
+        <td class="node-cell red-alert"><span class="state uat">UAT</span></td>
+        <td class="node-cell red-alert"><span class="state uat">UAT</span></td>
+        <td>path1</td>
+      </tr>
+
+      <tr class="red-line-divider"><td colspan="15"></td></tr>
+
+      <tr class="week-header"><td colspan="15">📅 wk322 ▾ &nbsp; 共 2 題</td></tr>
+      <tr>
+        <td class="cb"><input type="checkbox" checked></td>
+        <td class="issue-id">158</td>
+        <td class="topic"><div class="title">request title1</div><div class="meta">Requestor: Bob</div></td>
+        <td>Stan</td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span><span class="short-note">等 spec 確認</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td class="node-cell"><span class="state dev">Dev</span></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td class="cb"><input type="checkbox" checked></td>
+        <td class="issue-id">162</td>
+        <td class="topic"><div class="title">request title2</div><div class="meta">Requestor: Carol · N3-102</div></td>
+        <td>Stan</td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell new-change"><span class="state uat-done">UAT✓</span><span class="checkin">→ 2/20</span><span class="badge">2</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state uat-done">UAT✓</span><span class="checkin">→ 2/10</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state uat">UAT</span></td>
+        <td>path3</td>
+      </tr>
+
+      <tr class="week-header"><td colspan="15">📅 wk323 ▾ &nbsp; 共 2 題</td></tr>
+      <tr>
+        <td class="cb"><input type="checkbox"></td>
+        <td class="issue-id">201</td>
+        <td class="topic"><div class="title">request title3</div><div class="meta">Requestor: Dave</div></td>
+        <td>WY</td>
+        <td class="node-cell"><span class="state unneeded">—</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state uat">UAT</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state unneeded">—</span></td>
+        <td>path4</td>
+      </tr>
+      <tr>
+        <td class="cb"><input type="checkbox"></td>
+        <td class="issue-id">212</td>
+        <td class="topic"><div class="title">request title4</div><div class="meta">Requestor: Eve</div></td>
+        <td>SH</td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell new-change"><span class="state uat">UAT</span></td>
+        <td>path5</td>
+      </tr>
+
+      <tr class="week-header"><td colspan="15">📅 wk325 (本週) ▾ &nbsp; 共 1 題</td></tr>
+      <tr>
+        <td class="cb"><input type="checkbox"></td>
+        <td class="issue-id">305</td>
+        <td class="topic"><div class="title">title7</div><div class="meta">Requestor: Frank</div></td>
+        <td>Ivy</td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td class="node-cell"><span class="state done">Done</span></td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td class="node-cell"><span class="state empty">·</span></td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="on-hold-section">
+    <strong>⏸ On Hold (2) ▸</strong>
+    <span style="color:#889;">&nbsp; 點擊展開暫停中的題目</span>
+  </div>
+</div>
+
+<h2>② Side Panel (點擊 cell 後展開)</h2>
+<div class="note">編輯 cell、看 timeline、新增留言或會議紀錄都在這裡。</div>
+<div class="side-panel">
+  <h3>#162 · request title2</h3>
+  <div class="subtitle">wk322 · Owner: Stan · Requestor: Carol · <a href="#">JIRA</a> · <a href="#">Gitea issue</a></div>
+
+  <div class="field"><label>Node:</label> <strong>N2</strong></div>
+  <div class="field"><label>狀態:</label>
+    <select><option>UAT done</option><option>Done</option><option>Developing</option><option>UAT</option><option>Unneeded</option><option>TBD</option></select>
+  </div>
+  <div class="field"><label>Check-in 日期:</label> <input type="date" value="2025-02-20"></div>
+  <div class="field"><label>Short note:</label> <input type="text" placeholder="短註記, 會在 cell 下方顯示" style="width: 280px;"></div>
+  <div class="field"><label>更新說明:</label> <input type="text" placeholder="會記入 timeline" style="width: 280px;"></div>
+  <div class="field"><label>附件:</label> <button style="font-size:11px; padding:3px 8px;">+ 上傳 / 貼上截圖</button> <span style="color:#889; font-size:10px;">png/jpg/pdf, ≤5MB, 最多 3 個</span></div>
+  <div class="field" style="margin-left:100px;"><button style="background:#3498db; color:white; border:0; padding:5px 14px; border-radius:3px; cursor:pointer;">儲存變更</button> <button style="background:#eee; border:0; padding:5px 14px; border-radius:3px;">取消</button></div>
+
+  <div class="timeline">
+    <div class="timeline-actions">
+      <strong style="font-size:12px; margin-right:8px;">Timeline</strong>
+      <button>+ 一般留言</button>
+      <button class="meeting-btn">+ 會議紀錄</button>
+      <select style="float:right; font-size:11px;"><option>全部</option><option>只看狀態變更</option><option>只看留言</option><option>只看會議紀錄</option></select>
+    </div>
+
+    <div class="timeline-entry state-change">
+      <div class="head"><strong>Stan</strong> 把 <strong>N2</strong> 從 <em>UAT</em> 改成 <em>UAT done</em> · 2025-05-07 14:32</div>
+      <div class="body">已完成 UAT,check in 預計 2/20</div>
+      <div class="attachments"><span class="thumb">IMG</span></div>
+    </div>
+
+    <div class="timeline-entry meeting-note">
+      <div class="head"><strong>WY</strong> · wk322 會議 · 2025-05-05 10:00</div>
+      <div class="body">討論:spec 還需要跟外部確認 impact,Stan 會再跟 requestor 對一下 good/bad case。</div>
+    </div>
+
+    <div class="timeline-entry comment">
+      <div class="head"><strong>Carol</strong> · 2025-05-03 09:15</div>
+      <div class="body">補充:這題跟 #158 有部分重疊,可以一起考慮。</div>
+    </div>
+
+    <div class="timeline-entry state-change">
+      <div class="head"><strong>Stan</strong> 把 <strong>N3</strong> 從 <em>Developing</em> 改成 <em>UAT</em> · 2025-04-28 16:20</div>
+    </div>
+  </div>
+</div>
+
+<h2>③ 會議模式 (Meeting Mode)</h2>
+<div class="note">從主畫面按「進入 wk325 會議模式」進來。列出本週題目,可以一路往下記筆記,送出後分散存到各題 timeline。</div>
+<div class="mockup">
+  <div class="meeting-mode-header">
+    <h3>📋 wk325 Meeting Mode</h3>
+    <div style="font-size:11px; color:#8a5a00;">列出本週要討論的題目,快速記錄會議重點。送出後會自動分散到各題 timeline。</div>
+  </div>
+  <div class="meeting-item">
+    <div class="iid">#305</div>
+    <div>
+      <div style="font-weight:500;">title7</div>
+      <div style="color:#889; font-size:10px;">Owner: Ivy · Requestor: Frank</div>
+    </div>
+    <textarea placeholder="會議重點...">Ivy 報告 A14 已完成,N3 預計下週 check in。使用者確認不需要 impact survey。</textarea>
+  </div>
+  <div class="meeting-item">
+    <div class="iid">#306</div>
+    <div>
+      <div style="font-weight:500;">another topic</div>
+      <div style="color:#889; font-size:10px;">Owner: Stan · Requestor: Grace</div>
+    </div>
+    <textarea placeholder="會議重點..."></textarea>
+  </div>
+  <div class="meeting-item">
+    <div class="iid">#307</div>
+    <div>
+      <div style="font-weight:500;">yet another</div>
+      <div style="color:#889; font-size:10px;">Owner: SH · Requestor: Henry</div>
+    </div>
+    <textarea placeholder="會議重點..."></textarea>
+  </div>
+  <div style="padding: 12px 16px; text-align: right; border-top: 1px solid #eee;">
+    <button style="background:#95a5a6; color:white; border:0; padding:6px 14px; border-radius:3px;">取消</button>
+    <button style="background:#f39c12; color:white; border:0; padding:6px 14px; border-radius:3px; margin-left:6px;">💾 送出全部會議紀錄</button>
+  </div>
+</div>
+
+<h2>④ Summary Dashboard (登入首頁)</h2>
+<div class="note">紅線以上未完成數用大字 + 紅色強調,第一眼就看到最急的事。</div>
+<div class="mockup">
+  <div class="dashboard">
+    <div class="card">
+      <h4>A10</h4>
+      <span class="primary-label">🚩 紅線以上未完成</span>
+      <div class="primary-stat">5</div>
+      <div class="secondary-stat" style="margin-top:8px;">總未完成 <strong>12</strong></div>
+      <div class="tertiary">UAT: 3 · TBD: 1 · Dev: 8</div>
+    </div>
+    <div class="card">
+      <h4>N2</h4>
+      <span class="primary-label">🚩 紅線以上未完成</span>
+      <div class="primary-stat">2</div>
+      <div class="secondary-stat" style="margin-top:8px;">總未完成 <strong>8</strong></div>
+      <div class="tertiary">UAT: 1 · TBD: 0 · Dev: 7</div>
+    </div>
+    <div class="card">
+      <h4>N4/N5</h4>
+      <span class="primary-label">🚩 紅線以上未完成</span>
+      <div class="primary-stat">7</div>
+      <div class="secondary-stat" style="margin-top:8px;">總未完成 <strong>15</strong></div>
+      <div class="tertiary">UAT: 4 · TBD: 2 · Dev: 9</div>
+    </div>
+    <div class="card">
+      <h4>MtM</h4>
+      <span class="primary-label">🚩 紅線以上未完成</span>
+      <div class="primary-stat" style="color:#27ae60;">0</div>
+      <div class="secondary-stat" style="margin-top:8px;">總未完成 <strong>6</strong></div>
+      <div class="tertiary">UAT: 2 · TBD: 0 · Dev: 4</div>
+    </div>
+    <div class="card special">
+      <h4>🏁 Ready to Close</h4>
+      <div class="primary-stat" style="color:#f39c12;">3</div>
+      <div class="tertiary">所有 node 已完成,點擊查看並手動關單</div>
+    </div>
+    <div class="card hold">
+      <h4>⏸ On Hold</h4>
+      <div class="primary-stat" style="color:#7b2020;">2</div>
+      <div class="tertiary">暫停中,需重新評估</div>
+    </div>
+  </div>
+</div>
+
+<h2>⑤ 上線行事曆</h2>
+<div class="note">cell 上可直接把狀態改成 Done(表示已上線),符合批次上線工作流程。</div>
+<div class="mockup">
+  <div style="padding: 14px; font-size: 12px;">
+    <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 2px; font-size: 11px;">
+      <div style="background:#2c3e50; color:white; padding:4px; text-align:center;">一</div>
+      <div style="background:#2c3e50; color:white; padding:4px; text-align:center;">二</div>
+      <div style="background:#2c3e50; color:white; padding:4px; text-align:center;">三</div>
+      <div style="background:#2c3e50; color:white; padding:4px; text-align:center;">四</div>
+      <div style="background:#2c3e50; color:white; padding:4px; text-align:center;">五</div>
+      <div style="background:#2c3e50; color:white; padding:4px; text-align:center;">六</div>
+      <div style="background:#2c3e50; color:white; padding:4px; text-align:center;">日</div>
+
+      <div style="background:#f8fafc; padding:6px; min-height:80px;">5/19</div>
+      <div style="background:#f8fafc; padding:6px; min-height:80px;">5/20
+        <div style="background:#3498db; color:white; padding:2px 4px; margin-top:2px; border-radius:2px; font-size:9px; cursor:pointer;">#156 N3 UAT✓ ✓</div>
+        <div style="background:#3498db; color:white; padding:2px 4px; margin-top:2px; border-radius:2px; font-size:9px; cursor:pointer;">#162 N2 UAT✓ ✓</div>
+      </div>
+      <div style="background:#f8fafc; padding:6px; min-height:80px;">5/21</div>
+      <div style="background:#f8fafc; padding:6px; min-height:80px;">5/22
+        <div style="background:#e67e22; color:white; padding:2px 4px; margin-top:2px; border-radius:2px; font-size:9px; cursor:pointer;">#201 N3 UAT ✓</div>
+      </div>
+      <div style="background:#f8fafc; padding:6px; min-height:80px;">5/23</div>
+      <div style="background:#ecf0f1; padding:6px; min-height:80px;">5/24</div>
+      <div style="background:#ecf0f1; padding:6px; min-height:80px;">5/25</div>
+    </div>
+    <div style="margin-top:10px; color:#889; font-size:10px;">💡 提示:點擊每個項目旁的「✓」可快速標記該 node 為 Done (已上線),不用進入 side panel。</div>
+  </div>
+</div>
+
+<h2>⑥ Admin 後台 (super user only)</h2>
+<div class="note">待審帳號、groups 管理、nodes 管理、紅線設定、SMTP、audit log。實作時再細化 UI。</div>
+
+</body>
+</html>
