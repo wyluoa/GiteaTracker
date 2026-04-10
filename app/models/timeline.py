@@ -36,13 +36,34 @@ def create_entry(*, issue_id, entry_type, author_user_id=None,
 def get_for_issue(issue_id, entry_type=None):
     db = get_db()
     if entry_type:
-        return db.execute(
+        entries = db.execute(
             """SELECT * FROM timeline_entries
                WHERE issue_id = ? AND entry_type = ?
                ORDER BY created_at DESC""",
             (issue_id, entry_type),
         ).fetchall()
-    return db.execute(
-        "SELECT * FROM timeline_entries WHERE issue_id = ? ORDER BY created_at DESC",
-        (issue_id,),
-    ).fetchall()
+    else:
+        entries = db.execute(
+            "SELECT * FROM timeline_entries WHERE issue_id = ? ORDER BY created_at DESC",
+            (issue_id,),
+        ).fetchall()
+
+    # Load attachments for each entry
+    entry_ids = [e["id"] for e in entries]
+    attachments_map = {}
+    if entry_ids:
+        placeholders = ",".join("?" * len(entry_ids))
+        atts = db.execute(
+            f"SELECT * FROM attachments WHERE timeline_entry_id IN ({placeholders})",
+            entry_ids,
+        ).fetchall()
+        for a in atts:
+            attachments_map.setdefault(a["timeline_entry_id"], []).append(a)
+
+    # Convert to dicts so we can add attachments
+    result = []
+    for e in entries:
+        d = dict(e)
+        d["attachments"] = attachments_map.get(e["id"], [])
+        result.append(d)
+    return result

@@ -40,7 +40,8 @@
   {% set above = is_above_red_line(issue)|trim %}
   {% set use_red = (above == 'true') and state in ('uat', 'tbd') %}
 
-  <td class="cell-node cell-clickable"
+  {% set is_new = last_viewed and cell and cell['updated_at'] and cell['updated_at'] > last_viewed %}
+  <td class="cell-node cell-clickable{% if is_new %} cell-new-change{% endif %}"
       id="cell-{{ issue.id }}-{{ node.id }}"
       hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
       hx-target="#side-panel-content"
@@ -68,12 +69,12 @@
         <span class="text-green" title="Ready to Close">&#10003;</span>
       {% endif %}
     </td>
-    <td class="cell-topic" title="{{ issue.topic }}">{{ issue.topic|truncate(40) }}</td>
+    <td class="cell-topic" title="{{ issue.topic }}">{{ issue.topic|truncate(50) }}</td>
     <td class="cell-owner">{{ issue.requestor_name or '' }}</td>
     {% for node in nodes %}
       {{ render_cell(issue, node) }}
     {% endfor %}
-    <td class="cell-path">{{ issue.uat_path or '' }}</td>
+    <td class="cell-path" title="{{ issue.uat_path or '' }}">{{ issue.uat_path or '' }}</td>
   </tr>
 {% endmacro %}
 
@@ -81,17 +82,68 @@
 <div x-data="{ panelOpen: false }" class="tracker-layout">
 
 <div class="tracker-main" :class="{ 'has-panel': panelOpen }">
+{# ── Toolbar ── #}
+<div class="card mb-2">
+  <div class="card-body py-2">
+    <form method="GET" action="{{ url_for('main.tracker') }}" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="搜尋題號/Topic/JIRA"
+               value="{{ q }}" style="width:180px;">
+      </div>
+      <div class="col-auto">
+        <select name="owner" class="form-select form-select-sm" style="width:100px;">
+          <option value="">Owner</option>
+          {% for o in owners %}
+            <option value="{{ o }}" {{ 'selected' if o == filter_owner }}>{{ o }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="state" class="form-select form-select-sm" style="width:100px;">
+          <option value="">狀態</option>
+          <option value="done" {{ 'selected' if filter_state == 'done' }}>Done</option>
+          <option value="uat_done" {{ 'selected' if filter_state == 'uat_done' }}>UAT done</option>
+          <option value="uat" {{ 'selected' if filter_state == 'uat' }}>UAT</option>
+          <option value="developing" {{ 'selected' if filter_state == 'developing' }}>Dev</option>
+          <option value="tbd" {{ 'selected' if filter_state == 'tbd' }}>TBD</option>
+          <option value="unneeded" {{ 'selected' if filter_state == 'unneeded' }}>Unneeded</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <input type="text" name="week_from" class="form-control form-control-sm" placeholder="週次起 (202321)"
+               value="{{ filter_week_from }}" style="width:130px;">
+      </div>
+      <div class="col-auto">
+        <input type="text" name="week_to" class="form-control form-control-sm" placeholder="週次迄 (202325)"
+               value="{{ filter_week_to }}" style="width:130px;">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary">搜尋</button>
+        {% if q or filter_owner or filter_state or filter_week_from or filter_week_to %}
+          <a href="{{ url_for('main.tracker') }}" class="btn btn-sm">清除</a>
+        {% endif %}
+      </div>
+      <div class="col-auto ms-auto d-flex gap-1">
+        <form method="POST" action="{{ url_for('main.mark_all_read') }}" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-outline-secondary">標記已讀</button>
+        </form>
+        <a href="{{ url_for('main.export_excel') }}" class="btn btn-sm btn-outline-secondary">匯出 Excel</a>
+        <a href="{{ url_for('issues.meeting_mode', year=current_week_year, week=current_week_number) }}"
+           class="btn btn-warning btn-sm">
+          wk{{ current_week_year }}{{ '%02d'|format(current_week_number) }} 會議模式
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header">
     <h3 class="card-title">Ongoing Issues</h3>
-    <div class="card-actions d-flex gap-2 align-items-center">
+    <div class="card-actions">
       {% if red_line_year %}
         <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>
       {% endif %}
-      <a href="{{ url_for('issues.meeting_mode', year=current_week_year, week=current_week_number) }}"
-         class="btn btn-warning btn-sm">
-        進入 wk{{ current_week_year }}{{ '%02d'|format(current_week_number) }} 會議模式
-      </a>
     </div>
   </div>
   <div class="table-responsive">

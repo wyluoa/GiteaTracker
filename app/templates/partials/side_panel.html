@@ -34,7 +34,8 @@
     <h4 class="mb-2">{{ node.display_name }} 狀態編輯</h4>
     <form hx-post="{{ url_for('issues.update_cell', issue_id=issue.id, node_id=node.id) }}"
           hx-target="#side-panel-content"
-          hx-swap="innerHTML">
+          hx-swap="innerHTML"
+          hx-encoding="multipart/form-data">
       <div class="row g-2 mb-2">
         <div class="col-6">
           <label class="form-label">狀態</label>
@@ -61,8 +62,10 @@
         <input type="text" name="body" class="form-control form-control-sm"
                placeholder="例：已完成 UAT">
       </div>
-      <div class="mb-2 text-muted" style="font-size:11px;">
-        附件上傳將在 Phase 4 實作
+      <div class="mb-2">
+        <label class="form-label">附件 <span class="text-muted">(png/jpg/pdf, 5MB, 最多 3 個)</span></label>
+        <input type="file" name="attachments" class="form-control form-control-sm" multiple
+               accept=".png,.jpg,.jpeg,.pdf">
       </div>
       <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary btn-sm">儲存變更</button>
@@ -111,11 +114,16 @@
     {# Comment form (hidden by default) #}
     <div class="comment-form d-none mb-3 p-2 border rounded">
       <form hx-post="{{ url_for('issues.add_comment', issue_id=issue.id) }}"
-            hx-target="#side-panel-content" hx-swap="innerHTML">
+            hx-target="#side-panel-content" hx-swap="innerHTML"
+            hx-encoding="multipart/form-data">
         <input type="hidden" name="node_id" value="{{ node.id }}">
         <div class="mb-2">
           <textarea name="body" class="form-control form-control-sm" rows="3"
                     placeholder="輸入留言..."></textarea>
+        </div>
+        <div class="mb-2">
+          <input type="file" name="attachments" class="form-control form-control-sm" multiple
+                 accept=".png,.jpg,.jpeg,.pdf">
         </div>
         <button type="submit" class="btn btn-primary btn-sm">送出留言</button>
       </form>

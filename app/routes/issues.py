@@ -114,7 +114,7 @@ def update_cell(issue_id, node_id):
         )
 
         # Create state_change timeline entry
-        timeline_model.create_entry(
+        entry_id = timeline_model.create_entry(
             issue_id=issue_id,
             entry_type="state_change",
             node_id=node_id,
@@ -128,6 +128,12 @@ def update_cell(issue_id, node_id):
             author_user_id=g.current_user["id"],
             author_name_snapshot=g.current_user["display_name"],
         )
+
+        # Handle attachments
+        from app.routes.attachments import save_attachments
+        files = request.files.getlist("attachments")
+        if files:
+            save_attachments(entry_id, files)
 
         # Refresh issue cache
         issue_model.refresh_cache(issue_id)
@@ -183,13 +189,18 @@ def add_comment(issue_id):
 
     node_id = int(request.form.get("node_id", 0))
 
-    timeline_model.create_entry(
+    entry_id = timeline_model.create_entry(
         issue_id=issue_id,
         entry_type="comment",
         body=body,
         author_user_id=g.current_user["id"],
         author_name_snapshot=g.current_user["display_name"],
     )
+
+    from app.routes.attachments import save_attachments
+    files = request.files.getlist("attachments")
+    if files:
+        save_attachments(entry_id, files)
 
     return side_panel(issue_id, node_id)
 
@@ -215,7 +226,7 @@ def add_meeting_note(issue_id):
     week_year = request.form.get("meeting_week_year", type=int)
     week_number = request.form.get("meeting_week_number", type=int)
 
-    timeline_model.create_entry(
+    entry_id = timeline_model.create_entry(
         issue_id=issue_id,
         entry_type="meeting_note",
         body=body,
@@ -224,6 +235,11 @@ def add_meeting_note(issue_id):
         author_user_id=g.current_user["id"],
         author_name_snapshot=g.current_user["display_name"],
     )
+
+    from app.routes.attachments import save_attachments
+    files = request.files.getlist("attachments")
+    if files:
+        save_attachments(entry_id, files)
 
     return side_panel(issue_id, node_id)
 

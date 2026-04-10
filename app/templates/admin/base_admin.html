@@ -14,6 +14,7 @@
         <a href="{{ url_for('admin.red_line') }}" class="list-group-item list-group-item-action {% if active_page == 'red_line' %}active{% endif %}">紅線設定</a>
         <a href="{{ url_for('admin.smtp') }}" class="list-group-item list-group-item-action {% if active_page == 'smtp' %}active{% endif %}">SMTP</a>
         <a href="{{ url_for('admin.audit_log') }}" class="list-group-item list-group-item-action {% if active_page == 'audit' %}active{% endif %}">Audit Log</a>
+        <a href="{{ url_for('main.tracker') }}" class="list-group-item list-group-item-action text-primary">&larr; 返回主畫面</a>
       </div>
     </div>
   </div>

@@ -5,12 +5,29 @@
   'developing': 'Developing', 'tbd': 'TBD', 'unneeded': 'Unneeded'
 } %}
 
+{% macro render_attachments(entry) %}
+  {% if entry.attachments %}
+    <div class="te-attachments mt-1">
+      {% for att in entry.attachments %}
+        <a href="{{ url_for('attachments.download', attachment_id=att.id) }}"
+           target="_blank" class="te-att-link">
+          {% if att.mime_type in ('image/png', 'image/jpeg') %}
+            <img src="{{ url_for('attachments.download', attachment_id=att.id) }}"
+                 class="te-att-thumb" alt="{{ att.original_filename }}">
+          {% else %}
+            <span class="badge bg-blue-lt">{{ att.original_filename }}</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}
+
 {% if timeline %}
   {% for entry in timeline %}
     <div class="timeline-entry te-{{ entry.entry_type }} mb-2">
 
       {% if entry.entry_type == 'state_change' %}
-        {# ── State change ── #}
         <div class="te-icon te-icon-change">&#9680;</div>
         <div class="te-content">
           <div class="te-header">
@@ -31,22 +48,20 @@
           {% if entry.old_short_note != entry.new_short_note %}
             <div class="te-meta">note: {{ entry.old_short_note or '無' }} &rarr; {{ entry.new_short_note or '無' }}</div>
           {% endif %}
+          {{ render_attachments(entry) }}
           <div class="te-time">{{ entry.created_at[:16] | replace('T', ' ') }}</div>
         </div>
 
       {% elif entry.entry_type == 'comment' %}
-        {# ── Comment ── #}
         <div class="te-icon te-icon-comment">&#128172;</div>
         <div class="te-content">
-          <div class="te-header">
-            <strong>{{ entry.author_name_snapshot }}</strong>
-          </div>
+          <div class="te-header"><strong>{{ entry.author_name_snapshot }}</strong></div>
           <div class="te-body">{{ entry.body }}</div>
+          {{ render_attachments(entry) }}
           <div class="te-time">{{ entry.created_at[:16] | replace('T', ' ') }}</div>
         </div>
 
       {% elif entry.entry_type == 'meeting_note' %}
-        {# ── Meeting note ── #}
         <div class="te-icon te-icon-meeting">&#128203;</div>
         <div class="te-content">
           <div class="te-header">
@@ -57,6 +72,7 @@
             {% endif %}
           </div>
           <div class="te-body">{{ entry.body }}</div>
+          {{ render_attachments(entry) }}
           <div class="te-time">{{ entry.created_at[:16] | replace('T', ' ') }}</div>
         </div>
 

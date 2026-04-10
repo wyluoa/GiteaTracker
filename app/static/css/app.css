@@ -17,15 +17,29 @@ body {
 }
 
 .th-number { width: 50px; }
-.th-topic  { min-width: 180px; max-width: 260px; }
+.th-topic  { min-width: 180px; max-width: 280px; }
 .th-owner  { width: 60px; }
 .th-node   { width: 70px; text-align: center; }
-.th-path   { width: 80px; }
+.th-path   { min-width: 80px; max-width: 160px; }
 
 .cell-number { font-weight: 600; }
-.cell-topic  { overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.cell-topic  {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+  cursor: default;
+}
 .cell-owner  { }
-.cell-path   { font-size: 11px; color: #666; }
+.cell-path   {
+  font-size: 11px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  cursor: default;
+  direction: rtl;       /* show end of path (filename) rather than beginning */
+  text-align: left;
+}
 
 /* ── State chip (color block inside cell) ── */
 .cell-node {
@@ -178,6 +192,27 @@ body {
   background: #fffde7;
   border-radius: 4px;
   padding: 6px 8px;
+}
+
+/* ── Attachments in timeline ── */
+.te-attachments {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.te-att-thumb {
+  max-width: 120px;
+  max-height: 80px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+.te-att-link {
+  text-decoration: none;
+}
+
+/* ── Version diff yellow highlight ── */
+.cell-new-change {
+  background: #fff9c4 !important;
 }
 
 /* ── Login page ── */

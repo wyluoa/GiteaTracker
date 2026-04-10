@@ -10,6 +10,7 @@ from app.routes import main as main_routes
 from app.routes import auth as auth_routes
 from app.routes import issues as issue_routes
 from app.routes import admin as admin_routes
+from app.routes import attachments as attachment_routes
 
 
 def create_app():
@@ -25,5 +26,6 @@ def create_app():
     app.register_blueprint(main_routes.bp)
     app.register_blueprint(issue_routes.bp)
     app.register_blueprint(admin_routes.bp)
+    app.register_blueprint(attachment_routes.bp)
 
     return app
