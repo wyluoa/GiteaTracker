@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}wk{{ year }}{{ '%02d'|format(week) }} 會議模式 — Gitea Tracker{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">wk{{ year }}{{ '%02d'|format(week) }} 會議模式</h3>
+    <div class="card-actions">
+      <a href="{{ url_for('main.tracker') }}" class="btn btn-sm">返回主畫面</a>
+    </div>
+  </div>
+  <div class="card-body">
+    <p class="text-muted mb-3">列出本週要討論的題目，快速記錄會議重點。空白的不會建立紀錄。</p>
+
+    {% if issues %}
+    <form method="POST" action="{{ url_for('issues.meeting_mode_submit', year=year, week=week) }}">
+      {% for issue in issues %}
+      <div class="meeting-issue-row mb-3 p-3 border rounded">
+        <div class="row">
+          <div class="col-md-4">
+            <h4 class="mb-1">#{{ issue.display_number }}</h4>
+            <div class="text-muted" style="font-size:13px;">{{ issue.topic }}</div>
+            <div class="text-muted" style="font-size:12px;">
+              Owner: {{ issue.requestor_name or '—' }}
+            </div>
+          </div>
+          <div class="col-md-8">
+            <textarea name="note_{{ issue.id }}" class="form-control" rows="3"
+                      placeholder="會議重點..."></textarea>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <a href="{{ url_for('main.tracker') }}" class="btn">取消</a>
+        <button type="submit" class="btn btn-warning">送出全部會議紀錄</button>
+      </div>
+    </form>
+    {% else %}
+      <div class="text-muted">這個週次沒有進行中的題目。</div>
+      <a href="{{ url_for('main.tracker') }}" class="btn btn-sm mt-2">返回主畫面</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

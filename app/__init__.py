@@ -8,6 +8,7 @@ from config import get_config
 from app import db
 from app.routes import main as main_routes
 from app.routes import auth as auth_routes
+from app.routes import issues as issue_routes
 
 
 def create_app():
@@ -21,5 +22,6 @@ def create_app():
 
     app.register_blueprint(auth_routes.bp)
     app.register_blueprint(main_routes.bp)
+    app.register_blueprint(issue_routes.bp)
 
     return app

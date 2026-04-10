@@ -1,0 +1,27 @@
+{# Single cell chip partial — for HTMX swap after edit #}
+
+{% set STATE_COLORS = {
+  'done':       {'bg': '#27ae60', 'text': 'white', 'label': 'Done'},
+  'uat_done':   {'bg': '#3498db', 'text': 'white', 'label': 'UAT\u2713'},
+  'uat':        {'bg': '#e67e22', 'text': 'white', 'label': 'UAT'},
+  'developing': {'bg': '#95a5a6', 'text': 'white', 'label': 'Dev'},
+  'tbd':        {'bg': '#8e44ad', 'text': 'white', 'label': 'TBD'},
+  'unneeded':   {'bg': '#bdc3c7', 'text': '#666',  'label': '\u2014'},
+} %}
+{% set EMPTY_COLOR = {'bg': '#ecf0f1', 'text': '#aaa', 'label': '\u00b7'} %}
+{% set RED_ALERT_BG = '#c0392b' %}
+
+{% set state = cell['state'] if cell and cell['state'] else None %}
+{% set info = STATE_COLORS.get(state, EMPTY_COLOR) %}
+{% set use_red = above_red and state in ('uat', 'tbd') %}
+
+<span class="state-chip"
+      style="background:{{ RED_ALERT_BG if use_red else info.bg }};color:{{ 'white' if use_red else info.text }};">
+  {{ info.label }}
+</span>
+{% if cell and cell['check_in_date'] %}
+  <span class="cell-date">&rarr;{{ cell['check_in_date'] }}</span>
+{% endif %}
+{% if cell and cell['short_note'] %}
+  <span class="cell-note">{{ cell['short_note'] }}</span>
+{% endif %}

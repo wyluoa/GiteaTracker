@@ -1,0 +1,148 @@
+{# Side panel partial — loaded via HTMX into #side-panel-content #}
+
+{% set STATE_OPTIONS = [
+  ('', '(空)'),
+  ('done', 'Done'),
+  ('uat_done', 'UAT done'),
+  ('uat', 'UAT'),
+  ('developing', 'Developing'),
+  ('tbd', 'TBD'),
+  ('unneeded', 'Unneeded'),
+] %}
+
+<div class="side-panel-inner">
+  {# ── Header ── #}
+  <div class="sp-header">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <h3 class="mb-1">#{{ issue.display_number }} · {{ issue.topic }}</h3>
+        <div class="text-muted" style="font-size:12px;">
+          wk{{ issue.week_year }}{{ '%02d'|format(issue.week_number) }}
+          · Owner: {{ issue.requestor_name or '—' }}
+          {% if issue.jira_ticket %}· JIRA: {{ issue.jira_ticket }}{% endif %}
+        </div>
+      </div>
+      <button class="btn btn-close" @click="panelOpen = false"></button>
+    </div>
+  </div>
+
+  <hr class="my-2">
+
+  {# ── Edit form ── #}
+  <div class="sp-edit">
+    <h4 class="mb-2">{{ node.display_name }} 狀態編輯</h4>
+    <form hx-post="{{ url_for('issues.update_cell', issue_id=issue.id, node_id=node.id) }}"
+          hx-target="#side-panel-content"
+          hx-swap="innerHTML">
+      <div class="row g-2 mb-2">
+        <div class="col-6">
+          <label class="form-label">狀態</label>
+          <select name="state" class="form-select form-select-sm">
+            {% for val, label in STATE_OPTIONS %}
+              <option value="{{ val }}" {{ 'selected' if (cell and cell.state == val) or (not cell and val == '') }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Check-in 日期</label>
+          <input type="date" name="check_in_date" class="form-control form-control-sm"
+                 value="{{ cell.check_in_date if cell and cell.check_in_date else '' }}">
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Short note</label>
+        <input type="text" name="short_note" class="form-control form-control-sm"
+               placeholder="例：等廠商 3/15 回覆"
+               value="{{ cell.short_note if cell and cell.short_note else '' }}">
+      </div>
+      <div class="mb-2">
+        <label class="form-label">更新說明 <span class="text-muted">(選填，記入 timeline)</span></label>
+        <input type="text" name="body" class="form-control form-control-sm"
+               placeholder="例：已完成 UAT">
+      </div>
+      <div class="mb-2 text-muted" style="font-size:11px;">
+        附件上傳將在 Phase 4 實作
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">儲存變更</button>
+        <button type="button" class="btn btn-sm" @click="panelOpen = false">取消</button>
+      </div>
+    </form>
+  </div>
+
+  <hr class="my-3">
+
+  {# ── Timeline ── #}
+  <div class="sp-timeline">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h4 class="mb-0">Timeline</h4>
+      <div class="d-flex gap-1">
+        <button class="btn btn-sm btn-outline-primary"
+                onclick="this.closest('.sp-timeline').querySelector('.comment-form').classList.toggle('d-none')">
+          + 一般留言
+        </button>
+        <button class="btn btn-sm btn-outline-warning"
+                onclick="this.closest('.sp-timeline').querySelector('.meeting-note-form').classList.toggle('d-none')">
+          + 會議紀錄
+        </button>
+      </div>
+    </div>
+
+    {# Filter #}
+    <div class="mb-2">
+      <select class="form-select form-select-sm" style="width:auto;display:inline-block;"
+              hx-get="{{ url_for('issues.timeline_partial', issue_id=issue.id) }}"
+              hx-target="#timeline-list"
+              hx-swap="innerHTML"
+              name="type">
+        <option value="">全部</option>
+        <option value="state_change">只看狀態變更</option>
+        <option value="comment">只看留言</option>
+        <option value="meeting_note">只看會議紀錄</option>
+      </select>
+    </div>
+
+    {# Comment form (hidden by default) #}
+    <div class="comment-form d-none mb-3 p-2 border rounded">
+      <form hx-post="{{ url_for('issues.add_comment', issue_id=issue.id) }}"
+            hx-target="#side-panel-content" hx-swap="innerHTML">
+        <input type="hidden" name="node_id" value="{{ node.id }}">
+        <div class="mb-2">
+          <textarea name="body" class="form-control form-control-sm" rows="3"
+                    placeholder="輸入留言..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">送出留言</button>
+      </form>
+    </div>
+
+    {# Meeting note form (hidden by default) #}
+    <div class="meeting-note-form d-none mb-3 p-2 border rounded" style="background:#fffde7;">
+      <form hx-post="{{ url_for('issues.add_meeting_note', issue_id=issue.id) }}"
+            hx-target="#side-panel-content" hx-swap="innerHTML">
+        <input type="hidden" name="node_id" value="{{ node.id }}">
+        <div class="row g-2 mb-2">
+          <div class="col-4">
+            <label class="form-label">會議週次</label>
+            <input type="number" name="meeting_week_year" class="form-control form-control-sm"
+                   value="{{ issue.week_year }}" placeholder="年">
+          </div>
+          <div class="col-4">
+            <label class="form-label">&nbsp;</label>
+            <input type="number" name="meeting_week_number" class="form-control form-control-sm"
+                   value="{{ issue.week_number }}" placeholder="週">
+          </div>
+        </div>
+        <div class="mb-2">
+          <textarea name="body" class="form-control form-control-sm" rows="3"
+                    placeholder="會議討論重點..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-warning btn-sm">送出會議紀錄</button>
+      </form>
+    </div>
+
+    {# Timeline entries list #}
+    <div id="timeline-list">
+      {% include "partials/timeline.html" %}
+    </div>
+  </div>
+</div>

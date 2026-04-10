@@ -40,7 +40,12 @@
   {% set above = is_above_red_line(issue)|trim %}
   {% set use_red = (above == 'true') and state in ('uat', 'tbd') %}
 
-  <td class="cell-node">
+  <td class="cell-node cell-clickable"
+      id="cell-{{ issue.id }}-{{ node.id }}"
+      hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
+      hx-target="#side-panel-content"
+      hx-swap="innerHTML"
+      @click="panelOpen = true">
     <span class="state-chip"
           style="background:{{ RED_ALERT_BG if use_red else info.bg }};color:{{ 'white' if use_red else info.text }};">
       {{ info.label }}
@@ -73,14 +78,21 @@
 {% endmacro %}
 
 {# ── Page content ── #}
+<div x-data="{ panelOpen: false }" class="tracker-layout">
+
+<div class="tracker-main" :class="{ 'has-panel': panelOpen }">
 <div class="card">
   <div class="card-header">
     <h3 class="card-title">Ongoing Issues</h3>
-    {% if red_line_year %}
-    <div class="card-actions">
-      <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>
+    <div class="card-actions d-flex gap-2 align-items-center">
+      {% if red_line_year %}
+        <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>
+      {% endif %}
+      <a href="{{ url_for('issues.meeting_mode', year=current_week_year, week=current_week_number) }}"
+         class="btn btn-warning btn-sm">
+        進入 wk{{ current_week_year }}{{ '%02d'|format(current_week_number) }} 會議模式
+      </a>
     </div>
-    {% endif %}
   </div>
   <div class="table-responsive">
     <table class="table table-vcenter table-sm tracker-table">
@@ -173,5 +185,16 @@
     {% endif %}
   </div>
 </div>
+
+</div>{# /tracker-main #}
+
+{# ── Side Panel ── #}
+<div class="side-panel" x-show="panelOpen" x-cloak x-transition.opacity>
+  <div id="side-panel-content">
+    <div class="text-muted p-3">點擊 cell 載入...</div>
+  </div>
+</div>
+
+</div>{# /tracker-layout #}
 
 {% endblock %}

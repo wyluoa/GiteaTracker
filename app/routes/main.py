@@ -1,6 +1,8 @@
 """
 Main routes — tracker view and health check.
 """
+from datetime import date
+
 from flask import Blueprint, render_template, g
 
 from app.routes.auth import login_required
@@ -39,6 +41,12 @@ def tracker():
     # Red line
     red_line_year, red_line_week = setting_model.get_red_line()
 
+    # Current ISO week for meeting mode button
+    today = date.today()
+    iso = today.isocalendar()
+    current_week_year = iso[0]
+    current_week_number = iso[1]
+
     return render_template(
         "tracker.html",
         nodes=nodes,
@@ -47,6 +55,8 @@ def tracker():
         all_states=all_states,
         red_line_year=red_line_year,
         red_line_week=red_line_week,
+        current_week_year=current_week_year,
+        current_week_number=current_week_number,
         user=g.current_user,
     )
 

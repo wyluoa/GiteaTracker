@@ -1,0 +1,68 @@
+{# Timeline entries list — can be loaded standalone via HTMX for filtering #}
+
+{% set STATE_LABELS = {
+  'done': 'Done', 'uat_done': 'UAT done', 'uat': 'UAT',
+  'developing': 'Developing', 'tbd': 'TBD', 'unneeded': 'Unneeded'
+} %}
+
+{% if timeline %}
+  {% for entry in timeline %}
+    <div class="timeline-entry te-{{ entry.entry_type }} mb-2">
+
+      {% if entry.entry_type == 'state_change' %}
+        {# ── State change ── #}
+        <div class="te-icon te-icon-change">&#9680;</div>
+        <div class="te-content">
+          <div class="te-header">
+            <strong>{{ entry.author_name_snapshot }}</strong>
+            {% if entry.node_id and node_map %}
+              把 {{ node_map.get(entry.node_id, '?') }}
+              從 <em>{{ STATE_LABELS.get(entry.old_state, entry.old_state or '空') }}</em>
+              改成 <em>{{ STATE_LABELS.get(entry.new_state, entry.new_state or '空') }}</em>
+            {% endif %}
+            {% if entry.old_check_in_date != entry.new_check_in_date %}
+              · check-in:
+              {{ entry.old_check_in_date or '無' }} &rarr; {{ entry.new_check_in_date or '無' }}
+            {% endif %}
+          </div>
+          {% if entry.body %}
+            <div class="te-body">{{ entry.body }}</div>
+          {% endif %}
+          {% if entry.old_short_note != entry.new_short_note %}
+            <div class="te-meta">note: {{ entry.old_short_note or '無' }} &rarr; {{ entry.new_short_note or '無' }}</div>
+          {% endif %}
+          <div class="te-time">{{ entry.created_at[:16] | replace('T', ' ') }}</div>
+        </div>
+
+      {% elif entry.entry_type == 'comment' %}
+        {# ── Comment ── #}
+        <div class="te-icon te-icon-comment">&#128172;</div>
+        <div class="te-content">
+          <div class="te-header">
+            <strong>{{ entry.author_name_snapshot }}</strong>
+          </div>
+          <div class="te-body">{{ entry.body }}</div>
+          <div class="te-time">{{ entry.created_at[:16] | replace('T', ' ') }}</div>
+        </div>
+
+      {% elif entry.entry_type == 'meeting_note' %}
+        {# ── Meeting note ── #}
+        <div class="te-icon te-icon-meeting">&#128203;</div>
+        <div class="te-content">
+          <div class="te-header">
+            <strong>Meeting Note</strong>
+            · {{ entry.author_name_snapshot }}
+            {% if entry.meeting_week_year %}
+              · wk{{ entry.meeting_week_year }}{{ '%02d'|format(entry.meeting_week_number) }}
+            {% endif %}
+          </div>
+          <div class="te-body">{{ entry.body }}</div>
+          <div class="te-time">{{ entry.created_at[:16] | replace('T', ' ') }}</div>
+        </div>
+
+      {% endif %}
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="text-muted" style="font-size:12px;">尚無紀錄</div>
+{% endif %}
