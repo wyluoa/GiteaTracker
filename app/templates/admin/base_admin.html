@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-2">
+    <div class="card">
+      <div class="list-group list-group-flush">
+        <a href="{{ url_for('admin.index') }}" class="list-group-item list-group-item-action {% if active_page == 'index' %}active{% endif %}">總覽</a>
+        <a href="{{ url_for('admin.pending_users') }}" class="list-group-item list-group-item-action {% if active_page == 'pending' %}active{% endif %}">
+          待審帳號 {% if pending_count|default(0) > 0 %}<span class="badge bg-red ms-1">{{ pending_count }}</span>{% endif %}
+        </a>
+        <a href="{{ url_for('admin.users') }}" class="list-group-item list-group-item-action {% if active_page == 'users' %}active{% endif %}">使用者</a>
+        <a href="{{ url_for('admin.groups') }}" class="list-group-item list-group-item-action {% if active_page == 'groups' %}active{% endif %}">Groups</a>
+        <a href="{{ url_for('admin.nodes') }}" class="list-group-item list-group-item-action {% if active_page == 'nodes' %}active{% endif %}">Nodes</a>
+        <a href="{{ url_for('admin.red_line') }}" class="list-group-item list-group-item-action {% if active_page == 'red_line' %}active{% endif %}">紅線設定</a>
+        <a href="{{ url_for('admin.smtp') }}" class="list-group-item list-group-item-action {% if active_page == 'smtp' %}active{% endif %}">SMTP</a>
+        <a href="{{ url_for('admin.audit_log') }}" class="list-group-item list-group-item-action {% if active_page == 'audit' %}active{% endif %}">Audit Log</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-10">
+    {% block admin_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

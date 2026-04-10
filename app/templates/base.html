@@ -26,9 +26,12 @@
         </a>
       </h1>
       <div class="navbar-nav flex-row order-md-last">
-        {% if session.get('user_id') %}
+        {% if session.get('user_id') and g.current_user %}
         <div class="nav-item d-flex align-items-center">
-          <span class="nav-link text-white pe-2">{{ g.current_user['display_name'] if g.current_user else '' }}</span>
+          {% if g.current_user['is_super_user'] %}
+            <a href="{{ url_for('admin.index') }}" class="nav-link">Admin</a>
+          {% endif %}
+          <span class="nav-link text-white pe-2">{{ g.current_user['display_name'] }}</span>
           <a href="{{ url_for('auth.logout') }}" class="nav-link">登出</a>
         </div>
         {% endif %}

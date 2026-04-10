@@ -1,0 +1,35 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'index' %}
+{% block title %}Admin — Gitea Tracker{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Admin 後台</h3></div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="text-muted">待審帳號</div>
+            <div class="h1 {% if pending_count > 0 %}text-red{% endif %}">{{ pending_count }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card card-sm"><div class="card-body">
+          <div class="text-muted">使用者</div><div class="h1">{{ user_count }}</div>
+        </div></div>
+      </div>
+      <div class="col-md-3">
+        <div class="card card-sm"><div class="card-body">
+          <div class="text-muted">Groups</div><div class="h1">{{ group_count }}</div>
+        </div></div>
+      </div>
+      <div class="col-md-3">
+        <div class="card card-sm"><div class="card-body">
+          <div class="text-muted">Active Nodes</div><div class="h1">{{ node_count }}</div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

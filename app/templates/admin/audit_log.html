@@ -1,0 +1,44 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'audit' %}
+{% block title %}Audit Log — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Audit Log</h3>
+    <div class="card-actions">
+      <form method="GET" class="d-flex gap-2">
+        <select name="action" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+          <option value="">全部操作</option>
+          {% for a in actions %}
+            <option value="{{ a.action }}" {{ 'selected' if a.action == action_filter }}>{{ a.action }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter" style="font-size:12px;">
+      <thead><tr><th>時間</th><th>操作者</th><th>動作</th><th>目標</th><th>詳情</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="white-space:nowrap;">{{ log.created_at[:16]|replace('T',' ') }}</td>
+          <td>{{ log.actor_name or '—' }}</td>
+          <td><code>{{ log.action }}</code></td>
+          <td>{{ log.target_type or '' }} {{ log.target_id or '' }}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;">{{ log.details or '' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not logs %}
+          <tr><td colspan="5" class="text-muted">無紀錄</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% if logs|length >= 50 %}
+  <div class="card-footer text-end">
+    <a href="?page={{ page + 1 }}{% if action_filter %}&action={{ action_filter }}{% endif %}" class="btn btn-sm">下一頁</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'red_line' %}
+{% block title %}紅線設定 — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">紅線設定</h3></div>
+  <div class="card-body">
+    <p class="text-muted">紅線以上（較舊）的題目中，UAT 或 TBD 狀態的 cell 會用紅色色塊顯示，提醒負責人處理。</p>
+
+    {% if red_year %}
+      <div class="alert alert-info">
+        目前紅線位置：<strong>wk{{ red_year }}{{ '%02d'|format(red_week) }}</strong>
+      </div>
+    {% else %}
+      <div class="alert alert-warning">尚未設定紅線</div>
+    {% endif %}
+
+    <form method="POST" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label">年份</label>
+        <input type="number" name="week_year" class="form-control form-control-sm" style="width:100px;"
+               value="{{ red_year or '' }}" placeholder="2025" required>
+      </div>
+      <div class="col-auto">
+        <label class="form-label">週次 (1-53)</label>
+        <input type="number" name="week_number" class="form-control form-control-sm" style="width:80px;"
+               value="{{ red_week or '' }}" placeholder="20" min="1" max="53" required>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary">儲存</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

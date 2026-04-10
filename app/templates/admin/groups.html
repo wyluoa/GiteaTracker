@@ -1,0 +1,79 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'groups' %}
+{% block title %}Groups — Admin{% endblock %}
+{% block admin_content %}
+{# Create new group #}
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">建立新 Group</h3></div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('admin.create_group') }}" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label">名稱</label>
+        <input type="text" name="name" class="form-control form-control-sm" required>
+      </div>
+      <div class="col-auto">
+        <label class="form-label">描述</label>
+        <input type="text" name="description" class="form-control form-control-sm">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary">建立</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Existing groups #}
+{% for g in groups %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="card-title">{{ g.name }}</h3>
+    <div class="card-actions">
+      <form method="POST" action="{{ url_for('admin.delete_group', group_id=g.id) }}" class="d-inline">
+        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('確定刪除 {{ g.name }}？')">刪除</button>
+      </form>
+    </div>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('admin.update_group', group_id=g.id) }}">
+      <div class="row g-2 mb-3">
+        <div class="col-md-4">
+          <label class="form-label">名稱</label>
+          <input type="text" name="name" value="{{ g.name }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">描述</label>
+          <input type="text" name="description" value="{{ g.description or '' }}" class="form-control form-control-sm">
+        </div>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <label class="form-label">成員</label>
+          <div>
+            {% for u in users %}
+              <label class="form-check form-check-inline" style="font-size:12px;">
+                <input type="checkbox" name="member_ids" value="{{ u.id }}" class="form-check-input"
+                       {{ 'checked' if u.id in group_members.get(g.id, []) }}>
+                {{ u.display_name }}
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">可編輯的 Nodes</label>
+          <div>
+            {% for n in nodes %}
+              <label class="form-check form-check-inline" style="font-size:12px;">
+                <input type="checkbox" name="node_ids" value="{{ n.id }}" class="form-check-input"
+                       {{ 'checked' if n.id in group_nodes.get(g.id, []) }}>
+                {{ n.display_name }}
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary">儲存變更</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

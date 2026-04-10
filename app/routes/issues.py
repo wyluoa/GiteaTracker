@@ -7,7 +7,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for,
     flash, g, abort
 )
-from app.routes.auth import login_required
+from app.routes.auth import login_required, can_edit_node
 from app.models import issue as issue_model
 from app.models import node as node_model
 from app.models import issue_node_state as state_model
@@ -41,6 +41,21 @@ def side_panel(issue_id, node_id):
     # Get node display names for timeline rendering
     node_map = {n["id"]: n["display_name"] for n in nodes}
 
+    # Check edit permission
+    can_edit = False
+    if g.current_user["is_super_user"]:
+        can_edit = True
+    else:
+        from app.db import get_db
+        db = get_db()
+        perm = db.execute(
+            """SELECT 1 FROM user_groups ug
+               JOIN group_nodes gn ON ug.group_id = gn.group_id
+               WHERE ug.user_id = ? AND gn.node_id = ? LIMIT 1""",
+            (g.current_user["id"], node_id),
+        ).fetchone()
+        can_edit = perm is not None
+
     return render_template(
         "partials/side_panel.html",
         issue=issue,
@@ -50,6 +65,7 @@ def side_panel(issue_id, node_id):
         node_map=node_map,
         timeline=timeline,
         user=g.current_user,
+        can_edit=can_edit,
     )
 
 
@@ -57,6 +73,7 @@ def side_panel(issue_id, node_id):
 
 @bp.route("/issues/<int:issue_id>/cell/<int:node_id>", methods=["POST"])
 @login_required
+@can_edit_node("node_id")
 def update_cell(issue_id, node_id):
     """Update a cell's state/check_in_date/short_note and create timeline entry."""
     issue = issue_model.get_by_id(issue_id)

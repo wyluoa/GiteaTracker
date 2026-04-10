@@ -32,6 +32,11 @@
             <button type="submit" class="btn btn-primary w-100">登入</button>
           </div>
         </form>
+        <div class="text-center mt-3" style="font-size:13px;">
+          <a href="{{ url_for('auth.forgot_password') }}">忘記密碼？</a>
+          <span class="mx-2">|</span>
+          <a href="{{ url_for('auth.register') }}">沒有帳號？點此註冊</a>
+        </div>
       </div>
     </div>
   </div>

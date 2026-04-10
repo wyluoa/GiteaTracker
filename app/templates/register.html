@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}註冊 — Gitea Tracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-login">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="card-title text-center mb-4">註冊新帳號</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+          {% endfor %}
+        {% endwith %}
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label">帳號</label>
+            <input type="text" name="username" class="form-control" value="{{ username|default('') }}" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ email|default('') }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">顯示名稱</label>
+            <input type="text" name="display_name" class="form-control" value="{{ display_name|default('') }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">密碼</label>
+            <input type="password" name="password" class="form-control" required minlength="6">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">確認密碼</label>
+            <input type="password" name="password2" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">註冊</button>
+        </form>
+        <div class="text-center mt-3">
+          <a href="{{ url_for('auth.login') }}">已有帳號？點此登入</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'pending' %}
+{% block title %}待審帳號 — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">待審帳號</h3></div>
+  {% if users %}
+  <div class="table-responsive">
+    <table class="table table-vcenter">
+      <thead><tr><th>帳號</th><th>Email</th><th>顯示名稱</th><th>申請時間</th><th>指派 Group</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.display_name }}</td>
+          <td style="font-size:12px;">{{ u.created_at[:16]|replace('T',' ') }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.approve_user', user_id=u.id) }}" class="d-inline" id="approve-{{ u.id }}">
+              {% for g in groups %}
+                <label class="form-check form-check-inline" style="font-size:12px;">
+                  <input type="checkbox" name="group_ids" value="{{ g.id }}" class="form-check-input">
+                  {{ g.name }}
+                </label>
+              {% endfor %}
+            </form>
+          </td>
+          <td>
+            <button type="submit" form="approve-{{ u.id }}" class="btn btn-sm btn-success">Approve</button>
+            <form method="POST" action="{{ url_for('admin.reject_user', user_id=u.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('確定拒絕？')">Reject</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="card-body text-muted">目前沒有待審帳號</div>
+  {% endif %}
+</div>
+{% endblock %}

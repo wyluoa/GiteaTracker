@@ -1,0 +1,42 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'users' %}
+{% block title %}使用者 — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">使用者管理</h3></div>
+  <div class="table-responsive">
+    <table class="table table-vcenter" style="font-size:13px;">
+      <thead><tr><th>帳號</th><th>顯示名稱</th><th>Email</th><th>狀態</th><th>Super</th><th>Groups</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <form method="POST" action="{{ url_for('admin.update_user', user_id=u.id) }}">
+            <td>{{ u.username }}</td>
+            <td><input type="text" name="display_name" value="{{ u.display_name }}" class="form-control form-control-sm" style="width:100px;"></td>
+            <td style="font-size:11px;">{{ u.email }}</td>
+            <td>
+              <select name="status" class="form-select form-select-sm" style="width:90px;">
+                {% for s in ['active', 'pending', 'disabled'] %}
+                  <option value="{{ s }}" {{ 'selected' if u.status == s }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input type="checkbox" name="is_super_user" value="1" {{ 'checked' if u.is_super_user }} class="form-check-input"></td>
+            <td>
+              {% for g in groups %}
+                <label class="form-check form-check-inline" style="font-size:11px;">
+                  <input type="checkbox" name="group_ids" value="{{ g.id }}" class="form-check-input"
+                         {{ 'checked' if g.id in (user_groups.get(u.id, [])|map(attribute='id')|list) }}>
+                  {{ g.name }}
+                </label>
+              {% endfor %}
+            </td>
+            <td><button type="submit" class="btn btn-sm btn-primary">儲存</button></td>
+          </form>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

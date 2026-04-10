@@ -28,7 +28,8 @@
 
   <hr class="my-2">
 
-  {# ── Edit form ── #}
+  {# ── Edit form (only if user has permission) ── #}
+  {% if can_edit %}
   <div class="sp-edit">
     <h4 class="mb-2">{{ node.display_name }} 狀態編輯</h4>
     <form hx-post="{{ url_for('issues.update_cell', issue_id=issue.id, node_id=node.id) }}"
@@ -69,6 +70,11 @@
       </div>
     </form>
   </div>
+  {% else %}
+  <div class="sp-edit">
+    <div class="text-muted" style="font-size:12px;">你沒有編輯 {{ node.display_name }} 的權限（唯讀模式）</div>
+  </div>
+  {% endif %}
 
   <hr class="my-3">
 
