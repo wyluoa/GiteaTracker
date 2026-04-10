@@ -1,1 +1,90 @@
-/* Gitea Tracker custom styles. Will be filled in later phases. */
+/* Gitea Tracker — custom styles */
+
+/* ── Font stack with CJK fallback ── */
+body {
+  font-family: -apple-system, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+}
+
+/* ── Tracker table ── */
+.tracker-table {
+  white-space: nowrap;
+  font-size: 13px;
+}
+.tracker-table th,
+.tracker-table td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+.th-number { width: 50px; }
+.th-topic  { min-width: 180px; max-width: 260px; }
+.th-owner  { width: 60px; }
+.th-node   { width: 70px; text-align: center; }
+.th-path   { width: 80px; }
+
+.cell-number { font-weight: 600; }
+.cell-topic  { overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.cell-owner  { }
+.cell-path   { font-size: 11px; color: #666; }
+
+/* ── State chip (color block inside cell) ── */
+.cell-node {
+  text-align: center;
+  padding: 2px 3px !important;
+}
+.state-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ── Check-in date & short note below chip ── */
+.cell-date {
+  display: block;
+  font-size: 9px;
+  color: #5e81ac;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+.cell-note {
+  display: block;
+  font-size: 9px;
+  color: #8b6914;
+  font-style: italic;
+  line-height: 1.2;
+  margin-top: 1px;
+  white-space: normal;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Week group header ── */
+.week-header td {
+  background: #f4f6fa;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 8px !important;
+  border-bottom: 2px solid #ddd;
+}
+
+/* ── Red line ── */
+.red-line-row td {
+  padding: 0 !important;
+  border: none !important;
+}
+.red-line {
+  border-top: 2px dashed #c0392b;
+  margin: 4px 0;
+}
+
+/* ── Alpine x-cloak ── */
+[x-cloak] { display: none !important; }
+
+/* ── Login page ── */
+.col-login {
+  max-width: 360px;
+}

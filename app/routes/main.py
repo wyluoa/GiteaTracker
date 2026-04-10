@@ -1,24 +1,53 @@
 """
-Main routes — placeholder for Phase 0.
-
-Real routes will be added in later phases.
+Main routes — tracker view and health check.
 """
-import sqlite3
-from pathlib import Path
-from flask import Blueprint, render_template, current_app
-from app.db import get_db
+from flask import Blueprint, render_template, g
+
+from app.routes.auth import login_required
+from app.models import issue as issue_model
+from app.models import node as node_model
+from app.models import issue_node_state as state_model
+from app.models import setting as setting_model
 
 bp = Blueprint("main", __name__)
 
 
 @bp.route("/")
-def index():
-    """Phase 0 placeholder homepage that also reports DB / asset health."""
-    db_status = _check_db()
+@login_required
+def tracker():
+    """Main tracker view — read-only for Phase 1."""
+    nodes = node_model.get_all_active()
+    ongoing_issues = issue_model.get_ongoing()
+    on_hold_issues = issue_model.get_on_hold()
+
+    # Bulk load all node states
+    all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
+    all_states = state_model.get_all_states_for_issues(all_issue_ids)
+
+    # Group ongoing issues by week
+    week_groups = []
+    current_key = None
+    current_group = None
+    for issue in ongoing_issues:
+        key = (issue["week_year"], issue["week_number"])
+        if key != current_key:
+            current_key = key
+            current_group = {"week_year": key[0], "week_number": key[1], "issues": []}
+            week_groups.append(current_group)
+        current_group["issues"].append(issue)
+
+    # Red line
+    red_line_year, red_line_week = setting_model.get_red_line()
+
     return render_template(
-        "index.html",
-        db_status=db_status,
-        db_path=current_app.config["DB_PATH"],
+        "tracker.html",
+        nodes=nodes,
+        week_groups=week_groups,
+        on_hold_issues=on_hold_issues,
+        all_states=all_states,
+        red_line_year=red_line_year,
+        red_line_week=red_line_week,
+        user=g.current_user,
     )
 
 
@@ -26,30 +55,3 @@ def index():
 def healthz():
     """Simple health check endpoint."""
     return {"status": "ok"}
-
-
-def _check_db():
-    """Try to open the DB and count tables, return status dict."""
-    try:
-        db_path = Path(current_app.config["DB_PATH"])
-        if not db_path.exists():
-            return {
-                "ok": False,
-                "message": f"DB file not found at {db_path}. "
-                f"Run `python init_db.py` to create it.",
-            }
-
-        db = get_db()
-        cur = db.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type='table' AND name NOT LIKE 'sqlite_%' "
-            "ORDER BY name"
-        )
-        tables = [row["name"] for row in cur.fetchall()]
-        return {
-            "ok": True,
-            "message": f"DB connected, {len(tables)} tables found.",
-            "tables": tables,
-        }
-    except sqlite3.Error as e:
-        return {"ok": False, "message": f"DB error: {e}"}

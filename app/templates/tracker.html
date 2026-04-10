@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Ongoing — Gitea Tracker{% endblock %}
+
+{% block content %}
+
+{# ── Helpers ── #}
+{% set STATE_COLORS = {
+  'done':       {'bg': '#27ae60', 'text': 'white', 'label': 'Done'},
+  'uat_done':   {'bg': '#3498db', 'text': 'white', 'label': 'UAT\u2713'},
+  'uat':        {'bg': '#e67e22', 'text': 'white', 'label': 'UAT'},
+  'developing': {'bg': '#95a5a6', 'text': 'white', 'label': 'Dev'},
+  'tbd':        {'bg': '#8e44ad', 'text': 'white', 'label': 'TBD'},
+  'unneeded':   {'bg': '#bdc3c7', 'text': '#666',  'label': '\u2014'},
+} %}
+{% set EMPTY_COLOR = {'bg': '#ecf0f1', 'text': '#aaa', 'label': '\u00b7'} %}
+{% set RED_ALERT_BG = '#c0392b' %}
+
+{# Macro: is this issue above the red line? #}
+{% macro is_above_red_line(issue) %}
+  {%- if red_line_year and red_line_week -%}
+    {%- if issue.week_year < red_line_year or (issue.week_year == red_line_year and issue.week_number <= red_line_week) -%}
+      true
+    {%- else -%}
+      false
+    {%- endif -%}
+  {%- else -%}
+    false
+  {%- endif -%}
+{% endmacro %}
+
+{# Macro: render a state cell #}
+{% macro render_cell(issue, node) %}
+  {% set states = all_states.get(issue.id, {}) %}
+  {% set cell = states.get(node.id) %}
+  {% set state = cell['state'] if cell and cell['state'] else None %}
+  {% set info = STATE_COLORS.get(state, EMPTY_COLOR) %}
+
+  {# Red line override for UAT/TBD above the red line #}
+  {% set above = is_above_red_line(issue)|trim %}
+  {% set use_red = (above == 'true') and state in ('uat', 'tbd') %}
+
+  <td class="cell-node">
+    <span class="state-chip"
+          style="background:{{ RED_ALERT_BG if use_red else info.bg }};color:{{ 'white' if use_red else info.text }};">
+      {{ info.label }}
+    </span>
+    {% if cell and cell['check_in_date'] %}
+      <span class="cell-date">&rarr;{{ cell['check_in_date'] }}</span>
+    {% endif %}
+    {% if cell and cell['short_note'] %}
+      <span class="cell-note">{{ cell['short_note'] }}</span>
+    {% endif %}
+  </td>
+{% endmacro %}
+
+{# Macro: render an issue row #}
+{% macro render_issue_row(issue, nodes, extra_class='') %}
+  <tr class="{{ extra_class }}">
+    <td class="cell-number">
+      {{ issue.display_number }}
+      {% if issue.all_nodes_done %}
+        <span class="text-green" title="Ready to Close">&#10003;</span>
+      {% endif %}
+    </td>
+    <td class="cell-topic" title="{{ issue.topic }}">{{ issue.topic|truncate(40) }}</td>
+    <td class="cell-owner">{{ issue.requestor_name or '' }}</td>
+    {% for node in nodes %}
+      {{ render_cell(issue, node) }}
+    {% endfor %}
+    <td class="cell-path">{{ issue.uat_path or '' }}</td>
+  </tr>
+{% endmacro %}
+
+{# ── Page content ── #}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Ongoing Issues</h3>
+    {% if red_line_year %}
+    <div class="card-actions">
+      <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>
+    </div>
+    {% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-sm tracker-table">
+      <thead>
+        <tr>
+          <th class="th-number">#</th>
+          <th class="th-topic">Topic</th>
+          <th class="th-owner">Owner</th>
+          {% for node in nodes %}
+            <th class="th-node">{{ node.display_name }}</th>
+          {% endfor %}
+          <th class="th-path">Path</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set red_line_drawn = {'done': false} %}
+        {% for wg in week_groups %}
+
+          {# Check if red line should be drawn before this week group #}
+          {% if red_line_year and not red_line_drawn.done %}
+            {% if wg.week_year > red_line_year or (wg.week_year == red_line_year and wg.week_number > red_line_week) %}
+              <tr class="red-line-row">
+                <td colspan="{{ nodes|length + 4 }}">
+                  <div class="red-line"></div>
+                </td>
+              </tr>
+              {% if red_line_drawn.update({'done': true}) %}{% endif %}
+            {% endif %}
+          {% endif %}
+
+          {# Week group header #}
+          {% set wg_class = 'wg-' ~ loop.index %}
+          <tr class="week-header" x-data="{ open: true }" @click="open = !open; $el.closest('tbody').querySelectorAll('.{{ wg_class }}').forEach(r => r.style.display = open ? '' : 'none')" style="cursor:pointer;">
+            <td colspan="{{ nodes|length + 4 }}">
+              <span x-text="open ? '\u25BC' : '\u25B6'"></span>
+              wk{{ wg.week_year }}{{ '%02d'|format(wg.week_number) }}
+              <span class="text-muted ms-2">{{ wg.issues|length }} 題</span>
+            </td>
+          </tr>
+          {% for issue in wg.issues %}
+            {{ render_issue_row(issue, nodes, wg_class) }}
+          {% endfor %}
+        {% endfor %}
+
+        {# Red line at the very end if not yet drawn #}
+        {% if red_line_year and not red_line_drawn.done %}
+          <tr class="red-line-row">
+            <td colspan="{{ nodes|length + 4 }}">
+              <div class="red-line"></div>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── On Hold section ── #}
+<div class="card mt-3" x-data="{ open: false }">
+  <div class="card-header" @click="open = !open" style="cursor:pointer; background: #fff5f5;">
+    <h3 class="card-title text-red">
+      <span x-text="open ? '\u25BC' : '\u25B6'"></span>
+      &#9208; On Hold ({{ on_hold_issues|length }})
+    </h3>
+  </div>
+  <div x-show="open" x-cloak>
+    {% if on_hold_issues %}
+    <div class="table-responsive">
+      <table class="table table-vcenter table-sm tracker-table">
+        <thead>
+          <tr>
+            <th class="th-number">#</th>
+            <th class="th-topic">Topic</th>
+            <th class="th-owner">Owner</th>
+            {% for node in nodes %}
+              <th class="th-node">{{ node.display_name }}</th>
+            {% endfor %}
+            <th class="th-path">Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for issue in on_hold_issues %}
+            {{ render_issue_row(issue, nodes) }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="card-body text-muted">目前沒有 On Hold 的題目</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
