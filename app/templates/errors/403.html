@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}403 — Gitea Tracker{% endblock %}
+{% block content %}
+<div class="container-tight py-5 text-center">
+  <h1 class="display-5 text-muted">403</h1>
+  <p class="h3">沒有權限</p>
+  <p class="text-muted">你沒有權限存取此頁面。</p>
+  <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary mt-3">回到首頁</a>
+</div>
+{% endblock %}

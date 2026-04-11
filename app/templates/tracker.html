@@ -90,7 +90,7 @@
 {# ── Page content ── #}
 <div x-data="trackerApp()" class="tracker-layout">
 
-<div class="tracker-main" :class="{ 'has-panel': panelOpen }">
+<div class="tracker-main">
 {# ── Toolbar ── #}
 {% set has_adv = adv_filters|length > 0 %}
 {% set has_any_filter = q or filter_owner or filter_state or filter_week_from or filter_week_to or has_adv %}
@@ -199,7 +199,7 @@
   <div class="card-body py-2">
     <div class="row g-2 align-items-center">
       <div class="col-auto">
-        <span class="badge bg-blue" x-text="selectedIds.length + ' 題已選'"></span>
+        <span class="badge bg-azure text-white fw-bold" x-text="selectedIds.length + ' 題已選'"></span>
       </div>
       <div class="col-auto">
         <select x-model="batchNodeId" class="form-select form-select-sm" style="width:120px;">
@@ -420,6 +420,9 @@ function advFilter() {
 </div>
 
 </div>{# /tracker-main #}
+
+{# ── Backdrop (click to close) ── #}
+<div class="side-panel-backdrop" x-show="panelOpen" x-cloak @click="panelOpen = false"></div>
 
 {# ── Side Panel ── #}
 <div class="side-panel" x-show="panelOpen" x-cloak x-transition.opacity>

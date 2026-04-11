@@ -13,6 +13,10 @@
 {% set EMPTY_COLOR = {'bg': '#ecf0f1', 'text': '#aaa', 'label': '&middot;'} %}
 
 {% block content %}
+<div x-data="{ panelOpen: false }" class="tracker-layout">
+
+<div class="tracker-main">
+
 <div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col-auto">
@@ -72,7 +76,11 @@
             {% set cell = states.get(node.id) %}
             {% set state = cell['state'] if cell and cell['state'] else None %}
             {% set info = STATE_COLORS.get(state, EMPTY_COLOR) %}
-            <td class="cell-node">
+            <td class="cell-node cell-clickable"
+                hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
+                hx-target="#side-panel-content"
+                hx-swap="innerHTML"
+                @click="panelOpen = true">
               <span class="state-chip" style="background:{{ info.bg }};color:{{ info.text }};">
                 {{ info.label }}
               </span>
@@ -89,10 +97,10 @@
           {% if user.is_super_user %}
           <td>
             <button class="btn btn-sm btn-outline-warning"
-                    x-data x-on:click="$refs.reopenModal{{ issue.id }}.showModal()">
+                    onclick="document.getElementById('reopenModal{{ issue.id }}').showModal()">
               Reopen
             </button>
-            <dialog x-ref="reopenModal{{ issue.id }}" class="modal-dialog-custom">
+            <dialog id="reopenModal{{ issue.id }}" class="modal-dialog-custom">
               <form method="POST" action="{{ url_for('issues.reopen_issue', issue_id=issue.id) }}">
                 <h4>Reopen #{{ issue.display_number }}</h4>
                 <p class="text-muted" style="font-size:13px;">{{ issue.topic }}</p>
@@ -151,5 +159,19 @@
   </div>
   {% endif %}
 </div>
+
+</div>{# /tracker-main #}
+
+{# ── Backdrop (click to close) ── #}
+<div class="side-panel-backdrop" x-show="panelOpen" x-cloak @click="panelOpen = false"></div>
+
+{# ── Side Panel (read-only timeline) ── #}
+<div class="side-panel" x-show="panelOpen" x-cloak x-transition.opacity>
+  <div id="side-panel-content">
+    <div class="text-muted p-3">點擊 cell 載入...</div>
+  </div>
+</div>
+
+</div>{# /tracker-layout #}
 
 {% endblock %}

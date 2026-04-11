@@ -22,7 +22,15 @@
           {% if issue.jira_ticket %}· JIRA: {{ issue.jira_ticket }}{% endif %}
         </div>
       </div>
-      <button class="btn btn-close" @click="panelOpen = false"></button>
+      <div class="d-flex gap-1 align-items-start">
+        {% if user.is_super_user %}
+          <button class="btn btn-sm btn-outline-danger" style="font-size:11px;"
+                  onclick="if(confirm('確定刪除 #{{ issue.display_number }}？此操作為軟刪除，可由管理員還原。')){var f=document.createElement('form');f.method='POST';f.action='/issues/{{ issue.id }}/delete';document.body.appendChild(f);f.submit()}">
+            刪除
+          </button>
+        {% endif %}
+        <button class="btn btn-close" @click="panelOpen = false"></button>
+      </div>
     </div>
   </div>
 

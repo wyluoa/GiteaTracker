@@ -473,14 +473,12 @@ def batch_update():
         return jsonify({"error": "invalid request"}), 400
 
     issue_ids = data.get("issue_ids", [])
-    node_id = data.get("node_id", type=int) if isinstance(data.get("node_id"), int) else None
-    if data.get("node_id") and not node_id:
-        try:
-            node_id = int(data["node_id"])
-        except (ValueError, TypeError):
-            pass
-    new_state = data.get("state", "").strip() or None
-    note = data.get("note", "").strip() or None
+    try:
+        node_id = int(data["node_id"]) if data.get("node_id") else None
+    except (ValueError, TypeError):
+        node_id = None
+    new_state = (data.get("state") or "").strip() or None
+    note = (data.get("note") or "").strip() or None
 
     if not issue_ids or not node_id:
         return jsonify({"error": "缺少必要欄位"}), 400
@@ -533,3 +531,30 @@ def batch_update():
             updated += 1
 
     return jsonify({"ok": True, "updated": updated})
+
+
+# ── Soft Delete Issue ──
+
+@bp.route("/issues/<int:issue_id>/delete", methods=["POST"])
+@super_user_required
+def delete_issue(issue_id):
+    """Soft-delete an issue (super user only)."""
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        abort(404)
+
+    issue_model.update_issue(issue_id, is_deleted=1)
+
+    # Audit log
+    db = get_db()
+    db.execute(
+        """INSERT INTO audit_log (actor_user_id, action, target_type, target_id, details, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (g.current_user["id"], "delete_issue", "issue", issue_id,
+         json.dumps({"display_number": issue["display_number"], "topic": issue["topic"]}, ensure_ascii=False),
+         _now()),
+    )
+    db.commit()
+
+    flash(f"#{issue['display_number']} 已刪除", "warning")
+    return redirect(request.referrer or url_for("main.tracker"))

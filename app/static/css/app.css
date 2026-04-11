@@ -31,6 +31,7 @@ body {
   white-space: normal;
   word-break: break-word;
   cursor: default;
+  font-size: 11px;
 }
 .cell-owner  { }
 .cell-jira {
@@ -135,10 +136,14 @@ body {
 .tracker-main {
   flex: 1;
   min-width: 0;
-  transition: margin-right 0.2s;
 }
-.tracker-main.has-panel {
-  margin-right: 590px;
+
+/* Overlay backdrop when panel is open */
+.side-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.15);
+  z-index: 99;
 }
 
 /* ── Side panel ── */

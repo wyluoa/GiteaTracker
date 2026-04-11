@@ -22,6 +22,13 @@ def create_app():
 
     db.init_app(app)
 
+    # Static asset cache (1 week)
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 604800
+
+    # Error handlers
+    from app.errors import register_error_handlers
+    register_error_handlers(app)
+
     app.register_blueprint(auth_routes.bp)
     app.register_blueprint(main_routes.bp)
     app.register_blueprint(issue_routes.bp)
