@@ -69,12 +69,14 @@
         <span class="text-green" title="Ready to Close">&#10003;</span>
       {% endif %}
     </td>
-    <td class="cell-topic" title="{{ issue.topic }}">{{ issue.topic|truncate(50) }}</td>
+    <td class="cell-topic">{{ issue.topic }}</td>
     <td class="cell-owner">{{ issue.requestor_name or '' }}</td>
     {% for node in nodes %}
       {{ render_cell(issue, node) }}
     {% endfor %}
-    <td class="cell-path" title="{{ issue.uat_path or '' }}">{{ issue.uat_path or '' }}</td>
+    <td class="cell-jira">{{ issue.jira_ticket or '' }}</td>
+    <td class="cell-path" title="點擊複製: {{ issue.uat_path or '' }}"
+        onclick="if(this.textContent.trim()){navigator.clipboard.writeText(this.textContent.trim());var s=document.createElement('span');s.className='copy-ok';s.textContent='✓ 已複製';this.appendChild(s);setTimeout(()=>s.remove(),1300)}">{{ issue.uat_path or '' }}</td>
   </tr>
 {% endmacro %}
 
@@ -83,12 +85,15 @@
 
 <div class="tracker-main" :class="{ 'has-panel': panelOpen }">
 {# ── Toolbar ── #}
+{% set has_adv = adv_filters|length > 0 %}
+{% set has_any_filter = q or filter_owner or filter_state or filter_week_from or filter_week_to or has_adv %}
 <div class="card mb-2">
   <div class="card-body py-2">
-    <form method="GET" action="{{ url_for('main.tracker') }}" class="row g-2 align-items-end">
+    <form method="GET" action="{{ url_for('main.tracker') }}" id="trackerFilterForm"
+          x-data="advFilter()" class="row g-2 align-items-end">
       <div class="col-auto">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="搜尋題號/Topic/JIRA"
-               value="{{ q }}" style="width:180px;">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="搜尋題號/Topic/JIRA/Path"
+               value="{{ q }}" style="width:200px;">
       </div>
       <div class="col-auto">
         <select name="owner" class="form-select form-select-sm" style="width:100px;">
@@ -99,7 +104,7 @@
         </select>
       </div>
       <div class="col-auto">
-        <select name="state" class="form-select form-select-sm" style="width:100px;">
+        <select name="state" class="form-select form-select-sm" style="width:110px;">
           <option value="">狀態</option>
           <option value="done" {{ 'selected' if filter_state == 'done' }}>Done</option>
           <option value="uat_done" {{ 'selected' if filter_state == 'uat_done' }}>UAT done</option>
@@ -107,6 +112,7 @@
           <option value="developing" {{ 'selected' if filter_state == 'developing' }}>Dev</option>
           <option value="tbd" {{ 'selected' if filter_state == 'tbd' }}>TBD</option>
           <option value="unneeded" {{ 'selected' if filter_state == 'unneeded' }}>Unneeded</option>
+          <option value="__blank__" {{ 'selected' if filter_state == '__blank__' }}>（空白）</option>
         </select>
       </div>
       <div class="col-auto">
@@ -118,24 +124,90 @@
                value="{{ filter_week_to }}" style="width:130px;">
       </div>
       <div class="col-auto">
+        <button type="button" class="btn btn-sm btn-outline-primary" @click="togglePanel()">
+          <span x-text="showPanel ? '收起進階' : '進階篩選'"></span>
+          <template x-if="rows.filter(r=>r.node||r.state).length > 0 && !showPanel">
+            <span class="badge bg-blue ms-1" x-text="rows.filter(r=>r.node||r.state).length"></span>
+          </template>
+        </button>
+      </div>
+      <div class="col-auto">
         <button type="submit" class="btn btn-sm btn-primary">搜尋</button>
-        {% if q or filter_owner or filter_state or filter_week_from or filter_week_to %}
+        {% if has_any_filter %}
           <a href="{{ url_for('main.tracker') }}" class="btn btn-sm">清除</a>
         {% endif %}
       </div>
       <div class="col-auto ms-auto d-flex gap-1">
-        <form method="POST" action="{{ url_for('main.mark_all_read') }}" class="d-inline">
-          <button type="submit" class="btn btn-sm btn-outline-secondary">標記已讀</button>
-        </form>
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                onclick="fetch('{{ url_for('main.mark_all_read') }}',{method:'POST',credentials:'same-origin'}).then(()=>location.reload())">標記已讀</button>
         <a href="{{ url_for('main.export_excel') }}" class="btn btn-sm btn-outline-secondary">匯出 Excel</a>
         <a href="{{ url_for('issues.meeting_mode', year=current_week_year, week=current_week_number) }}"
            class="btn btn-warning btn-sm">
           wk{{ current_week_year }}{{ '%02d'|format(current_week_number) }} 會議模式
         </a>
       </div>
+
+      {# ── Advanced filter panel ── #}
+      <div class="col-12 mt-2" x-show="showPanel" x-cloak>
+        <div class="p-2 rounded" style="background:#f8f9fc; border:1px solid #e0e4ea;">
+          <div class="d-flex align-items-center mb-2">
+            <span class="fw-bold" style="font-size:13px;">進階篩選（Node + 狀態，條件之間為 AND）</span>
+            <button type="button" class="btn btn-sm btn-ghost-primary ms-2" @click="addRow()" x-show="rows.length < 3">
+              + 新增條件
+            </button>
+          </div>
+          <template x-for="(row, idx) in rows" :key="idx">
+            <div class="d-flex gap-2 align-items-center mb-1">
+              <span class="text-muted" style="font-size:12px; min-width:50px;" x-text="'條件 ' + (idx+1)"></span>
+              <select :name="'adv_node_' + (idx+1)" x-model="row.node" class="form-select form-select-sm" style="width:120px;">
+                <option value="">任意 Node</option>
+                {% for node in nodes %}
+                  <option value="{{ node.id }}">{{ node.display_name }}</option>
+                {% endfor %}
+              </select>
+              <span class="text-muted">=</span>
+              <select :name="'adv_state_' + (idx+1)" x-model="row.state" class="form-select form-select-sm" style="width:120px;">
+                <option value="">任意狀態</option>
+                <option value="done">Done</option>
+                <option value="uat_done">UAT done</option>
+                <option value="uat">UAT</option>
+                <option value="developing">Dev</option>
+                <option value="tbd">TBD</option>
+                <option value="unneeded">Unneeded</option>
+                <option value="__blank__">（空白）</option>
+              </select>
+              <button type="button" class="btn btn-sm btn-ghost-danger" @click="removeRow(idx)" x-show="rows.length > 1">
+                &times;
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
     </form>
   </div>
 </div>
+
+<script>
+function advFilter() {
+  // Restore saved advanced filters from URL params
+  const params = new URLSearchParams(window.location.search);
+  const initial = [];
+  for (let i = 1; i <= 3; i++) {
+    const n = params.get('adv_node_' + i) || '';
+    const s = params.get('adv_state_' + i) || '';
+    if (n || s) initial.push({ node: n, state: s });
+  }
+  if (initial.length === 0) initial.push({ node: '', state: '' });
+
+  return {
+    showPanel: initial.some(r => r.node || r.state),
+    rows: initial,
+    togglePanel() { this.showPanel = !this.showPanel; },
+    addRow() { if (this.rows.length < 3) this.rows.push({ node: '', state: '' }); },
+    removeRow(idx) { this.rows.splice(idx, 1); if (this.rows.length === 0) this.rows.push({ node: '', state: '' }); },
+  };
+}
+</script>
 
 <div class="card">
   <div class="card-header">
@@ -156,6 +228,7 @@
           {% for node in nodes %}
             <th class="th-node">{{ node.display_name }}</th>
           {% endfor %}
+          <th class="th-jira">JIRA</th>
           <th class="th-path">Path</th>
         </tr>
       </thead>
@@ -167,7 +240,7 @@
           {% if red_line_year and not red_line_drawn.done %}
             {% if wg.week_year > red_line_year or (wg.week_year == red_line_year and wg.week_number > red_line_week) %}
               <tr class="red-line-row">
-                <td colspan="{{ nodes|length + 4 }}">
+                <td colspan="{{ nodes|length + 5 }}">
                   <div class="red-line"></div>
                 </td>
               </tr>
@@ -178,7 +251,7 @@
           {# Week group header #}
           {% set wg_class = 'wg-' ~ loop.index %}
           <tr class="week-header" x-data="{ open: true }" @click="open = !open; $el.closest('tbody').querySelectorAll('.{{ wg_class }}').forEach(r => r.style.display = open ? '' : 'none')" style="cursor:pointer;">
-            <td colspan="{{ nodes|length + 4 }}">
+            <td colspan="{{ nodes|length + 5 }}">
               <span x-text="open ? '\u25BC' : '\u25B6'"></span>
               wk{{ wg.week_year }}{{ '%02d'|format(wg.week_number) }}
               <span class="text-muted ms-2">{{ wg.issues|length }} 題</span>
@@ -192,7 +265,7 @@
         {# Red line at the very end if not yet drawn #}
         {% if red_line_year and not red_line_drawn.done %}
           <tr class="red-line-row">
-            <td colspan="{{ nodes|length + 4 }}">
+            <td colspan="{{ nodes|length + 5 }}">
               <div class="red-line"></div>
             </td>
           </tr>
@@ -248,5 +321,22 @@
 </div>
 
 </div>{# /tracker-layout #}
+
+<script>
+// Listen for cellUpdated event from HTMX (fired after state save)
+// and refresh the corresponding cell chip in the main table
+document.body.addEventListener('cellUpdated', function(evt) {
+  var d = evt.detail;
+  if (!d || !d.issueId || !d.nodeId) return;
+  var cellId = 'cell-' + d.issueId + '-' + d.nodeId;
+  var cell = document.getElementById(cellId);
+  if (cell) {
+    htmx.ajax('GET', '/issues/' + d.issueId + '/cell/' + d.nodeId + '/chip', {
+      target: cell,
+      swap: 'innerHTML'
+    });
+  }
+});
+</script>
 
 {% endblock %}

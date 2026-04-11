@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    flash, g, abort
+    flash, g, abort, make_response
 )
 from app.routes.auth import login_required, can_edit_node
 from app.models import issue as issue_model
@@ -138,8 +138,14 @@ def update_cell(issue_id, node_id):
         # Refresh issue cache
         issue_model.refresh_cache(issue_id)
 
-    # Return updated side panel via HTMX
-    return side_panel(issue_id, node_id)
+    # Return updated side panel via HTMX, and trigger cell refresh on main table
+    response = make_response(side_panel(issue_id, node_id))
+    if has_change:
+        import json
+        response.headers["HX-Trigger"] = json.dumps({
+            "cellUpdated": {"issueId": issue_id, "nodeId": node_id}
+        })
+    return response
 
 
 # ── Cell partial (for updating the main table cell after edit) ──

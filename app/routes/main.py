@@ -30,11 +30,21 @@ def tracker():
     filter_week_from = request.args.get("week_from", "").strip()
     filter_week_to = request.args.get("week_to", "").strip()
 
+    # ── Advanced filter: up to 3 node+state pairs ──
+    adv_filters = []
+    for i in range(1, 4):
+        anode = request.args.get(f"adv_node_{i}", "").strip()
+        astate = request.args.get(f"adv_state_{i}", "").strip()
+        if anode or astate:
+            adv_filters.append({"node": anode, "state": astate, "index": i})
+
     ongoing_issues = issue_model.get_ongoing()
     on_hold_issues = issue_model.get_on_hold()
 
-    # Apply filters
-    if q or filter_owner or filter_state or filter_week_from or filter_week_to:
+    has_basic_filter = q or filter_owner or filter_state or filter_week_from or filter_week_to
+
+    # Apply basic filters (text, owner, week range)
+    if has_basic_filter:
         ongoing_issues = _apply_filters(ongoing_issues, nodes, q, filter_owner, filter_state,
                                          filter_week_from, filter_week_to)
         on_hold_issues = _apply_filters(on_hold_issues, nodes, q, filter_owner, filter_state,
@@ -44,18 +54,56 @@ def tracker():
     all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
     all_states = state_model.get_all_states_for_issues(all_issue_ids)
 
-    # For state filter: further filter by node state
+    # For basic state filter (no specific node): any node matches
     if filter_state and all_states:
         filtered_ids = set()
         for issue_id, node_states in all_states.items():
             for nid, cell in node_states.items():
-                if cell["state"] == filter_state:
+                if filter_state == "__blank__":
+                    if not cell["state"]:
+                        filtered_ids.add(issue_id)
+                        break
+                elif cell["state"] == filter_state:
                     filtered_ids.add(issue_id)
                     break
         ongoing_issues = [i for i in ongoing_issues if i["id"] in filtered_ids]
         on_hold_issues = [i for i in on_hold_issues if i["id"] in filtered_ids]
         all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
         all_states = state_model.get_all_states_for_issues(all_issue_ids)
+
+    # Apply advanced node+state filters (AND logic)
+    if adv_filters:
+        all_current_ids = set(i["id"] for i in ongoing_issues) | set(i["id"] for i in on_hold_issues)
+        for af in adv_filters:
+            af_node_id = int(af["node"]) if af["node"] else None
+            af_state = af["state"]
+            filtered_ids = set()
+            for issue_id in all_current_ids:
+                node_states = all_states.get(issue_id, {})
+                if af_node_id and af_state:
+                    cell = node_states.get(af_node_id)
+                    if af_state == "__blank__":
+                        if not cell or not cell["state"]:
+                            filtered_ids.add(issue_id)
+                    elif cell and cell["state"] == af_state:
+                        filtered_ids.add(issue_id)
+                elif af_node_id and not af_state:
+                    cell = node_states.get(af_node_id)
+                    if cell and cell["state"]:
+                        filtered_ids.add(issue_id)
+                elif not af_node_id and af_state:
+                    for nid, cell in node_states.items():
+                        if af_state == "__blank__":
+                            if not cell["state"]:
+                                filtered_ids.add(issue_id)
+                                break
+                        elif cell["state"] == af_state:
+                            filtered_ids.add(issue_id)
+                            break
+            ongoing_issues = [i for i in ongoing_issues if i["id"] in filtered_ids]
+            on_hold_issues = [i for i in on_hold_issues if i["id"] in filtered_ids]
+            all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
+            all_states = state_model.get_all_states_for_issues(all_issue_ids)
 
     # Group ongoing issues by week
     week_groups = []
@@ -101,6 +149,7 @@ def tracker():
         q=q, filter_owner=filter_owner, filter_state=filter_state,
         filter_week_from=filter_week_from, filter_week_to=filter_week_to,
         owners=[r["requestor_name"] for r in owners],
+        adv_filters=adv_filters,
     )
 
 
@@ -111,7 +160,8 @@ def _apply_filters(issues, nodes, q, owner, state, week_from, week_to):
         result = [i for i in result if
                   ql in (i["display_number"] or "").lower() or
                   ql in (i["topic"] or "").lower() or
-                  ql in (i["jira_ticket"] or "").lower()]
+                  ql in (i["jira_ticket"] or "").lower() or
+                  ql in (i["uat_path"] or "").lower()]
     if owner:
         result = [i for i in result if i["requestor_name"] == owner]
     if week_from:

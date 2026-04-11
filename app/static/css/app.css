@@ -12,33 +12,53 @@ body {
 }
 .tracker-table th,
 .tracker-table td {
-  padding: 4px 6px;
+  padding: 3px 5px;
   vertical-align: middle;
 }
+.tracker-table th {
+  font-size: 12px;
+}
 
-.th-number { width: 50px; }
-.th-topic  { min-width: 180px; max-width: 280px; }
-.th-owner  { width: 60px; }
-.th-node   { width: 70px; text-align: center; }
-.th-path   { min-width: 80px; max-width: 160px; }
+.th-number { width: 42px; }
+.th-topic  { min-width: 220px; }
+.th-owner  { width: 55px; }
+.th-node   { width: 64px; text-align: center; }
+.th-jira   { width: 80px; }
+.th-path   { min-width: 160px; }
 
 .cell-number { font-weight: 600; }
 .cell-topic  {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 280px;
+  white-space: normal;
+  word-break: break-word;
   cursor: default;
 }
 .cell-owner  { }
+.cell-jira {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .cell-path   {
   font-size: 11px;
   color: #666;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-  cursor: default;
-  direction: rtl;       /* show end of path (filename) rather than beginning */
-  text-align: left;
+  cursor: pointer;
+  white-space: normal;
+  word-break: break-all;
+  position: relative;
+}
+.cell-path:hover {
+  color: #0d6efd;
+}
+.cell-path .copy-ok {
+  font-size: 10px;
+  color: #2fb344;
+  margin-left: 4px;
+  animation: fadeOut 1.2s forwards;
+}
+@keyframes fadeOut {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* ── State chip (color block inside cell) ── */
