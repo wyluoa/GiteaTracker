@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar {{ year }}/{{ '%02d'|format(month) }} — Gitea Tracker{% endblock %}
+
+{% set STATE_COLORS = {
+  'done':       '#27ae60',
+  'uat_done':   '#3498db',
+  'uat':        '#e67e22',
+  'developing': '#95a5a6',
+  'tbd':        '#8e44ad',
+  'unneeded':   '#bdc3c7',
+} %}
+
+{% block content %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <a href="{{ url_for('main.calendar_view', year=prev_year, month=prev_month) }}"
+         class="btn btn-sm btn-outline-primary">&laquo;</a>
+    </div>
+    <div class="col-auto">
+      <h2 class="page-title mb-0">{{ year }} / {{ '%02d'|format(month) }}</h2>
+    </div>
+    <div class="col-auto">
+      <a href="{{ url_for('main.calendar_view', year=next_year, month=next_month) }}"
+         class="btn btn-sm btn-outline-primary">&raquo;</a>
+    </div>
+    <div class="col-auto">
+      <a href="{{ url_for('main.calendar_view') }}" class="btn btn-sm">Today</a>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-bordered table-vcenter calendar-table">
+      <thead>
+        <tr>
+          <th class="text-center">Mon</th>
+          <th class="text-center">Tue</th>
+          <th class="text-center">Wed</th>
+          <th class="text-center">Thu</th>
+          <th class="text-center">Fri</th>
+          <th class="text-center text-muted">Sat</th>
+          <th class="text-center text-muted">Sun</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for week in weeks %}
+        <tr>
+          {% for day in week %}
+            {% set in_month = day.month == month %}
+            {% set is_today = day == today %}
+            {% set date_str = day.isoformat() %}
+            {% set events = events_by_date.get(date_str, []) %}
+            <td class="cal-cell {{ 'cal-other-month' if not in_month }} {{ 'cal-today' if is_today }}">
+              <div class="cal-date {{ 'fw-bold' if is_today }}">{{ day.day }}</div>
+              {% if events and in_month %}
+                <div class="cal-events">
+                  {% for ev in events[:5] %}
+                    <div class="cal-event" x-data="{ done: {{ 'true' if ev.state == 'done' else 'false' }} }">
+                      <span class="cal-event-dot"
+                            style="background:{{ STATE_COLORS.get(ev.state, '#ccc') }};"
+                            x-bind:style="done ? 'background:#27ae60' : 'background:{{ STATE_COLORS.get(ev.state, '#ccc') }}'"></span>
+                      <span class="cal-event-text">
+                        #{{ ev.display_number }} {{ ev.node_name }}
+                      </span>
+                      <button class="cal-event-done"
+                              x-show="!done"
+                              title="Quick Done"
+                              @click.stop="fetch('/issues/{{ ev.issue_id }}/cell/{{ ev.node_id }}/quick_done',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'}}).then(r=>{if(r.ok) done=true})">
+                        &#10003;
+                      </button>
+                      <span class="text-green" x-show="done" style="font-size:11px;">&#10003;</span>
+                    </div>
+                  {% endfor %}
+                  {% if events|length > 5 %}
+                    <div class="cal-event-more text-muted">+{{ events|length - 5 }} more</div>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

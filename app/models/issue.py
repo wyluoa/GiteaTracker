@@ -72,6 +72,46 @@ def get_closed(limit=50, offset=0):
     ).fetchall()
 
 
+def count_closed():
+    row = get_db().execute(
+        "SELECT COUNT(*) as cnt FROM issues WHERE status = 'closed' AND is_deleted = 0"
+    ).fetchone()
+    return row["cnt"]
+
+
+def count_by_status(status):
+    row = get_db().execute(
+        "SELECT COUNT(*) as cnt FROM issues WHERE status = ? AND is_deleted = 0",
+        (status,),
+    ).fetchone()
+    return row["cnt"]
+
+
+def count_ready_to_close():
+    row = get_db().execute(
+        "SELECT COUNT(*) as cnt FROM issues WHERE status = 'ongoing' AND all_nodes_done = 1 AND is_deleted = 0"
+    ).fetchone()
+    return row["cnt"]
+
+
+def dashboard_node_counts(red_line_year, red_line_week):
+    """Per-node count of ongoing issues above red line that are NOT done/unneeded."""
+    if not red_line_year or not red_line_week:
+        return {}
+    db = get_db()
+    rows = db.execute(
+        """SELECT s.node_id, COUNT(DISTINCT i.id) as cnt
+           FROM issues i
+           JOIN issue_node_states s ON i.id = s.issue_id
+           WHERE i.status = 'ongoing' AND i.is_deleted = 0
+             AND (s.state IS NULL OR s.state NOT IN ('done', 'unneeded'))
+             AND (i.week_year < ? OR (i.week_year = ? AND i.week_number <= ?))
+           GROUP BY s.node_id""",
+        (red_line_year, red_line_year, red_line_week),
+    ).fetchall()
+    return {r["node_id"]: r["cnt"] for r in rows}
+
+
 def update_issue(issue_id, **fields):
     """Update arbitrary fields on an issue."""
     if not fields:

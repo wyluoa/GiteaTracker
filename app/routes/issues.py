@@ -1,13 +1,15 @@
 """
-Issue routes — side panel, cell editing, timeline, meeting mode.
+Issue routes — side panel, cell editing, timeline, meeting mode, close/reopen, batch ops.
 """
+import json
 from datetime import datetime, timezone
 
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    flash, g, abort, make_response
+    flash, g, abort, make_response, jsonify
 )
-from app.routes.auth import login_required, can_edit_node
+from app.db import get_db
+from app.routes.auth import login_required, can_edit_node, super_user_required
 from app.models import issue as issue_model
 from app.models import node as node_model
 from app.models import issue_node_state as state_model
@@ -334,3 +336,200 @@ def meeting_mode_submit(year, week):
 
     flash(f"已儲存 {count} 筆會議紀錄", "success")
     return redirect(url_for("main.tracker"))
+
+
+# ── Close Issue ──
+
+@bp.route("/issues/<int:issue_id>/close", methods=["POST"])
+@login_required
+def close_issue(issue_id):
+    """Close an issue (set status=closed)."""
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        abort(404)
+
+    closed_note = request.form.get("closed_note", "").strip() or None
+
+    issue_model.update_issue(
+        issue_id,
+        status="closed",
+        closed_at=_now(),
+        closed_by_user_id=g.current_user["id"],
+        closed_note=closed_note,
+    )
+
+    timeline_model.create_entry(
+        issue_id=issue_id,
+        entry_type="comment",
+        body=f"關單{(' — ' + closed_note) if closed_note else ''}",
+        author_user_id=g.current_user["id"],
+        author_name_snapshot=g.current_user["display_name"],
+    )
+
+    # Audit log
+    db = get_db()
+    db.execute(
+        """INSERT INTO audit_log (actor_user_id, action, target_type, target_id, details, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (g.current_user["id"], "close_issue", "issue", issue_id,
+         json.dumps({"closed_note": closed_note}, ensure_ascii=False), _now()),
+    )
+    db.commit()
+
+    flash(f"#{issue['display_number']} 已關單", "success")
+    return redirect(url_for("main.tracker"))
+
+
+# ── Reopen Issue ──
+
+@bp.route("/issues/<int:issue_id>/reopen", methods=["POST"])
+@super_user_required
+def reopen_issue(issue_id):
+    """Reopen a closed issue (super user only)."""
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        abort(404)
+
+    reason = request.form.get("reason", "").strip() or None
+
+    issue_model.update_issue(
+        issue_id,
+        status="ongoing",
+        closed_at=None,
+        closed_by_user_id=None,
+        closed_note=None,
+    )
+
+    timeline_model.create_entry(
+        issue_id=issue_id,
+        entry_type="comment",
+        body=f"重新開啟{(' — ' + reason) if reason else ''}",
+        author_user_id=g.current_user["id"],
+        author_name_snapshot=g.current_user["display_name"],
+    )
+
+    # Audit log
+    db = get_db()
+    db.execute(
+        """INSERT INTO audit_log (actor_user_id, action, target_type, target_id, details, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (g.current_user["id"], "reopen_issue", "issue", issue_id,
+         json.dumps({"reason": reason}, ensure_ascii=False), _now()),
+    )
+    db.commit()
+
+    flash(f"#{issue['display_number']} 已重新開啟", "success")
+    return redirect(url_for("main.closed"))
+
+
+# ── Quick Done (calendar) ──
+
+@bp.route("/issues/<int:issue_id>/cell/<int:node_id>/quick_done", methods=["POST"])
+@login_required
+@can_edit_node("node_id")
+def quick_done(issue_id, node_id):
+    """Quick mark a cell as done (used from calendar view)."""
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        abort(404)
+    node = node_model.get_by_id(node_id)
+    if not node:
+        abort(404)
+
+    old_cell = state_model.get_state(issue_id, node_id)
+    old_state = old_cell["state"] if old_cell else None
+
+    if old_state != "done":
+        state_model.upsert_state(
+            issue_id, node_id,
+            state="done",
+            check_in_date=old_cell["check_in_date"] if old_cell else None,
+            short_note=old_cell["short_note"] if old_cell else None,
+            updated_by_user_id=g.current_user["id"],
+            updated_by_name_snapshot=g.current_user["display_name"],
+        )
+        timeline_model.create_entry(
+            issue_id=issue_id,
+            entry_type="state_change",
+            node_id=node_id,
+            old_state=old_state,
+            new_state="done",
+            author_user_id=g.current_user["id"],
+            author_name_snapshot=g.current_user["display_name"],
+        )
+        issue_model.refresh_cache(issue_id)
+
+    return jsonify({"ok": True})
+
+
+# ── Batch Update ──
+
+@bp.route("/issues/batch_update", methods=["POST"])
+@login_required
+def batch_update():
+    """Batch update node state for multiple issues."""
+    data = request.get_json() if request.is_json else None
+    if not data:
+        return jsonify({"error": "invalid request"}), 400
+
+    issue_ids = data.get("issue_ids", [])
+    node_id = data.get("node_id", type=int) if isinstance(data.get("node_id"), int) else None
+    if data.get("node_id") and not node_id:
+        try:
+            node_id = int(data["node_id"])
+        except (ValueError, TypeError):
+            pass
+    new_state = data.get("state", "").strip() or None
+    note = data.get("note", "").strip() or None
+
+    if not issue_ids or not node_id:
+        return jsonify({"error": "缺少必要欄位"}), 400
+
+    node = node_model.get_by_id(node_id)
+    if not node:
+        return jsonify({"error": "Node 不存在"}), 404
+
+    # Check permission
+    if not g.current_user["is_super_user"]:
+        db = get_db()
+        perm = db.execute(
+            """SELECT 1 FROM user_groups ug
+               JOIN group_nodes gn ON ug.group_id = gn.group_id
+               WHERE ug.user_id = ? AND gn.node_id = ? LIMIT 1""",
+            (g.current_user["id"], node_id),
+        ).fetchone()
+        if not perm:
+            return jsonify({"error": "無權限編輯此 Node"}), 403
+
+    updated = 0
+    for iid in issue_ids:
+        issue = issue_model.get_by_id(iid)
+        if not issue:
+            continue
+
+        old_cell = state_model.get_state(iid, node_id)
+        old_state = old_cell["state"] if old_cell else None
+
+        if new_state != old_state:
+            state_model.upsert_state(
+                iid, node_id,
+                state=new_state,
+                check_in_date=old_cell["check_in_date"] if old_cell else None,
+                short_note=old_cell["short_note"] if old_cell else None,
+                updated_by_user_id=g.current_user["id"],
+                updated_by_name_snapshot=g.current_user["display_name"],
+            )
+            timeline_model.create_entry(
+                issue_id=iid,
+                entry_type="state_change",
+                node_id=node_id,
+                old_state=old_state,
+                new_state=new_state,
+                body=note,
+                author_user_id=g.current_user["id"],
+                author_name_snapshot=g.current_user["display_name"],
+            )
+            issue_model.refresh_cache(iid)
+            updated += 1
+
+    return jsonify({"ok": True, "updated": updated})

@@ -1,13 +1,14 @@
 """
-Main routes — tracker view, search/filter, mark read, export.
+Main routes — dashboard, tracker view, calendar, closed, search/filter, mark read, export.
 """
-from datetime import date, datetime, timezone
+import calendar as cal_mod
+from datetime import date, datetime, timezone, timedelta
 from io import BytesIO
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, send_file
 
 from app.db import get_db
-from app.routes.auth import login_required
+from app.routes.auth import login_required, super_user_required
 from app.models import issue as issue_model
 from app.models import node as node_model
 from app.models import issue_node_state as state_model
@@ -17,7 +18,46 @@ from app.models import user as user_model
 bp = Blueprint("main", __name__)
 
 
+# ── Landing page → redirect to dashboard ──
+
 @bp.route("/")
+@login_required
+def index():
+    return redirect(url_for("main.dashboard"))
+
+
+# ── Dashboard ──
+
+@bp.route("/dashboard")
+@login_required
+def dashboard():
+    """Summary dashboard with per-node cards."""
+    nodes = node_model.get_all_active()
+    red_line_year, red_line_week = setting_model.get_red_line()
+
+    node_counts = issue_model.dashboard_node_counts(red_line_year, red_line_week)
+    ready_count = issue_model.count_ready_to_close()
+    on_hold_count = issue_model.count_by_status("on_hold")
+    ongoing_count = issue_model.count_by_status("ongoing")
+    closed_count = issue_model.count_closed()
+
+    return render_template(
+        "dashboard.html",
+        nodes=nodes,
+        node_counts=node_counts,
+        ready_count=ready_count,
+        on_hold_count=on_hold_count,
+        ongoing_count=ongoing_count,
+        closed_count=closed_count,
+        red_line_year=red_line_year,
+        red_line_week=red_line_week,
+        user=g.current_user,
+    )
+
+
+# ── Tracker (main table) ──
+
+@bp.route("/tracker")
 @login_required
 def tracker():
     """Main tracker view with search/filter support."""
@@ -255,6 +295,121 @@ def export_excel():
     filename = f"gitea_tracker_{date.today().isoformat()}.xlsx"
     return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                      as_attachment=True, download_name=filename)
+
+
+# ── Calendar ──
+
+@bp.route("/calendar")
+@login_required
+def calendar_view():
+    """Monthly calendar showing check-in dates."""
+    today = date.today()
+    year = request.args.get("year", today.year, type=int)
+    month = request.args.get("month", today.month, type=int)
+
+    # Clamp
+    if month < 1:
+        month, year = 12, year - 1
+    elif month > 12:
+        month, year = 1, year + 1
+
+    # Date range for the month
+    first_day = date(year, month, 1)
+    last_day = date(year, month, cal_mod.monthrange(year, month)[1])
+
+    db = get_db()
+    rows = db.execute(
+        """SELECT s.issue_id, s.node_id, s.state, s.check_in_date, s.short_note,
+                  i.display_number, i.topic, n.display_name as node_name
+           FROM issue_node_states s
+           JOIN issues i ON s.issue_id = i.id
+           JOIN nodes n ON s.node_id = n.id
+           WHERE s.check_in_date BETWEEN ? AND ?
+             AND i.status = 'ongoing' AND i.is_deleted = 0
+           ORDER BY s.check_in_date, i.display_number""",
+        (first_day.isoformat(), last_day.isoformat()),
+    ).fetchall()
+
+    # Group by date string
+    events_by_date = {}
+    for r in rows:
+        events_by_date.setdefault(r["check_in_date"], []).append(r)
+
+    # Build calendar grid
+    cal = cal_mod.Calendar(firstweekday=0)  # Monday first
+    weeks = cal.monthdatescalendar(year, month)
+
+    # Prev/next month
+    prev_month = month - 1 if month > 1 else 12
+    prev_year = year if month > 1 else year - 1
+    next_month = month + 1 if month < 12 else 1
+    next_year = year if month < 12 else year + 1
+
+    nodes = node_model.get_all_active()
+
+    return render_template(
+        "calendar.html",
+        year=year, month=month,
+        weeks=weeks,
+        events_by_date=events_by_date,
+        today=today,
+        prev_year=prev_year, prev_month=prev_month,
+        next_year=next_year, next_month=next_month,
+        nodes=nodes,
+        user=g.current_user,
+    )
+
+
+# ── Closed Issues ──
+
+@bp.route("/closed")
+@login_required
+def closed():
+    """Closed issues page with pagination and search."""
+    page = request.args.get("page", 1, type=int)
+    q = request.args.get("q", "").strip()
+    per_page = 50
+
+    total = issue_model.count_closed()
+
+    if q:
+        # Search within closed issues
+        db = get_db()
+        ql = f"%{q}%"
+        rows = db.execute(
+            """SELECT * FROM issues
+               WHERE status = 'closed' AND is_deleted = 0
+                 AND (display_number LIKE ? OR topic LIKE ? OR jira_ticket LIKE ?)
+               ORDER BY closed_at DESC
+               LIMIT ? OFFSET ?""",
+            (ql, ql, ql, per_page, (page - 1) * per_page),
+        ).fetchall()
+        total_row = db.execute(
+            """SELECT COUNT(*) as cnt FROM issues
+               WHERE status = 'closed' AND is_deleted = 0
+                 AND (display_number LIKE ? OR topic LIKE ? OR jira_ticket LIKE ?)""",
+            (ql, ql, ql),
+        ).fetchone()
+        total = total_row["cnt"]
+    else:
+        rows = issue_model.get_closed(limit=per_page, offset=(page - 1) * per_page)
+
+    nodes = node_model.get_all_active()
+    all_ids = [i["id"] for i in rows]
+    all_states = state_model.get_all_states_for_issues(all_ids)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return render_template(
+        "closed.html",
+        issues=rows,
+        nodes=nodes,
+        all_states=all_states,
+        page=page,
+        total_pages=total_pages,
+        total=total,
+        q=q,
+        user=g.current_user,
+    )
 
 
 @bp.route("/healthz")

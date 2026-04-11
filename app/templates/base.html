@@ -21,10 +21,18 @@
   <header class="navbar navbar-expand-md navbar-dark d-print-none">
     <div class="container-xl">
       <h1 class="navbar-brand navbar-brand-autodark">
-        <a href="{{ url_for('main.tracker') }}">
+        <a href="{{ url_for('main.dashboard') }}">
           Gitea Tracker
         </a>
       </h1>
+      {% if session.get('user_id') and g.current_user %}
+      <div class="navbar-nav d-none d-md-flex">
+        <a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+        <a class="nav-link" href="{{ url_for('main.tracker') }}">Tracker</a>
+        <a class="nav-link" href="{{ url_for('main.calendar_view') }}">Calendar</a>
+        <a class="nav-link" href="{{ url_for('main.closed') }}">Closed</a>
+      </div>
+      {% endif %}
       <div class="navbar-nav flex-row order-md-last">
         {% if session.get('user_id') and g.current_user %}
         <div class="nav-item d-flex align-items-center">

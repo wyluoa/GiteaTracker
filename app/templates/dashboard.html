@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Gitea Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <h2 class="page-title">Dashboard</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      {% if red_line_year %}
+        <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── Summary cards ── #}
+<div class="row row-deck row-cards mb-3">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="subheader">Ongoing</div>
+        </div>
+        <div class="h1 mb-0">{{ ongoing_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card" style="border-left: 3px solid #2fb344;">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="subheader">Ready to Close</div>
+        </div>
+        <div class="h1 mb-0 text-green">{{ ready_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card" style="border-left: 3px solid #f76707;">
+      <div class="card-body">
+        <div class="subheader">On Hold</div>
+        <div class="h1 mb-0 text-orange">{{ on_hold_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card" style="border-left: 3px solid #6c757d;">
+      <div class="card-body">
+        <div class="subheader">Closed</div>
+        <div class="h1 mb-0 text-muted">{{ closed_count }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Per-node cards (above red line, not done) ── #}
+{% if red_line_year %}
+<h3 class="mb-2" style="font-size:15px;">
+  Red Line 以上未完成（per Node）
+</h3>
+<div class="row row-deck row-cards mb-3">
+  {% for node in nodes %}
+    {% set cnt = node_counts.get(node.id, 0) %}
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <div class="subheader">{{ node.display_name }}</div>
+          <div class="h1 mb-0 {{ 'text-red' if cnt > 0 else 'text-green' }}">{{ cnt }}</div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">尚未設定紅線，無法顯示 per-node 統計。請到 Admin 設定紅線。</div>
+{% endif %}
+
+{# ── Quick links ── #}
+<div class="row">
+  <div class="col-auto">
+    <a href="{{ url_for('main.tracker') }}" class="btn btn-primary">開啟 Tracker 主表格</a>
+  </div>
+  <div class="col-auto">
+    <a href="{{ url_for('main.calendar_view') }}" class="btn btn-outline-primary">上線行事曆</a>
+  </div>
+  <div class="col-auto">
+    <a href="{{ url_for('main.closed') }}" class="btn btn-outline-secondary">Closed Issues</a>
+  </div>
+</div>
+
+{% endblock %}
