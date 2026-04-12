@@ -3,9 +3,6 @@
 Internal web tool for tracking Gitea meeting topics, replacing the existing
 Excel-based control table.
 
-**Current status: Phase 0 — project skeleton.** Only a placeholder homepage and
-DB initialisation work. Real features come in Phase 1+.
-
 ## Tech stack
 
 - Python 3.12
@@ -14,127 +11,90 @@ DB initialisation work. Real features come in Phase 1+.
 - Tabler CSS (UI framework, loaded from CDN)
 - SQLite (single-file database)
 
-## Setup
-
-### 1. Clone and create a virtualenv
+## Quick start (local development)
 
 ```bash
-git clone <repo-url> gitea-tracker
-cd gitea-tracker
-
-# Use Python 3.12 (or 3.9/3.14 — but 3.12 is recommended)
-python3.12 -m venv venv
+# 1. Clone and create virtualenv
+git clone https://github.com/wyluoa/GiteaTracker.git
+cd GiteaTracker
+python3 -m venv venv
 source venv/bin/activate
-```
 
-### 2. Install dependencies
-
-```bash
+# 2. Install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
-```
 
-### 3. Configure (optional)
+# 3. Configure (optional)
+cp .env.example .env   # edit if needed; defaults work for local dev
 
-Copy `.env.example` to `.env` and edit if you want to override defaults:
-
-```bash
-cp .env.example .env
-# edit .env
-```
-
-The defaults work fine for local development — DB and attachments end up in
-`data/`.
-
-### 4. Initialise the database
-
-```bash
+# 4. Initialize database and seed data
 python init_db.py
-```
+python seed.py
 
-You should see something like:
+# 5. Import Excel data (optional)
+python import_from_excel.py --file samples/tracker.xlsx
 
-```
-Creating new DB at /path/to/data/gitea_tracker.db
-
-Done. 11 tables present:
-  - attachments
-  - audit_log
-  - groups
-  - group_nodes
-  - issue_node_states
-  - issues
-  - nodes
-  - password_reset_tokens
-  - settings
-  - timeline_entries
-  - user_groups
-  - users
-```
-
-To wipe and recreate the DB (destructive):
-
-```bash
-python init_db.py --reset
-```
-
-### 5. Run the server
-
-```bash
+# 6. Run
 python main.py
 ```
 
-Open <http://localhost:5000> in your browser. You should see the Phase 0
-placeholder page with system status, table list, and two test buttons (Alpine.js
-counter + HTMX ping).
+Open <http://localhost:5000>. Default super user: `wy` / `changeme`.
 
-## Project layout
+## Production deployment
 
-```
-gitea-tracker/
-├── README.md
-├── requirements.txt
-├── config.py              # Configuration (reads env vars)
-├── main.py                # Entry point: `python main.py`
-├── init_db.py             # `python init_db.py` to create the DB
-├── .env.example           # Copy to .env for local config
-├── .gitignore
-├── data/                  # DB file and attachments live here (gitignored)
-└── app/
-    ├── __init__.py        # Flask app factory
-    ├── db.py              # SQLite connection helper
-    ├── schema.sql         # All CREATE TABLE statements
-    ├── routes/
-    │   ├── __init__.py
-    │   └── main.py        # Routes (Phase 0: placeholder only)
-    ├── templates/
-    │   ├── base.html      # Layout
-    │   └── index.html     # Phase 0 placeholder
-    └── static/
-        ├── css/app.css
-        └── js/
-```
+See **[deploy/DEPLOY.md](deploy/DEPLOY.md)** for the full Linux deployment guide
+covering systemd, Nginx reverse proxy, backup/restore, and upgrade procedures.
+
+## Features
+
+- **Tracker** — week-grouped table with colored status cells, red line display, side panel editing
+- **Dashboard** — per-node summary cards with red-line-above counts
+- **Calendar** — monthly view of check-in dates with quick-done buttons
+- **Meeting mode** — batch meeting note entry per week
+- **Closed issues** — paginated list with search and reopen (super user)
+- **Admin backend** — user approval, groups, nodes, red line, SMTP, audit log
+- **Accounts** — registration, login, forgot password, role-based permissions
+- **Attachments** — file upload (png/jpg/pdf) with timeline display
+- **Version diff** — yellow highlight for changes since last viewed
+- **Search & filter** — keyword search, owner/state/week filters, advanced multi-filter
+- **Export Excel** — download current view as .xlsx
+- **Batch operations** — checkbox select + bulk state change
+- **Soft delete** — super user only, with audit trail
 
 ## Development phases
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Project skeleton, DB init, placeholder page | ✅ done |
-| 1 | Core data model + read-only main view + Excel import | next |
-| 2 | Cell editing + timeline + meeting notes | |
-| 3 | Account system + permissions + admin backend | |
-| 4 | Attachments + diff highlighting + search/filter + export | |
-| 5 | Dashboard + calendar + closed page + batch ops | |
-| 6 | Polish + deployment + go-live | |
-| 7 | Email reminders, weekly summary, etc. (post-launch) | |
+| 0 | Project skeleton, DB init | done |
+| 1 | Core data model + read-only main view + Excel import | done |
+| 2 | Cell editing + timeline + meeting notes | done |
+| 3 | Account system + permissions + admin backend | done |
+| 4 | Attachments + diff highlighting + search/filter + export | done |
+| 4.5 | Advanced filters + live cell sync + table UX | done |
+| 5 | Dashboard + calendar + closed page + batch ops | done |
+| 6 | Error pages + soft delete + deploy config + UX fixes | done |
+| 7 | Email reminders, weekly summary, Gitea API, etc. | post-launch |
 
-## Phase 0 acceptance checklist
+## Project layout
 
-- [ ] `python init_db.py` runs without error and creates the DB file
-- [ ] `python main.py` starts the server
-- [ ] <http://localhost:5000> loads with green DB status
-- [ ] All 12 tables show up as badges
-- [ ] The "Alpine.js click" button counter increases when clicked
-- [ ] The "HTMX ping" button populates the result span with `{"status": "ok"}`
-
-If all six pass, Phase 0 is done.
+```
+GiteaTracker/
+├── main.py                # Entry point
+├── config.py              # Configuration (reads env vars)
+├── init_db.py             # Database initialization
+├── seed.py                # Seed default nodes + super user
+├── import_from_excel.py   # Excel import script
+├── requirements.txt
+├── app/
+│   ├── __init__.py        # Flask app factory
+│   ├── db.py              # SQLite connection helper
+│   ├── schema.sql         # CREATE TABLE statements
+│   ├── models/            # Data access layer
+│   ├── routes/            # Flask blueprints
+│   ├── templates/         # Jinja2 templates
+│   └── static/            # CSS, JS
+├── data/                  # DB + attachments (gitignored)
+├── deploy/                # systemd, nginx, backup/restore, DEPLOY.md
+├── docs/                  # Handoff documents and references
+└── samples/               # Sample Excel file
+```
