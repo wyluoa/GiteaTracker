@@ -1,12 +1,12 @@
 #!/bin/bash
-# Gitea Tracker restore script
-# Usage: ./restore.sh <db_backup_file> [attachments_tar_gz]
+# Gitea Tracker restore script (no sudo required)
+# Usage: ./deploy/restore.sh <db_backup_file> [attachments_tar_gz]
 #
 # Stops the service, restores DB (and optionally attachments), restarts.
 
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/gitea-tracker}"
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DB_PATH="${APP_DIR}/data/gitea_tracker.db"
 
 if [ $# -lt 1 ]; then
@@ -18,8 +18,8 @@ fi
 DB_BACKUP="$1"
 ATT_BACKUP="${2:-}"
 
-echo "Stopping gitea-tracker service..."
-sudo systemctl stop gitea-tracker || true
+echo "Stopping gitea-tracker..."
+"${APP_DIR}/deploy/stop.sh" || true
 
 echo "Restoring database from ${DB_BACKUP}..."
 cp "${DB_BACKUP}" "${DB_PATH}"
@@ -30,7 +30,7 @@ if [ -n "${ATT_BACKUP}" ] && [ -f "${ATT_BACKUP}" ]; then
     tar xzf "${ATT_BACKUP}" -C "${APP_DIR}/data"
 fi
 
-echo "Starting gitea-tracker service..."
-sudo systemctl start gitea-tracker
+echo "Starting gitea-tracker..."
+"${APP_DIR}/deploy/start.sh"
 
 echo "Restore completed."

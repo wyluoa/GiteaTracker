@@ -16,6 +16,12 @@ env/
 # Data (runtime — DB and attachments)
 data/
 
+# Logs
+logs/
+
+# Backups
+backups/
+
 # IDE
 .vscode/
 .idea/

@@ -42,8 +42,8 @@ Open <http://localhost:5000>. Default super user: `wy` / `changeme`.
 
 ## Production deployment
 
-See **[deploy/DEPLOY.md](deploy/DEPLOY.md)** for the full Linux deployment guide
-covering systemd, Nginx reverse proxy, backup/restore, and upgrade procedures.
+See **[deploy/DEPLOY.md](deploy/DEPLOY.md)** for the full deployment guide
+covering start/stop scripts, backup/restore, and upgrade procedures. No sudo required.
 
 ## Features
 
@@ -94,7 +94,7 @@ GiteaTracker/
 │   ├── templates/         # Jinja2 templates
 │   └── static/            # CSS, JS
 ├── data/                  # DB + attachments (gitignored)
-├── deploy/                # systemd, nginx, backup/restore, DEPLOY.md
+├── deploy/                # start/stop scripts, backup/restore, DEPLOY.md
 ├── docs/                  # Handoff documents and references
 └── samples/               # Sample Excel file
 ```

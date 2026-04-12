@@ -1,14 +1,15 @@
 #!/bin/bash
-# Gitea Tracker backup script
-# Usage: ./backup.sh [backup_dir]
+# Gitea Tracker backup script (no sudo required)
+# Usage: ./deploy/backup.sh [backup_dir]
 #
 # Backs up the SQLite database and attachments directory.
-# Recommended: run via cron daily, e.g.
-#   0 2 * * * /opt/gitea-tracker/deploy/backup.sh /opt/gitea-tracker/backups
+# Recommended: run via user crontab daily, e.g.
+#   crontab -e
+#   0 2 * * * ~/gitea-tracker/deploy/backup.sh
 
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/gitea-tracker}"
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BACKUP_DIR="${1:-${APP_DIR}/backups}"
 DATE=$(date +%Y%m%d_%H%M%S)
 DB_PATH="${APP_DIR}/data/gitea_tracker.db"

@@ -2,7 +2,7 @@
 Application configuration.
 
 Reads from environment variables, with sensible defaults for local development.
-For production, set these via systemd unit file, .env, or shell environment.
+For production, set these via .env file or shell environment.
 """
 import os
 from pathlib import Path
