@@ -1,15 +1,19 @@
 """
 Admin routes — super user only backend.
 """
+import json
+import os
+import uuid
 from datetime import datetime, timezone
 
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    flash, g
+    flash, g, current_app
 )
 from app.db import get_db
 from app.routes.auth import super_user_required
 from app.models import setting as setting_model
+from app.models import node as node_model
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -21,7 +25,6 @@ def _now():
 def _audit(action, target_type=None, target_id=None, details=None):
     """Write an audit log entry."""
     db = get_db()
-    import json
     db.execute(
         """INSERT INTO audit_log (actor_user_id, action, target_type, target_id, details, created_at)
            VALUES (?, ?, ?, ?, ?, ?)""",
@@ -356,3 +359,410 @@ def audit_log():
     return render_template("admin/audit_log.html",
                            logs=logs, actions=actions, action_filter=action_filter,
                            page=page)
+
+
+# ── Excel Update ──
+
+EXCEL_TMP_DIR = "data/tmp"
+
+
+def _ensure_tmp_dir():
+    os.makedirs(EXCEL_TMP_DIR, exist_ok=True)
+
+
+def _build_diff(excel_issues, db):
+    """Compare parsed Excel issues against DB, return structured diff.
+
+    Returns:
+        {
+            "new": [  # issues not in DB
+                {"display_number": "108", "topic": "...", ...}
+            ],
+            "updated": [  # issues with at least one changed field
+                {
+                    "display_number": "42",
+                    "issue_id": 5,
+                    "topic": "...",
+                    "fields": [
+                        {"key": "topic", "label": "Topic",
+                         "old": "Fix login", "new": "Fix SSO", "conflict": True},
+                        ...
+                    ],
+                    "node_changes": [
+                        {"node_id": 1, "node_name": "A10", "sub": "state",
+                         "old": "developing", "new": "uat", "conflict": False},
+                        ...
+                    ]
+                }
+            ],
+            "unchanged": 15  # count of issues with no diff
+        }
+    """
+    from app.excel import STATE_LABELS
+
+    # Pre-load all nodes for display names
+    all_nodes = db.execute("SELECT id, display_name FROM nodes").fetchall()
+    node_names = {n["id"]: n["display_name"] for n in all_nodes}
+
+    new_issues = []
+    updated_issues = []
+    unchanged_count = 0
+
+    issue_fields = [
+        ("topic", "Topic"),
+        ("requestor_name", "Owner"),
+        ("jira_ticket", "JIRA"),
+        ("icv", "ICV"),
+        ("uat_path", "UAT Path"),
+        ("status", "Status"),
+        ("week_year", "Week Year"),
+        ("week_number", "Week Number"),
+    ]
+
+    for ei in excel_issues:
+        existing = db.execute(
+            "SELECT * FROM issues WHERE display_number = ? AND is_deleted = 0",
+            (ei["display_number"],),
+        ).fetchone()
+
+        if not existing:
+            new_issues.append(ei)
+            continue
+
+        issue_id = existing["id"]
+        fields = []
+        for key, label in issue_fields:
+            old_val = existing[key]
+            new_val = ei.get(key)
+            # Normalize for comparison
+            old_str = str(old_val) if old_val is not None else ""
+            new_str = str(new_val) if new_val is not None else ""
+            if old_str != new_str:
+                fields.append({
+                    "key": key,
+                    "label": label,
+                    "old": old_str or "(empty)",
+                    "new": new_str or "(empty)",
+                    "conflict": bool(old_str and new_str and old_str != new_str),
+                })
+
+        # Compare node states
+        node_changes = []
+        db_states = db.execute(
+            "SELECT * FROM issue_node_states WHERE issue_id = ?",
+            (issue_id,),
+        ).fetchall()
+        db_state_map = {s["node_id"]: s for s in db_states}
+
+        for node_id, excel_node in ei["nodes"].items():
+            db_node = db_state_map.get(node_id)
+            for sub, sub_label in [("state", "State"), ("check_in_date", "Check-in"), ("short_note", "Note")]:
+                new_val = excel_node.get(sub)
+                old_val = db_node[sub] if db_node else None
+                old_str = str(old_val) if old_val is not None else ""
+                new_str = str(new_val) if new_val is not None else ""
+                if old_str != new_str:
+                    display_new = new_str
+                    display_old = old_str
+                    if sub == "state":
+                        display_new = STATE_LABELS.get(new_str, new_str) if new_str else ""
+                        display_old = STATE_LABELS.get(old_str, old_str) if old_str else ""
+                    node_changes.append({
+                        "node_id": node_id,
+                        "node_name": node_names.get(node_id, f"Node {node_id}"),
+                        "sub": sub,
+                        "sub_label": sub_label,
+                        "old": display_old or "(empty)",
+                        "new": display_new or "(empty)",
+                        "raw_old": old_str,
+                        "raw_new": new_str,
+                        "conflict": bool(old_str and new_str and old_str != new_str),
+                    })
+
+        if fields or node_changes:
+            updated_issues.append({
+                "display_number": ei["display_number"],
+                "issue_id": issue_id,
+                "topic": existing["topic"],
+                "fields": fields,
+                "node_changes": node_changes,
+            })
+        else:
+            unchanged_count += 1
+
+    return {
+        "new": new_issues,
+        "updated": updated_issues,
+        "unchanged": unchanged_count,
+    }
+
+
+@bp.route("/excel_update")
+@super_user_required
+def excel_update():
+    return render_template("admin/excel_update.html")
+
+
+@bp.route("/excel_update/preview", methods=["POST"])
+@super_user_required
+def excel_update_preview():
+    file = request.files.get("file")
+    if not file or not file.filename.endswith((".xlsx", ".xls")):
+        flash("Please upload an .xlsx file", "error")
+        return redirect(url_for("admin.excel_update"))
+
+    _ensure_tmp_dir()
+    batch_id = uuid.uuid4().hex
+    xlsx_path = os.path.join(EXCEL_TMP_DIR, f"{batch_id}.xlsx")
+    file.save(xlsx_path)
+
+    try:
+        from app.excel import parse_workbook
+
+        nodes = node_model.get_all_active()
+        node_lookup = {n["code"]: n["id"] for n in nodes}
+
+        excel_issues = parse_workbook(xlsx_path, node_lookup)
+        if not excel_issues:
+            flash("No issues found in the uploaded Excel file", "error")
+            os.remove(xlsx_path)
+            return redirect(url_for("admin.excel_update"))
+
+        db = get_db()
+        diff = _build_diff(excel_issues, db)
+
+        if not diff["new"] and not diff["updated"]:
+            flash(f"No changes detected. All {diff['unchanged']} issues are up-to-date.", "info")
+            os.remove(xlsx_path)
+            return redirect(url_for("admin.excel_update"))
+
+        # Save diff + parsed data to JSON for the apply step
+        json_path = os.path.join(EXCEL_TMP_DIR, f"{batch_id}.json")
+        # Convert node_id keys (int) to str for JSON
+        serializable_issues = []
+        for ei in excel_issues:
+            ei_copy = dict(ei)
+            ei_copy["nodes"] = {str(k): v for k, v in ei["nodes"].items()}
+            serializable_issues.append(ei_copy)
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump({"issues": serializable_issues, "diff": diff}, f,
+                       ensure_ascii=False)
+
+        return render_template("admin/excel_preview.html",
+                               diff=diff, batch_id=batch_id,
+                               filename=file.filename)
+    except Exception as e:
+        os.remove(xlsx_path)
+        flash(f"Error parsing Excel: {e}", "error")
+        return redirect(url_for("admin.excel_update"))
+
+
+@bp.route("/excel_update/apply", methods=["POST"])
+@super_user_required
+def excel_update_apply():
+    batch_id = request.form.get("batch_id", "")
+    if not batch_id or not batch_id.isalnum():
+        flash("Invalid batch ID", "error")
+        return redirect(url_for("admin.excel_update"))
+
+    json_path = os.path.join(EXCEL_TMP_DIR, f"{batch_id}.json")
+    xlsx_path = os.path.join(EXCEL_TMP_DIR, f"{batch_id}.xlsx")
+
+    if not os.path.exists(json_path):
+        flash("Preview data expired. Please upload the file again.", "error")
+        return redirect(url_for("admin.excel_update"))
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    excel_issues = data["issues"]
+    # Restore int keys for nodes
+    for ei in excel_issues:
+        ei["nodes"] = {int(k): v for k, v in ei["nodes"].items()}
+
+    # Collect selected items from form checkboxes
+    selected_new = set(request.form.getlist("new_issue"))
+    selected_updates = set(request.form.getlist("update_field"))
+    selected_nodes = set(request.form.getlist("update_node"))
+
+    db = get_db()
+    now_str = _now()
+    user_id = g.current_user["id"]
+    user_name = g.current_user["display_name"]
+
+    created_count = 0
+    updated_count = 0
+
+    # Build lookup: display_number -> excel issue
+    excel_map = {ei["display_number"]: ei for ei in excel_issues}
+
+    # Apply new issues
+    for ei in excel_issues:
+        dn = ei["display_number"]
+        if dn not in selected_new:
+            continue
+
+        existing = db.execute(
+            "SELECT id FROM issues WHERE display_number = ?", (dn,)
+        ).fetchone()
+        if existing:
+            continue  # safety: skip if somehow already exists
+
+        cur = db.execute(
+            """INSERT INTO issues
+               (display_number, topic, requestor_name, owner_user_id,
+                week_year, week_number, jira_ticket, icv, uat_path,
+                status, created_at, updated_at, latest_update_at,
+                created_by_user_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (dn, ei["topic"], ei["requestor_name"], None,
+             ei["week_year"], ei["week_number"], ei["jira_ticket"],
+             ei["icv"], ei["uat_path"], ei["status"],
+             now_str, now_str, now_str, user_id),
+        )
+        issue_id = cur.lastrowid
+
+        # Insert all node states for new issue
+        for node_id, ns in ei["nodes"].items():
+            db.execute(
+                """INSERT INTO issue_node_states
+                   (issue_id, node_id, state, check_in_date, short_note,
+                    updated_at, updated_by_user_id, updated_by_name_snapshot)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (issue_id, node_id, ns["state"], ns["check_in_date"],
+                 ns["short_note"], now_str, user_id, user_name),
+            )
+
+        # Timeline entry
+        db.execute(
+            """INSERT INTO timeline_entries
+               (issue_id, entry_type, body, author_user_id,
+                author_name_snapshot, created_at)
+               VALUES (?, 'comment', ?, ?, ?, ?)""",
+            (issue_id, "Created via Excel upload", user_id, user_name, now_str),
+        )
+        created_count += 1
+
+    # Apply field updates for existing issues
+    # Parse selected_updates: format "42:topic"
+    updates_by_issue = {}  # display_number -> list of field keys
+    for key in selected_updates:
+        parts = key.split(":", 1)
+        if len(parts) == 2:
+            updates_by_issue.setdefault(parts[0], []).append(parts[1])
+
+    # Parse selected_nodes: format "42:node_id:sub"
+    node_updates_by_issue = {}  # display_number -> list of (node_id, sub)
+    for key in selected_nodes:
+        parts = key.split(":", 2)
+        if len(parts) == 3:
+            node_updates_by_issue.setdefault(parts[0], []).append(
+                (int(parts[1]), parts[2]))
+
+    all_dns = set(updates_by_issue.keys()) | set(node_updates_by_issue.keys())
+    for dn in all_dns:
+        ei = excel_map.get(dn)
+        if not ei:
+            continue
+
+        existing = db.execute(
+            "SELECT * FROM issues WHERE display_number = ? AND is_deleted = 0",
+            (dn,),
+        ).fetchone()
+        if not existing:
+            continue
+
+        issue_id = existing["id"]
+        change_details = []
+
+        # Apply issue field changes
+        for field_key in updates_by_issue.get(dn, []):
+            new_val = ei.get(field_key)
+            old_val = existing[field_key]
+            if str(new_val or "") != str(old_val or ""):
+                db.execute(
+                    f"UPDATE issues SET {field_key}=?, updated_at=? WHERE id=?",
+                    (new_val, now_str, issue_id),
+                )
+                change_details.append(f"{field_key}: {old_val} -> {new_val}")
+
+        # Apply node state changes
+        for node_id, sub in node_updates_by_issue.get(dn, []):
+            new_val = ei["nodes"].get(node_id, {}).get(sub)
+
+            db_state = db.execute(
+                "SELECT * FROM issue_node_states WHERE issue_id = ? AND node_id = ?",
+                (issue_id, node_id),
+            ).fetchone()
+
+            old_val = db_state[sub] if db_state else None
+
+            if db_state:
+                db.execute(
+                    f"""UPDATE issue_node_states SET {sub}=?, updated_at=?,
+                        updated_by_user_id=?, updated_by_name_snapshot=?
+                        WHERE issue_id=? AND node_id=?""",
+                    (new_val, now_str, user_id, user_name, issue_id, node_id),
+                )
+            else:
+                node_data = ei["nodes"].get(node_id, {})
+                db.execute(
+                    """INSERT INTO issue_node_states
+                       (issue_id, node_id, state, check_in_date, short_note,
+                        updated_at, updated_by_user_id, updated_by_name_snapshot)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (issue_id, node_id, node_data.get("state"),
+                     node_data.get("check_in_date"), node_data.get("short_note"),
+                     now_str, user_id, user_name),
+                )
+
+            # Timeline entry for node state changes
+            if sub == "state":
+                node_row = db.execute(
+                    "SELECT display_name FROM nodes WHERE id = ?", (node_id,)
+                ).fetchone()
+                node_name = node_row["display_name"] if node_row else f"Node {node_id}"
+                db.execute(
+                    """INSERT INTO timeline_entries
+                       (issue_id, entry_type, node_id, old_state, new_state,
+                        body, author_user_id, author_name_snapshot, created_at)
+                       VALUES (?, 'state_change', ?, ?, ?, ?, ?, ?, ?)""",
+                    (issue_id, node_id, old_val, new_val,
+                     f"Updated via Excel upload ({node_name})",
+                     user_id, user_name, now_str),
+                )
+
+            change_details.append(f"node {node_id}.{sub}: {old_val} -> {new_val}")
+
+        if change_details:
+            # Update issue cache
+            cache = db.execute(
+                """SELECT
+                     MAX(updated_at) as latest,
+                     MIN(CASE WHEN state IN ('done', 'unneeded') THEN 1
+                              WHEN state IS NULL THEN 0
+                              ELSE 0 END) as all_done
+                   FROM issue_node_states WHERE issue_id = ?""",
+                (issue_id,),
+            ).fetchone()
+            db.execute(
+                "UPDATE issues SET latest_update_at=?, all_nodes_done=?, updated_at=? WHERE id=?",
+                (cache["latest"], cache["all_done"] or 0, now_str, issue_id),
+            )
+            updated_count += 1
+
+    db.commit()
+
+    _audit("excel_update", "issues", None, {
+        "filename": request.form.get("filename", ""),
+        "created": created_count,
+        "updated": updated_count,
+    })
+
+    # Clean up temp files
+    for path in (json_path, xlsx_path):
+        if os.path.exists(path):
+            os.remove(path)
+
+    flash(f"Excel update completed: {created_count} new, {updated_count} updated", "success")
+    return redirect(url_for("admin.excel_update"))

@@ -1,0 +1,184 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'excel_update' %}
+{% block title %}Excel Preview — Admin{% endblock %}
+{% block admin_content %}
+<form action="{{ url_for('admin.excel_update_apply') }}" method="POST" x-data="excelPreview()">
+  <input type="hidden" name="batch_id" value="{{ batch_id }}">
+  <input type="hidden" name="filename" value="{{ filename }}">
+
+  {# ── Summary bar ── #}
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <strong>{{ filename }}</strong>
+          <span class="text-muted ms-3">
+            {{ diff.new|length }} new,
+            {{ diff.updated|length }} updated,
+            {{ diff.unchanged }} unchanged
+          </span>
+        </div>
+        <div>
+          <a href="{{ url_for('admin.excel_update') }}" class="btn btn-outline-secondary me-2">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            Confirm &amp; Apply Selected
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── New issues ── #}
+  {% if diff.new %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title">New Issues ({{ diff.new|length }})</h3>
+      <div class="card-actions">
+        <label class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" checked
+                 @change="toggleAll($event, 'new_issue')">
+          <span class="form-check-label">Select All</span>
+        </label>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th style="width:60px">#</th>
+            <th>Topic</th>
+            <th>Owner</th>
+            <th>Week</th>
+            <th>Status</th>
+            <th>JIRA</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for issue in diff.new %}
+          <tr>
+            <td>
+              <input class="form-check-input cb-new_issue" type="checkbox"
+                     name="new_issue" value="{{ issue.display_number }}" checked>
+            </td>
+            <td>{{ issue.display_number }}</td>
+            <td>{{ issue.topic }}</td>
+            <td>{{ issue.requestor_name or '-' }}</td>
+            <td>wk{{ issue.week_year }}{{ '%02d' % issue.week_number }}</td>
+            <td>{{ issue.status }}</td>
+            <td>{{ issue.jira_ticket or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Updated issues ── #}
+  {% if diff.updated %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title">Updated Issues ({{ diff.updated|length }})</h3>
+      <div class="card-actions">
+        <label class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" checked
+                 @change="toggleAll($event, 'update_field'); toggleAll($event, 'update_node')">
+          <span class="form-check-label">Select All</span>
+        </label>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      {% for issue in diff.updated %}
+      <div class="border-bottom {% if not loop.last %}mb-0{% endif %} p-3">
+        <h4 class="mb-2">#{{ issue.display_number }} — {{ issue.topic }}</h4>
+
+        {% if issue.fields %}
+        <table class="table table-sm table-bordered mb-2">
+          <thead>
+            <tr>
+              <th style="width:40px"></th>
+              <th style="width:120px">Field</th>
+              <th>Current Value</th>
+              <th>New Value (Excel)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in issue.fields %}
+            <tr class="{% if f.conflict %}table-warning{% endif %}">
+              <td>
+                <input class="form-check-input cb-update_field" type="checkbox"
+                       name="update_field"
+                       value="{{ issue.display_number }}:{{ f.key }}" checked>
+              </td>
+              <td>
+                {{ f.label }}
+                {% if f.conflict %}<span class="badge bg-yellow text-yellow-fg ms-1">conflict</span>{% endif %}
+              </td>
+              <td><code>{{ f.old }}</code></td>
+              <td><code>{{ f.new }}</code></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+
+        {% if issue.node_changes %}
+        <table class="table table-sm table-bordered mb-0">
+          <thead>
+            <tr>
+              <th style="width:40px"></th>
+              <th style="width:80px">Node</th>
+              <th style="width:80px">Field</th>
+              <th>Current Value</th>
+              <th>New Value (Excel)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for nc in issue.node_changes %}
+            <tr class="{% if nc.conflict %}table-warning{% endif %}">
+              <td>
+                <input class="form-check-input cb-update_node" type="checkbox"
+                       name="update_node"
+                       value="{{ issue.display_number }}:{{ nc.node_id }}:{{ nc.sub }}" checked>
+              </td>
+              <td>
+                {{ nc.node_name }}
+                {% if nc.conflict %}<span class="badge bg-yellow text-yellow-fg ms-1">conflict</span>{% endif %}
+              </td>
+              <td>{{ nc.sub_label }}</td>
+              <td><code>{{ nc.old }}</code></td>
+              <td><code>{{ nc.new }}</code></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Bottom action bar ── #}
+  <div class="d-flex justify-content-end gap-2">
+    <a href="{{ url_for('admin.excel_update') }}" class="btn btn-outline-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      Confirm &amp; Apply Selected
+    </button>
+  </div>
+</form>
+
+<script>
+function excelPreview() {
+  return {
+    toggleAll(event, className) {
+      const checked = event.target.checked;
+      document.querySelectorAll('.cb-' + className).forEach(cb => {
+        cb.checked = checked;
+      });
+    }
+  };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'excel_update' %}
+{% block title %}Excel Update — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Excel Update</h3>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">
+      Upload a new Excel file to update existing issues. The system will compare the file
+      against the current database and show you a preview of all changes before applying.
+    </p>
+    <form action="{{ url_for('admin.excel_update_preview') }}" method="POST" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label class="form-label">Excel File (.xlsx)</label>
+        <input type="file" class="form-control" name="file" accept=".xlsx,.xls" required>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        Upload &amp; Preview Changes
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
