@@ -41,6 +41,11 @@ def dashboard():
     ongoing_count = issue_model.count_by_status("ongoing")
     closed_count = issue_model.count_closed()
 
+    # Trend data for charts
+    trends = issue_model.get_dashboard_trends()
+    total_all = ongoing_count + on_hold_count + closed_count
+    closing_rate = round(closed_count / total_all * 100, 1) if total_all else 0
+
     return render_template(
         "dashboard.html",
         nodes=nodes,
@@ -49,6 +54,8 @@ def dashboard():
         on_hold_count=on_hold_count,
         ongoing_count=ongoing_count,
         closed_count=closed_count,
+        closing_rate=closing_rate,
+        trends=trends,
         red_line_year=red_line_year,
         red_line_week=red_line_week,
         user=g.current_user,

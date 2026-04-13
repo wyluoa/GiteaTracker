@@ -21,9 +21,7 @@
   <div class="col-sm-6 col-lg-3">
     <div class="card">
       <div class="card-body">
-        <div class="d-flex align-items-center">
-          <div class="subheader">Ongoing</div>
-        </div>
+        <div class="subheader">Ongoing</div>
         <div class="h1 mb-0">{{ ongoing_count }}</div>
       </div>
     </div>
@@ -31,9 +29,7 @@
   <div class="col-sm-6 col-lg-3">
     <div class="card" style="border-left: 3px solid #2fb344;">
       <div class="card-body">
-        <div class="d-flex align-items-center">
-          <div class="subheader">Ready to Close</div>
-        </div>
+        <div class="subheader">Ready to Close</div>
         <div class="h1 mb-0 text-green">{{ ready_count }}</div>
       </div>
     </div>
@@ -51,10 +47,39 @@
       <div class="card-body">
         <div class="subheader">Closed</div>
         <div class="h1 mb-0 text-muted">{{ closed_count }}</div>
+        <div class="text-muted" style="font-size:13px;">
+          Closing Rate: <strong>{{ closing_rate }}%</strong>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+{# ── Charts ── #}
+{% if trends.weeks %}
+<div class="row row-deck row-cards mb-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Issue Cumulative Trend</h3>
+      </div>
+      <div class="card-body">
+        <canvas id="chartCumulative" height="280"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Closing Rate Trend</h3>
+      </div>
+      <div class="card-body">
+        <canvas id="chartClosingRate" height="280"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {# ── Per-node cards (above red line, not done) ── #}
 {% if red_line_year %}
@@ -90,5 +115,107 @@
     <a href="{{ url_for('main.closed') }}" class="btn btn-outline-secondary">Closed Issues</a>
   </div>
 </div>
+
+{% if trends.weeks %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  const weeks = {{ trends.weeks | tojson }};
+  const cumData = {{ trends.cumulative | tojson }};
+  const rates  = {{ trends.closing_rates | tojson }};
+
+  // ── Stacked Bar: Cumulative Issue Trend ──
+  new Chart(document.getElementById('chartCumulative'), {
+    type: 'bar',
+    data: {
+      labels: weeks,
+      datasets: [
+        {
+          label: 'Close',
+          data: cumData.map(d => d.Close),
+          backgroundColor: '#6c757d',
+        },
+        {
+          label: 'UAT',
+          data: cumData.map(d => d.UAT),
+          backgroundColor: '#e67e22',
+        },
+        {
+          label: 'Dev',
+          data: cumData.map(d => d.Dev),
+          backgroundColor: '#3498db',
+        },
+        {
+          label: 'TBD',
+          data: cumData.map(d => d.TBD),
+          backgroundColor: '#8e44ad',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            afterBody: function(ctx) {
+              const idx = ctx[0].dataIndex;
+              const d = cumData[idx];
+              const total = d.Close + d.UAT + d.Dev + d.TBD;
+              return 'Total: ' + total;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true,
+             title: { display: true, text: 'Issues' } },
+      },
+    },
+  });
+
+  // ── Line: Closing Rate Trend ──
+  new Chart(document.getElementById('chartClosingRate'), {
+    type: 'line',
+    data: {
+      labels: weeks,
+      datasets: [{
+        label: 'Closing Rate (%)',
+        data: rates,
+        borderColor: '#2fb344',
+        backgroundColor: 'rgba(47,179,68,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.parsed.y + '%',
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: 'Closing Rate (%)' },
+          ticks: { callback: v => v + '%' },
+        },
+      },
+    },
+  });
+})();
+</script>
+{% endif %}
 
 {% endblock %}

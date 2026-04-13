@@ -144,3 +144,82 @@ def refresh_cache(issue_id):
             (row["latest"], row["all_done"] or 0, _now(), issue_id),
         )
         db.commit()
+
+
+def get_dashboard_trends():
+    """Return weekly cumulative data for dashboard charts.
+
+    Each issue is classified into a phase:
+      - Close:  status = 'closed'
+      - UAT:    any node in ('uat', 'uat_done')
+      - Dev:    any node in 'developing'
+      - TBD:    everything else (ongoing, nodes blank or tbd)
+
+    Returns dict with keys: weeks, cumulative, closing_rates.
+    """
+    db = get_db()
+
+    issues = db.execute(
+        """SELECT id, week_year, week_number, status
+           FROM issues WHERE is_deleted = 0
+           ORDER BY week_year, week_number"""
+    ).fetchall()
+
+    if not issues:
+        return {"weeks": [], "cumulative": [], "closing_rates": []}
+
+    # Determine dominant non-done phase per issue
+    issue_ids = [i["id"] for i in issues]
+    ph = ",".join("?" * len(issue_ids))
+    state_rows = db.execute(
+        f"""SELECT issue_id,
+                   MAX(CASE WHEN state IN ('uat', 'uat_done') THEN 3
+                            WHEN state = 'developing' THEN 2
+                            WHEN state = 'tbd' THEN 1
+                            ELSE 0 END) as max_phase
+            FROM issue_node_states
+            WHERE issue_id IN ({ph})
+            GROUP BY issue_id""",
+        issue_ids,
+    ).fetchall()
+    phase_map = {r["issue_id"]: r["max_phase"] for r in state_rows}
+
+    def _phase(issue):
+        if issue["status"] == "closed":
+            return "Close"
+        mp = phase_map.get(issue["id"], 0)
+        if mp >= 3:
+            return "UAT"
+        if mp >= 2:
+            return "Dev"
+        return "TBD"
+
+    # Collect unique weeks and count per phase
+    weeks_set = sorted({(i["week_year"], i["week_number"]) for i in issues})
+    week_counts = {}
+    for i in issues:
+        wk = (i["week_year"], i["week_number"])
+        week_counts.setdefault(wk, {"TBD": 0, "Dev": 0, "UAT": 0, "Close": 0})
+        week_counts[wk][_phase(i)] += 1
+
+    # Build cumulative series
+    cum = {"TBD": 0, "Dev": 0, "UAT": 0, "Close": 0}
+    result_weeks = []
+    result_cum = []
+    result_rates = []
+
+    for wk in weeks_set:
+        c = week_counts.get(wk, {"TBD": 0, "Dev": 0, "UAT": 0, "Close": 0})
+        for p in ("TBD", "Dev", "UAT", "Close"):
+            cum[p] += c[p]
+        total = sum(cum.values())
+        rate = round(cum["Close"] / total * 100, 1) if total else 0
+        result_weeks.append(f"wk{wk[0]}{wk[1]:02d}")
+        result_cum.append(dict(cum))
+        result_rates.append(rate)
+
+    return {
+        "weeks": result_weeks,
+        "cumulative": result_cum,
+        "closing_rates": result_rates,
+    }
