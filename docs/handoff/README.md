@@ -32,14 +32,16 @@
 
 | Phase | 內容 | 狀態 |
 |---|---|---|
-| 0 | 專案骨架、DB init、placeholder 首頁 | ✅ **已完成**(`phase0_starter_code/`) |
-| 1 | 核心資料模型 + 主畫面唯讀版 + Excel 匯入 | 待開發 |
-| 2 | Cell 編輯 + Timeline + 會議紀錄 | 待開發 |
-| 3 | 帳號系統 + 權限 + Admin 後台 | 待開發 |
-| 4 | 附件 + 版本差異 + 搜尋篩選 + 匯出 | 待開發 |
-| 5 | Dashboard + Calendar + Closed 分頁 + 批次操作 | 待開發 |
-| 6 | 精修 + 部署 + 正式切換 | 待開發 |
-| 7 | 寄信提醒等後續迭代 | 待開發 |
+| 0 | 專案骨架、DB init、placeholder 首頁 | ✅ 已完成 |
+| 1 | 核心資料模型 + 主畫面唯讀版 + Excel 匯入 | ✅ 已完成 |
+| 2 | Cell 編輯 + Timeline + 會議紀錄 | ✅ 已完成 |
+| 3 | 帳號系統 + 權限 + Admin 後台 | ✅ 已完成 |
+| 4 | 附件 + 版本差異 + 搜尋篩選 + 匯出 | ✅ 已完成 |
+| 4.5 | 進階篩選 + Live cell sync + 表格 UX | ✅ 已完成 |
+| 5 | Dashboard + Calendar + Closed 分頁 + 批次操作 | ✅ 已完成 |
+| 6 | Error pages + 軟刪除 + 部署設定 + UX 修正 | ✅ 已完成 |
+| 6.5 | Excel 上傳更新(Admin diff preview) | ✅ 已完成 |
+| 7 | 寄信提醒、週報、Gitea API 等 | post-launch |
 
 ## 技術棧(已決定,不可變更)
 
@@ -50,7 +52,7 @@
 - **資料庫**: SQLite(單檔,放在 `data/` 目錄)
 - **附件儲存**: 檔案系統(`attachments/<year>/<month>/<uuid>.<ext>`)
 - **部署環境**: RHEL 7/8 內網機器
-- **部署方式**: 手動 `python main.py` + systemd,或透過 `.drone.yml` 自動化
+- **部署方式**: nohup + PID file(無 sudo,不使用 systemd),或透過 `.drone.yml` 自動化
 - **郵件**: 透過內部 mail server(密碼 reset、未來提醒)
 
 **為什麼這個技術棧?**
@@ -65,10 +67,10 @@
 
 1. **先讀完 `01_context.md` 跟 `02_requirements.md`**,確保理解業務 domain
 2. **看 `04_ui_wireframe.html`**(用瀏覽器),不能看圖的話讀 `05_ui_wireframe_description.md`
-3. **看 `06_phase_plan.md`** 知道目前在哪、下一步要做什麼
+3. **看 `06_phase_plan.md`** 知道目前在哪、下一步要做什麼（Phase 0~6.5 已完成,Phase 7 待開發）
 4. **看 `07_design_decisions_qa.md`** 理解為什麼某些設計這樣選,避免重新討論已決定的事
-5. **看 `phase0_starter_code/README.md`** 了解現有程式碼結構
-6. 開始開發 Phase 1 之前,可以先把 `phase0_starter_code/` 跑起來確認環境
+5. **直接讀專案根目錄的 `README.md`** 了解現有程式碼結構與快速啟動方式
+6. 部署相關資訊參考 `deploy/DEPLOY.md`（含 bash + csh 指令對照）
 
 ## 重要約束
 

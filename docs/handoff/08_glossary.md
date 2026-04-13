@@ -64,6 +64,7 @@
 | **Meeting Owner** | 負責主持 Gitea meeting、維護追蹤表的人。在本系統中通常有 super user 權限 |
 | **Super user** | 系統的管理員角色,能做所有事:管理 users/groups/nodes、關單/反關單、改紅線、查 audit log 等 |
 | **Group** | 權限分組。一個 group 對應多個 node、包含多個 user。user 透過 group 取得編輯某 node 的權限 |
+| **Excel Update** | Admin 後台的 Excel 上傳更新功能。上傳 .xlsx 後系統比對 DB 差異,顯示預覽,衝突欄位黃底標示,逐欄勾選後確認寫入。變更記錄在 timeline 及 audit log |
 | **Legacy user** | 假帳號,狀態為 disabled,只用於匯入舊資料時的 `updated_by` 欄位 |
 
 ## 技術術語(常被混淆)

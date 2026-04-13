@@ -53,7 +53,8 @@ covering start/stop scripts, backup/restore, and upgrade procedures. No sudo req
 - **Calendar** — monthly view of check-in dates with quick-done buttons
 - **Meeting mode** — batch meeting note entry per week
 - **Closed issues** — paginated list with search and reopen (super user)
-- **Admin backend** — user approval, groups, nodes, red line, SMTP, audit log
+- **Excel update** — upload new Excel to update data with diff preview and conflict detection (admin)
+- **Admin backend** — user approval, groups, nodes, red line, SMTP, Excel update, audit log
 - **Accounts** — registration, login, forgot password, role-based permissions
 - **Attachments** — file upload (png/jpg/pdf) with timeline display
 - **Version diff** — yellow highlight for changes since last viewed
@@ -74,6 +75,7 @@ covering start/stop scripts, backup/restore, and upgrade procedures. No sudo req
 | 4.5 | Advanced filters + live cell sync + table UX | done |
 | 5 | Dashboard + calendar + closed page + batch ops | done |
 | 6 | Error pages + soft delete + deploy config + UX fixes | done |
+| 6.5 | Excel upload update with diff preview (admin) | done |
 | 7 | Email reminders, weekly summary, Gitea API, etc. | post-launch |
 
 ## Project layout
@@ -89,6 +91,7 @@ GiteaTracker/
 ├── app/
 │   ├── __init__.py        # Flask app factory
 │   ├── db.py              # SQLite connection helper
+│   ├── excel.py           # Shared Excel parsing utilities
 │   ├── schema.sql         # CREATE TABLE statements
 │   ├── models/            # Data access layer
 │   ├── routes/            # Flask blueprints

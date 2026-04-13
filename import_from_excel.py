@@ -1,10 +1,14 @@
 """
-Import issues from the Gitea meeting Excel control table.
+Import issues from the Gitea meeting Excel control table (CLI).
 
 Usage:
     python import_from_excel.py --file "samples/gitea table sample.xlsx"
 
 Idempotent: re-running will UPDATE existing issues (matched by display_number).
+
+Note: For ongoing updates after initial import, use the web-based
+Admin -> Excel Update feature instead, which provides diff preview
+and conflict detection.
 """
 import argparse
 import re

@@ -165,6 +165,10 @@ cd ~/gitea-tracker
 ```
 
 > **首次登入後請立即到 Admin 修改 super user 密碼。**
+>
+> **後續更新**：上線後如需用 Excel 更新資料，可透過 Admin → Excel Update
+> 網頁介面上傳，系統會顯示差異預覽、標示衝突，確認後才寫入。
+> 不需要再用 CLI 指令。
 
 ---
 
@@ -217,6 +221,7 @@ tail -100 ~/gitea-tracker/logs/app.log
 [ ] /tracker  顯示追蹤表，資料與 Excel 一致
 [ ] 點擊 cell 可開啟側面板
 [ ] /admin    可進入管理後台
+[ ] /admin/excel_update  Excel 上傳更新功能正常
 [ ] 上傳附件功能正常
 ```
 
@@ -380,6 +385,7 @@ find ~/gitea-tracker -name "*.pyc" -delete
 ├── requirements.txt         # Python 套件清單
 ├── venv/                    # Python 虛擬環境
 ├── app/                     # Flask 應用程式碼
+│   ├── excel.py             #   Excel 解析共用模組
 │   ├── schema.sql
 │   ├── routes/
 │   ├── models/

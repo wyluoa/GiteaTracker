@@ -12,14 +12,14 @@
 - **CSS**:Tabler 或 Pico CSS
 - **資料庫**:SQLite
 - **附件儲存**:檔案系統 (`attachments/<year>/<month>/<uuid>.<ext>`)
-- **部署環境**:RHEL 7/8 內網機器,手動 `python main.py` 或 drone CI/CD
+- **部署環境**:RHEL 7/8 內網機器,無 sudo 權限,使用 nohup + PID file 管理,或透過 drone CI/CD 自動部署
 - **郵件**:透過內部 mail server 寄發
 
 ## 角色與權限
 
 | 角色 | 權限 |
 |---|---|
-| Super User (Meeting Owner) | 所有權限:新增題目、關單 / 反關單、管理 users 與 groups、指派 group 可編輯的 nodes、approve 註冊申請、後台管理、設定紅線 |
+| Super User (Meeting Owner) | 所有權限:新增題目、關單 / 反關單、管理 users 與 groups、指派 group 可編輯的 nodes、approve 註冊申請、後台管理、設定紅線、Excel 上傳更新 |
 | Group 成員 | 只能編輯自己所屬 group 可管理的 node 的 cell;可在任何題目新增留言 / 會議紀錄 |
 | 一般登入使用者 | 全部 read-only;可新增留言 |
 | 未登入訪客 | 無法存取 |
@@ -160,16 +160,25 @@
 
 ## 匯入
 
-- 腳本 `import_from_excel.py`,可重複執行 (idempotent)
+- CLI 腳本 `import_from_excel.py`,可重複執行 (idempotent),用於初始匯入
 - **合併儲存格處理**:讀 `ws.merged_cells.ranges`,把範圍內所有 cell 填回左上角的值
 - 歷史資料的 updated_by 全部掛在 `legacy` 假帳號
 - 已關單題目一併匯入到 Closed 分頁
 
+## Excel 上傳更新(Web)
+
+- Admin → Excel Update,super user 可透過網頁上傳新 Excel 更新現有資料
+- 上傳後顯示差異預覽:新增 issue、修改欄位、node 狀態變更
+- 衝突標示:DB 值與 Excel 值都不同時黃底標示,讓使用者自行決定
+- 逐欄勾選要套用的變更,確認後才寫入
+- 所有變更記錄在 timeline 及 audit log
+
 ## 切換策略
 
-1. Day 1:Excel 一次匯入作初始資料
+1. Day 1:用 CLI `import_from_excel.py` 一次匯入作初始資料
 2. 並行期:Excel 仍是 source of truth
 3. 穩定後:重新匯入覆蓋,停用 Excel
+4. 切換後:如需用 Excel 更新,透過 Admin → Excel Update 網頁介面操作
 
 ## 其他功能
 

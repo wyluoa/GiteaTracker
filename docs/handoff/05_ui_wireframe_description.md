@@ -325,7 +325,17 @@
 - mail server host / port / username / password / from email
 - 寄送測試信功能
 
-### 7.7 Audit Log (`/admin/audit`)
+### 7.7 Excel Update (`/admin/excel_update`)
+- 上傳 .xlsx 檔案
+- 系統解析後顯示差異預覽表:
+  - **新增 issue**:Excel 有但 DB 沒有的題目,顯示為 New Issues 區塊
+  - **修改 issue**:逐欄顯示 Current Value vs New Value (Excel)
+  - **衝突標示**:DB 值與 Excel 值都不同時,該列黃底加 `conflict` badge
+- 每個變更項目有 checkbox,可單獨勾選/取消
+- Select All toggle 可一鍵全選/全取消
+- 確認後寫入 DB,同時記錄 timeline entry 和 audit log
+
+### 7.8 Audit Log (`/admin/audit`)
 時間倒序列出所有 audit_log 紀錄,可篩選 actor / action / target。
 
 ---
