@@ -10,13 +10,14 @@ trigger:
 
 steps:
   - name: install
-    image: python:3.11-slim
+    image: python:3.12-slim
     commands:
       - pip install -r requirements.txt
 
   - name: test
-    image: python:3.11-slim
+    image: python:3.12-slim
     commands:
+      - pip install -r requirements.txt
       - python -c "from app import create_app; app = create_app(); print('App OK')"
 
   - name: deploy
@@ -29,7 +30,10 @@ steps:
       key:
         from_secret: deploy_key
       script:
-        - cd /opt/gitea-tracker
+        - cd ~/gitea-tracker
         - git pull origin main
         - ./venv/bin/pip install -r requirements.txt
-        - sudo systemctl restart gitea-tracker
+        - ./deploy/stop.sh
+        - ./deploy/start.sh
+        - sleep 2
+        - curl -sf http://127.0.0.1:5000/healthz || echo "WARNING: healthz check failed"

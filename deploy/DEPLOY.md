@@ -3,6 +3,11 @@
 本文件說明如何在 f12titan 主機上部署 Gitea Tracker。
 全程**不需要 sudo / root 權限**。
 
+> **Shell 說明**：本文件同時提供 **bash** 和 **csh/tcsh** 兩種指令。
+> f12titan 使用 csh，請依照標示 `csh` 的區塊操作。
+> 部署腳本（`start.sh`、`stop.sh` 等）內部使用 bash（有 shebang），
+> 從 csh 直接呼叫即可正常執行，不需要切換 shell。
+
 ---
 
 ## 目錄
@@ -31,7 +36,7 @@
 
 確認 Python 版本：
 
-```bash
+```
 python3 --version
 ```
 
@@ -41,34 +46,54 @@ python3 --version
 
 ## 2. 安裝程式碼
 
+**bash：**
+
 ```bash
-# 在 home 目錄下建立應用目錄
 cd ~
 git clone https://github.com/wyluoa/GiteaTracker.git gitea-tracker
 cd ~/gitea-tracker
 
-# 建立 Python 虛擬環境並安裝套件
 python3 -m venv venv
-./venv/bin/pip install --upgrade pip
-./venv/bin/pip install -r requirements.txt
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 
-# 建立資料目錄
 mkdir -p data/attachments
 mkdir -p backups
 ```
+
+**csh / tcsh：**
+
+```csh
+cd ~
+git clone https://github.com/wyluoa/GiteaTracker.git gitea-tracker
+cd ~/gitea-tracker
+
+python3 -m venv venv
+source venv/bin/activate.csh
+pip install --upgrade pip
+pip install -r requirements.txt
+
+mkdir -p data/attachments
+mkdir -p backups
+```
+
+> **差異**：csh 要用 `source venv/bin/activate.csh`（不是 `activate`）。
 
 ---
 
 ## 3. 設定環境變數
 
-在專案根目錄建立 `.env` 檔：
+### 方式 A：使用 .env 檔（推薦）
 
-```bash
+應用程式透過 python-dotenv 讀取 `.env`，跟你的 shell 無關，**bash 和 csh 通用**：
+
+```
 cd ~/gitea-tracker
-cp .env.example .env    # 如果有範本的話
+cp .env.example .env
 ```
 
-編輯 `.env`，內容如下：
+編輯 `.env`：
 
 ```ini
 SECRET_KEY=（貼上下方指令產生的隨機字串）
@@ -78,12 +103,34 @@ PORT=5000
 
 產生隨機 SECRET_KEY：
 
-```bash
-python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+./venv/bin/python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
 > `HOST=0.0.0.0` 表示接受來自內網其他機器的連線。
 > 其他設定項（DB_PATH、ATTACHMENT_DIR 等）使用預設值即可，不需要額外設定。
+
+### 方式 B：使用 shell 環境變數（臨時測試用）
+
+如果你不想建 `.env` 檔，可以直接在 shell 設定：
+
+**bash：**
+
+```bash
+export SECRET_KEY="your-secret-key-here"
+export HOST="0.0.0.0"
+export PORT="5000"
+```
+
+**csh / tcsh：**
+
+```csh
+setenv SECRET_KEY "your-secret-key-here"
+setenv HOST "0.0.0.0"
+setenv PORT "5000"
+```
+
+> 注意：shell 環境變數在登出後會消失，正式部署建議用方式 A（`.env` 檔）。
 
 ### 所有可用設定項（參考）
 
@@ -102,7 +149,9 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 
 ## 4. 初始化資料庫與匯入資料
 
-```bash
+以下指令 bash / csh 通用（直接呼叫 venv 裡的 python）：
+
+```
 cd ~/gitea-tracker
 
 # 建立資料表
@@ -121,9 +170,11 @@ cd ~/gitea-tracker
 
 ## 5. 啟動與停止服務
 
+以下指令 bash / csh 通用（腳本內部使用 `#!/bin/bash`，從 csh 呼叫也可以正常執行）：
+
 ### 啟動
 
-```bash
+```
 cd ~/gitea-tracker
 ./deploy/start.sh
 ```
@@ -132,19 +183,19 @@ cd ~/gitea-tracker
 
 ### 停止
 
-```bash
+```
 ~/gitea-tracker/deploy/stop.sh
 ```
 
 ### 查看狀態
 
-```bash
+```
 ~/gitea-tracker/deploy/status.sh
 ```
 
 ### 查看 log
 
-```bash
+```
 # 即時追蹤
 tail -f ~/gitea-tracker/logs/app.log
 
@@ -185,7 +236,7 @@ tail -100 ~/gitea-tracker/logs/app.log
 
 ### 重啟服務
 
-```bash
+```
 ~/gitea-tracker/deploy/stop.sh
 ~/gitea-tracker/deploy/start.sh
 ```
@@ -196,7 +247,7 @@ tail -100 ~/gitea-tracker/logs/app.log
 
 ### 手動備份
 
-```bash
+```
 ~/gitea-tracker/deploy/backup.sh
 ```
 
@@ -207,15 +258,18 @@ tail -100 ~/gitea-tracker/logs/app.log
 
 ### 設定每日自動備份（user crontab）
 
-```bash
+```
 crontab -e
 # 加入以下這行（每天凌晨 2 點備份）：
 0 2 * * * ~/gitea-tracker/deploy/backup.sh
 ```
 
+> `crontab` 跟你的 login shell 無關，上面的指令 bash/csh 都一樣。
+> crontab 預設以 `/bin/sh` 執行，而 `backup.sh` 有 `#!/bin/bash` shebang，所以不受影響。
+
 ### 還原
 
-```bash
+```
 # 還原資料庫 + 附件
 ~/gitea-tracker/deploy/restore.sh \
   backups/gitea_tracker_20260412_020000.db \
@@ -226,13 +280,16 @@ crontab -e
   backups/gitea_tracker_20260412_020000.db
 ```
 
+> csh 中反斜線換行（`\`）也可以使用，語法相同。
 > 還原時腳本會自動停止並重啟服務。
 
 ---
 
 ## 9. 升級流程
 
-```bash
+以下指令 bash / csh 通用：
+
+```
 cd ~/gitea-tracker
 
 # 1. 先備份
@@ -260,7 +317,7 @@ curl http://127.0.0.1:5000/healthz
 
 ### 服務啟動失敗
 
-```bash
+```
 # 查看 log
 cat ~/gitea-tracker/logs/app.log
 
@@ -273,7 +330,7 @@ cat ~/gitea-tracker/logs/app.log
 
 ### 無法從其他電腦連線
 
-```bash
+```
 # 確認 .env 中 HOST=0.0.0.0（不是 127.0.0.1）
 grep HOST .env
 
@@ -286,22 +343,31 @@ curl http://127.0.0.1:5000/healthz
 
 ### 檔案上傳失敗
 
-```bash
+```
 # 確認附件目錄存在且有寫入權限
 ls -la ~/gitea-tracker/data/attachments/
 ```
 
 ### 資料庫被鎖定 (database is locked)
 
-```bash
+```
 # SQLite 同時只允許一個寫入。正常使用不會發生此問題。
 # 如果發生，確認沒有其他程序正在存取 DB：
 fuser ~/gitea-tracker/data/gitea_tracker.db
 ```
 
+### ImportError: cannot import name 'db' from 'app'
+
+```
+# 這通常是 __pycache__ 殘留或目錄下有名為 app.py 的檔案衝突。
+# 清除所有快取：
+find ~/gitea-tracker -type d -name __pycache__ -exec rm -rf {} +
+find ~/gitea-tracker -name "*.pyc" -delete
+```
+
 ---
 
-## 附錄：完整檔案結構
+## 附錄 A：完整檔案結構
 
 ```
 ~/gitea-tracker/
@@ -333,3 +399,19 @@ fuser ~/gitea-tracker/data/gitea_tracker.db
     ├── backup.sh            #   備份腳本
     └── restore.sh           #   還原腳本
 ```
+
+## 附錄 B：bash vs csh 對照速查
+
+| 用途 | bash | csh / tcsh |
+|------|------|------------|
+| 啟用 virtualenv | `source venv/bin/activate` | `source venv/bin/activate.csh` |
+| 設定環境變數 | `export VAR="value"` | `setenv VAR "value"` |
+| 取消環境變數 | `unset VAR` | `unsetenv VAR` |
+| 查看環境變數 | `echo $VAR` | `echo $VAR` |
+| 查看所有環境變數 | `env` | `env` |
+| 背景執行 | `command &` | `command &` |
+| 重導向（stdout+stderr） | `cmd >> file 2>&1` | `cmd >>& file` |
+| 條件判斷 | `if [ -f file ]; then ... fi` | `if ( -f file ) then ... endif` |
+| 迴圈 | `for f in *.log; do ... done` | `foreach f (*.log) ... end` |
+
+> 部署腳本（`.sh`）有 `#!/bin/bash` shebang，從 csh 直接 `./deploy/start.sh` 即可，不需要切 shell。

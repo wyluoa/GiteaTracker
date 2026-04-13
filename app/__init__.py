@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from flask import Flask
 from config import get_config
-from app import db
+from . import db
 from app.routes import main as main_routes
 from app.routes import auth as auth_routes
 from app.routes import issues as issue_routes

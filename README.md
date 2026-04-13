@@ -13,28 +13,29 @@ Excel-based control table.
 
 ## Quick start (local development)
 
+**bash：**
+
 ```bash
-# 1. Clone and create virtualenv
 git clone https://github.com/wyluoa/GiteaTracker.git
 cd GiteaTracker
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip && pip install -r requirements.txt
+cp .env.example .env        # edit if needed; defaults work for local dev
+python init_db.py && python seed.py
+python main.py
+```
 
-# 2. Install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
+**csh / tcsh：**
 
-# 3. Configure (optional)
-cp .env.example .env   # edit if needed; defaults work for local dev
-
-# 4. Initialize database and seed data
-python init_db.py
-python seed.py
-
-# 5. Import Excel data (optional)
-python import_from_excel.py --file samples/tracker.xlsx
-
-# 6. Run
+```csh
+git clone https://github.com/wyluoa/GiteaTracker.git
+cd GiteaTracker
+python3 -m venv venv
+source venv/bin/activate.csh
+pip install --upgrade pip && pip install -r requirements.txt
+cp .env.example .env        # edit if needed; defaults work for local dev
+python init_db.py && python seed.py
 python main.py
 ```
 
