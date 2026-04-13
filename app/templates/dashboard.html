@@ -18,7 +18,7 @@
 
 {# ── Summary cards ── #}
 <div class="row row-deck row-cards mb-3">
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg">
     <div class="card">
       <div class="card-body">
         <div class="subheader">Ongoing</div>
@@ -26,7 +26,7 @@
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg">
     <div class="card" style="border-left: 3px solid #2fb344;">
       <div class="card-body">
         <div class="subheader">Ready to Close</div>
@@ -34,7 +34,7 @@
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg">
     <div class="card" style="border-left: 3px solid #f76707;">
       <div class="card-body">
         <div class="subheader">On Hold</div>
@@ -42,7 +42,7 @@
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg">
     <div class="card" style="border-left: 3px solid #6c757d;">
       <div class="card-body">
         <div class="subheader">Closed</div>
@@ -53,15 +53,57 @@
       </div>
     </div>
   </div>
+  <div class="col-6 col-lg">
+    <div class="card" style="border-left: 3px solid #206bc4;">
+      <div class="card-body">
+        <div class="subheader">Closing Rate (excl. MtM)</div>
+        <div class="h1 mb-0 text-blue">{{ closing_rate_ex_mtm }}%</div>
+        <div class="text-muted" style="font-size:13px;">
+          {{ eff_closed_ex_mtm }} / {{ ongoing_count + on_hold_count + closed_count }} 筆
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-{# ── Charts ── #}
+{# ── Aging summary cards ── #}
+<div class="row row-deck row-cards mb-3">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Avg. Days to Close</div>
+        <div class="h1 mb-0">{{ aging.avg_days_to_close }}</div>
+        <div class="text-muted" style="font-size:13px;">天</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card" style="border-left: 3px solid #d63939;">
+      <div class="card-body">
+        <div class="subheader">Stale Topics (3+ 個月未更新)</div>
+        <div class="h1 mb-0 {{ 'text-red' if aging.stale_issues else 'text-green' }}">
+          {{ aging.stale_issues|length }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card" style="border-left: 3px solid #2fb344;">
+      <div class="card-body">
+        <div class="subheader">Almost Done (剩 1-2 nodes)</div>
+        <div class="h1 mb-0 text-green">{{ almost_done|length }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Charts row 1: Cumulative + Closing Rate ── #}
 {% if trends.weeks %}
 <div class="row row-deck row-cards mb-3">
   <div class="col-lg-7">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Issue Cumulative Trend</h3>
+        <h3 class="card-title">Topic Cumulative Trend</h3>
       </div>
       <div class="card-body">
         <canvas id="chartCumulative" height="280"></canvas>
@@ -77,6 +119,108 @@
         <canvas id="chartClosingRate" height="280"></canvas>
       </div>
     </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Charts row 2: Velocity ── #}
+{% if velocity.weeks %}
+<div class="row row-deck row-cards mb-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Weekly Velocity（新增 vs 關閉）</h3>
+      </div>
+      <div class="card-body">
+        <canvas id="chartVelocity" height="260"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Bottleneck Nodes（僅剩 1-2 nodes 時的 blocker）</h3>
+      </div>
+      <div class="card-body">
+        <canvas id="chartBottleneck" height="260"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Almost Done table ── #}
+{% if almost_done %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="card-title">Almost Done — 只剩 1-2 個 Node 未完成</h3>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-sm">
+      <thead>
+        <tr>
+          <th style="width:60px;">#</th>
+          <th>Topic</th>
+          <th style="width:80px;">Owner</th>
+          <th style="width:90px;">Week</th>
+          <th style="width:50px;">剩餘</th>
+          <th>未完成 Nodes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in almost_done %}
+        <tr>
+          <td><strong>{{ item.display_number }}</strong></td>
+          <td>{{ item.topic }}</td>
+          <td>{{ item.requestor_name or '' }}</td>
+          <td>{{ item.week_label }}</td>
+          <td>
+            <span class="badge {{ 'bg-green-lt' if item.remaining_count == 1 else 'bg-yellow-lt' }}">
+              {{ item.remaining_count }}
+            </span>
+          </td>
+          <td>
+            {% for name in item.remaining_nodes %}
+              <span class="badge bg-orange-lt">{{ name }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Stale Topics table ── #}
+{% if aging.stale_issues %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="card-title">Stale Topics — 超過 3 個月未更新</h3>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-sm">
+      <thead>
+        <tr>
+          <th style="width:60px;">#</th>
+          <th>Topic</th>
+          <th style="width:80px;">Owner</th>
+          <th style="width:90px;">Week</th>
+          <th style="width:100px;">未更新天數</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in aging.stale_issues %}
+        <tr>
+          <td><strong>{{ item.display_number }}</strong></td>
+          <td>{{ item.topic }}</td>
+          <td>{{ item.requestor_name or '' }}</td>
+          <td>{{ item.week_label }}</td>
+          <td><span class="badge bg-red-lt">{{ item.days_stale }} 天</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 {% endif %}
@@ -103,8 +247,44 @@
 <div class="alert alert-info">尚未設定紅線，無法顯示 per-node 統計。請到 Admin 設定紅線。</div>
 {% endif %}
 
+{# ── UAT per Node ── #}
+<h3 class="mb-2" style="font-size:15px;">
+  UAT 統計（per Node）— 共 <strong>{{ uat_total }}</strong> 筆
+</h3>
+<div class="row row-deck row-cards mb-3">
+  {% for node in nodes %}
+    {% set cnt = uat_per_node.get(node.id, 0) %}
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <div class="subheader">{{ node.display_name }}</div>
+          <div class="h1 mb-0 {{ 'text-orange' if cnt > 0 else 'text-muted' }}">{{ cnt }}</div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{# ── TBD per Node ── #}
+<h3 class="mb-2" style="font-size:15px;">
+  TBD 統計（per Node）— 共 <strong>{{ tbd_total }}</strong> 筆
+</h3>
+<div class="row row-deck row-cards mb-3">
+  {% for node in nodes %}
+    {% set cnt = tbd_per_node.get(node.id, 0) %}
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <div class="subheader">{{ node.display_name }}</div>
+          <div class="h1 mb-0 {{ 'text-purple' if cnt > 0 else 'text-muted' }}">{{ cnt }}</div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
 {# ── Quick links ── #}
-<div class="row">
+<div class="row mb-3">
   <div class="col-auto">
     <a href="{{ url_for('main.tracker') }}" class="btn btn-primary">開啟 Tracker 主表格</a>
   </div>
@@ -112,108 +292,128 @@
     <a href="{{ url_for('main.calendar_view') }}" class="btn btn-outline-primary">上線行事曆</a>
   </div>
   <div class="col-auto">
-    <a href="{{ url_for('main.closed') }}" class="btn btn-outline-secondary">Closed Issues</a>
+    <a href="{{ url_for('main.closed') }}" class="btn btn-outline-secondary">Closed Topics</a>
   </div>
 </div>
 
-{% if trends.weeks %}
-<!-- Chart.js CDN -->
+{# ── Chart.js ── #}
+{% if trends.weeks or velocity.weeks %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 (function() {
+  {# ── Stacked Bar: Cumulative Topic Trend ── #}
+  {% if trends.weeks %}
   const weeks = {{ trends.weeks | tojson }};
   const cumData = {{ trends.cumulative | tojson }};
   const rates  = {{ trends.closing_rates | tojson }};
 
-  // ── Stacked Bar: Cumulative Issue Trend ──
   new Chart(document.getElementById('chartCumulative'), {
     type: 'bar',
     data: {
       labels: weeks,
       datasets: [
-        {
-          label: 'Close',
-          data: cumData.map(d => d.Close),
-          backgroundColor: '#6c757d',
-        },
-        {
-          label: 'UAT',
-          data: cumData.map(d => d.UAT),
-          backgroundColor: '#e67e22',
-        },
-        {
-          label: 'Dev',
-          data: cumData.map(d => d.Dev),
-          backgroundColor: '#3498db',
-        },
-        {
-          label: 'TBD',
-          data: cumData.map(d => d.TBD),
-          backgroundColor: '#8e44ad',
-        },
+        { label: 'Close', data: cumData.map(d => d.Close), backgroundColor: '#6c757d' },
+        { label: 'UAT',   data: cumData.map(d => d.UAT),   backgroundColor: '#e67e22' },
+        { label: 'Dev',   data: cumData.map(d => d.Dev),    backgroundColor: '#3498db' },
+        { label: 'TBD',   data: cumData.map(d => d.TBD),    backgroundColor: '#8e44ad' },
       ],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { position: 'top' },
-        tooltip: {
-          callbacks: {
-            afterBody: function(ctx) {
-              const idx = ctx[0].dataIndex;
-              const d = cumData[idx];
-              const total = d.Close + d.UAT + d.Dev + d.TBD;
-              return 'Total: ' + total;
-            }
+        tooltip: { callbacks: {
+          afterBody: function(ctx) {
+            const d = cumData[ctx[0].dataIndex];
+            return 'Total: ' + (d.Close + d.UAT + d.Dev + d.TBD);
           }
-        }
+        }}
       },
       scales: {
         x: { stacked: true },
-        y: { stacked: true, beginAtZero: true,
-             title: { display: true, text: 'Issues' } },
+        y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Topics' } },
       },
     },
   });
 
-  // ── Line: Closing Rate Trend ──
   new Chart(document.getElementById('chartClosingRate'), {
     type: 'line',
     data: {
       labels: weeks,
       datasets: [{
-        label: 'Closing Rate (%)',
-        data: rates,
-        borderColor: '#2fb344',
-        backgroundColor: 'rgba(47,179,68,0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 4,
-        pointHoverRadius: 6,
+        label: 'Closing Rate (%)', data: rates,
+        borderColor: '#2fb344', backgroundColor: 'rgba(47,179,68,0.1)',
+        fill: true, tension: 0.3, pointRadius: 4, pointHoverRadius: 6,
       }],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ctx.parsed.y + '%',
-          }
-        }
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } }
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          title: { display: true, text: 'Closing Rate (%)' },
-          ticks: { callback: v => v + '%' },
-        },
+        y: { beginAtZero: true, max: 100,
+             title: { display: true, text: 'Closing Rate (%)' },
+             ticks: { callback: v => v + '%' } },
       },
     },
   });
+  {% endif %}
+
+  {# ── Velocity: Created vs Closed per week ── #}
+  {% if velocity.weeks %}
+  const velWeeks   = {{ velocity.weeks | tojson }};
+  const velCreated = {{ velocity.created | tojson }};
+  const velClosed  = {{ velocity.closed | tojson }};
+  const velNet     = velCreated.map((c, i) => c - velClosed[i]);
+
+  new Chart(document.getElementById('chartVelocity'), {
+    type: 'bar',
+    data: {
+      labels: velWeeks,
+      datasets: [
+        { label: 'New',    data: velCreated, backgroundColor: '#206bc4' },
+        { label: 'Closed', data: velClosed,  backgroundColor: '#2fb344' },
+        { label: 'Net',    data: velNet,     type: 'line',
+          borderColor: '#d63939', backgroundColor: 'transparent',
+          borderDash: [5, 3], pointRadius: 3, tension: 0.3 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'Topics' } } },
+    },
+  });
+
+  {# ── Bottleneck horizontal bar ── #}
+  const bnData = {{ bottleneck | tojson }};
+  const nodeMap = { {% for n in nodes %}'{{ n.id }}': '{{ n.display_name }}'{{ ',' if not loop.last }}{% endfor %} };
+  const bnEntries = Object.entries(bnData)
+    .map(([nid, cnt]) => ({ name: nodeMap[nid] || ('Node ' + nid), cnt }))
+    .sort((a, b) => b.cnt - a.cnt);
+
+  new Chart(document.getElementById('chartBottleneck'), {
+    type: 'bar',
+    data: {
+      labels: bnEntries.map(e => e.name),
+      datasets: [{
+        label: 'Blocker count',
+        data: bnEntries.map(e => e.cnt),
+        backgroundColor: bnEntries.map((_, i) => i === 0 ? '#d63939' : '#e8816d'),
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, title: { display: true, text: 'Topics blocked' },
+             ticks: { stepSize: 1 } },
+      },
+    },
+  });
+  {% endif %}
 })();
 </script>
 {% endif %}

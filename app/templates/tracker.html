@@ -60,7 +60,7 @@
   </td>
 {% endmacro %}
 
-{# Macro: render an issue row #}
+{# Macro: render a topic row #}
 {% macro render_issue_row(issue, nodes, extra_class='') %}
   <tr class="{{ extra_class }}" :class="{ 'table-active': selectedIds.includes({{ issue.id }}) }">
     <td class="cell-number" style="white-space:nowrap;">
@@ -234,7 +234,7 @@
   </div>
 </div>
 
-{# ── Close issue modal (HTML dialog) ── #}
+{# ── Close topic modal (HTML dialog) ── #}
 <dialog x-ref="closeModal" class="modal-dialog-custom">
   <form method="POST" :action="'/issues/' + closeIssueId + '/close'">
     <h4>關單 #<span x-text="closeIssueNum"></span></h4>
@@ -319,7 +319,7 @@ function advFilter() {
 
 <div class="card">
   <div class="card-header">
-    <h3 class="card-title">Ongoing Issues</h3>
+    <h3 class="card-title">Ongoing Topics</h3>
     <div class="card-actions">
       {% if red_line_year %}
         <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>

@@ -28,11 +28,11 @@
     </div>
   </div>
 
-  {# ── New issues ── #}
+  {# ── New topics ── #}
   {% if diff.new %}
   <div class="card mb-3">
     <div class="card-header">
-      <h3 class="card-title">New Issues ({{ diff.new|length }})</h3>
+      <h3 class="card-title">New Topics ({{ diff.new|length }})</h3>
       <div class="card-actions">
         <label class="form-check form-check-inline">
           <input class="form-check-input" type="checkbox" checked
@@ -75,11 +75,11 @@
   </div>
   {% endif %}
 
-  {# ── Updated issues ── #}
+  {# ── Updated topics ── #}
   {% if diff.updated %}
   <div class="card mb-3">
     <div class="card-header">
-      <h3 class="card-title">Updated Issues ({{ diff.updated|length }})</h3>
+      <h3 class="card-title">Updated Topics ({{ diff.updated|length }})</h3>
       <div class="card-actions">
         <label class="form-check form-check-inline">
           <input class="form-check-input" type="checkbox" checked

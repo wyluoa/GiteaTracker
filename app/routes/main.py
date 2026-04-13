@@ -46,6 +46,19 @@ def dashboard():
     total_all = ongoing_count + on_hold_count + closed_count
     closing_rate = round(closed_count / total_all * 100, 1) if total_all else 0
 
+    # Per-node UAT / TBD counts
+    uat_total, uat_per_node = issue_model.count_node_states_by_type("uat")
+    tbd_total, tbd_per_node = issue_model.count_node_states_by_type("tbd")
+
+    # Closing rate excluding MtM
+    closing_rate_ex_mtm, eff_closed_ex_mtm, _ = issue_model.closing_rate_excluding_node("n_mtm")
+
+    # Insight data
+    bottleneck = issue_model.get_bottleneck_nodes()
+    velocity = issue_model.get_weekly_velocity()
+    aging = issue_model.get_aging_stats()
+    almost_done = issue_model.get_almost_done_issues(max_remaining=2)
+
     return render_template(
         "dashboard.html",
         nodes=nodes,
@@ -56,6 +69,14 @@ def dashboard():
         closed_count=closed_count,
         closing_rate=closing_rate,
         trends=trends,
+        uat_total=uat_total, uat_per_node=uat_per_node,
+        tbd_total=tbd_total, tbd_per_node=tbd_per_node,
+        closing_rate_ex_mtm=closing_rate_ex_mtm,
+        eff_closed_ex_mtm=eff_closed_ex_mtm,
+        bottleneck=bottleneck,
+        velocity=velocity,
+        aging=aging,
+        almost_done=almost_done,
         red_line_year=red_line_year,
         red_line_week=red_line_week,
         user=g.current_user,

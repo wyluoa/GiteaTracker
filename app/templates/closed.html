@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Closed Issues — Gitea Tracker{% endblock %}
+{% block title %}Closed Topics — Gitea Tracker{% endblock %}
 
 {% set STATE_COLORS = {
   'done':       {'bg': '#27ae60', 'text': 'white', 'label': 'Done'},
@@ -20,7 +20,7 @@
 <div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col-auto">
-      <h2 class="page-title">Closed Issues</h2>
+      <h2 class="page-title">Closed Topics</h2>
     </div>
     <div class="col-auto ms-auto text-muted">
       {{ total }} 筆
@@ -123,7 +123,7 @@
         {% if not issues %}
         <tr>
           <td colspan="{{ nodes|length + 5 + (1 if user.is_super_user else 0) }}" class="text-center text-muted py-3">
-            沒有 Closed Issues
+            沒有 Closed Topics
           </td>
         </tr>
         {% endif %}

@@ -1,5 +1,5 @@
 """Issue model — CRUD + filtering + cache updates."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from app.db import get_db
 
@@ -110,6 +110,86 @@ def dashboard_node_counts(red_line_year, red_line_week):
         (red_line_year, red_line_year, red_line_week),
     ).fetchall()
     return {r["node_id"]: r["cnt"] for r in rows}
+
+
+def closing_rate_excluding_node(exclude_code="n_mtm"):
+    """Closing rate treating issues as 'done' when all nodes EXCEPT the
+    excluded node are done/unneeded.
+
+    Returns (rate_pct, effectively_closed, total).
+    """
+    db = get_db()
+
+    excluded = db.execute(
+        "SELECT id FROM nodes WHERE code = ?", (exclude_code,)
+    ).fetchone()
+    exclude_id = excluded["id"] if excluded else -1
+
+    # All active non-excluded node IDs
+    required_nodes = db.execute(
+        "SELECT id FROM nodes WHERE is_active = 1 AND id != ?", (exclude_id,)
+    ).fetchall()
+    required_ids = {r["id"] for r in required_nodes}
+    n_required = len(required_ids)
+
+    # Already closed
+    closed = db.execute(
+        "SELECT COUNT(*) as cnt FROM issues WHERE status = 'closed' AND is_deleted = 0"
+    ).fetchone()["cnt"]
+
+    total = db.execute(
+        "SELECT COUNT(*) as cnt FROM issues WHERE is_deleted = 0"
+    ).fetchone()["cnt"]
+
+    # Ongoing issues where every required node is done/unneeded
+    placeholders = ",".join("?" * n_required)
+    rows = db.execute(
+        f"""SELECT i.id
+            FROM issues i
+            WHERE i.status = 'ongoing' AND i.is_deleted = 0
+              AND (
+                SELECT COUNT(*)
+                FROM issue_node_states s
+                WHERE s.issue_id = i.id
+                  AND s.node_id IN ({placeholders})
+                  AND s.state IN ('done', 'unneeded')
+              ) = ?""",
+        list(required_ids) + [n_required],
+    ).fetchall()
+    ready_without_excluded = len(rows)
+
+    effectively_closed = closed + ready_without_excluded
+    rate = round(effectively_closed / total * 100, 1) if total else 0
+    return rate, effectively_closed, total
+
+
+def count_node_states_by_type(state_type):
+    """Per-node count of ongoing issues in a given state (e.g. 'uat', 'tbd').
+
+    For 'uat', also counts 'uat_done'.
+    Returns (total, {node_id: count}).
+    """
+    db = get_db()
+    if state_type == "uat":
+        state_filter = "s.state IN ('uat', 'uat_done')"
+    else:
+        state_filter = "s.state = ?"
+
+    sql = f"""SELECT s.node_id, COUNT(DISTINCT i.id) as cnt
+              FROM issues i
+              JOIN issue_node_states s ON i.id = s.issue_id
+              WHERE i.status = 'ongoing' AND i.is_deleted = 0
+                AND {state_filter}
+              GROUP BY s.node_id"""
+
+    if state_type == "uat":
+        rows = db.execute(sql).fetchall()
+    else:
+        rows = db.execute(sql, (state_type,)).fetchall()
+
+    per_node = {r["node_id"]: r["cnt"] for r in rows}
+    total = sum(per_node.values())
+    return total, per_node
 
 
 def update_issue(issue_id, **fields):
@@ -223,3 +303,227 @@ def get_dashboard_trends():
         "cumulative": result_cum,
         "closing_rates": result_rates,
     }
+
+
+def get_bottleneck_nodes():
+    """For each ongoing issue, find which nodes are the sole blockers
+    (not done/unneeded). Count how many times each node is a blocker
+    when only 1-2 nodes remain.
+
+    Returns {node_id: count} — higher = bigger bottleneck.
+    """
+    db = get_db()
+    # Get ongoing issues and their incomplete nodes
+    rows = db.execute(
+        """SELECT i.id as issue_id, s.node_id
+           FROM issues i
+           JOIN issue_node_states s ON i.id = s.issue_id
+           WHERE i.status = 'ongoing' AND i.is_deleted = 0
+             AND s.state NOT IN ('done', 'unneeded')"""
+    ).fetchall()
+
+    # Also count issues with nodes that have no state record (blank = incomplete)
+    all_nodes = db.execute(
+        "SELECT id FROM nodes WHERE is_active = 1"
+    ).fetchall()
+    all_node_ids = {n["id"] for n in all_nodes}
+
+    ongoing_ids = db.execute(
+        "SELECT id FROM issues WHERE status = 'ongoing' AND is_deleted = 0"
+    ).fetchall()
+
+    # Build incomplete-nodes map per issue
+    # Start with explicit non-done states
+    incomplete = {}
+    for r in rows:
+        incomplete.setdefault(r["issue_id"], set()).add(r["node_id"])
+
+    # Add nodes with no state record at all (blank cells)
+    stated_nodes = {}
+    state_rows = db.execute(
+        """SELECT s.issue_id, s.node_id
+           FROM issue_node_states s
+           JOIN issues i ON i.id = s.issue_id
+           WHERE i.status = 'ongoing' AND i.is_deleted = 0"""
+    ).fetchall()
+    for r in state_rows:
+        stated_nodes.setdefault(r["issue_id"], set()).add(r["node_id"])
+
+    for oi in ongoing_ids:
+        iid = oi["id"]
+        stated = stated_nodes.get(iid, set())
+        missing = all_node_ids - stated
+        if missing:
+            incomplete.setdefault(iid, set()).update(missing)
+
+    # Count: for issues with 1-2 remaining nodes, tally each blocking node
+    bottleneck = {}
+    for iid, node_set in incomplete.items():
+        if 1 <= len(node_set) <= 2:
+            for nid in node_set:
+                bottleneck[nid] = bottleneck.get(nid, 0) + 1
+
+    return bottleneck
+
+
+def get_weekly_velocity():
+    """New issues created vs closed per week.
+
+    Returns {weeks: [...], created: [...], closed: [...]}.
+    """
+    db = get_db()
+
+    # Created per week (using week_year/week_number)
+    created_rows = db.execute(
+        """SELECT week_year, week_number, COUNT(*) as cnt
+           FROM issues WHERE is_deleted = 0
+           GROUP BY week_year, week_number
+           ORDER BY week_year, week_number"""
+    ).fetchall()
+
+    # Closed per week (using closed_at date → ISO week)
+    closed_rows = db.execute(
+        """SELECT closed_at FROM issues
+           WHERE status = 'closed' AND is_deleted = 0 AND closed_at IS NOT NULL"""
+    ).fetchall()
+
+    closed_by_week = {}
+    for r in closed_rows:
+        try:
+            dt = datetime.fromisoformat(r["closed_at"])
+            iso = dt.date().isocalendar()
+            key = (iso[0], iso[1])
+            closed_by_week[key] = closed_by_week.get(key, 0) + 1
+        except (ValueError, TypeError):
+            pass
+
+    # Merge all weeks
+    all_weeks = set()
+    for r in created_rows:
+        all_weeks.add((r["week_year"], r["week_number"]))
+    all_weeks.update(closed_by_week.keys())
+    all_weeks = sorted(all_weeks)
+
+    created_map = {(r["week_year"], r["week_number"]): r["cnt"] for r in created_rows}
+
+    weeks = []
+    created = []
+    closed = []
+    for wk in all_weeks:
+        weeks.append(f"wk{wk[0]}{wk[1]:02d}")
+        created.append(created_map.get(wk, 0))
+        closed.append(closed_by_week.get(wk, 0))
+
+    return {"weeks": weeks, "created": created, "closed": closed}
+
+
+def get_aging_stats():
+    """Compute aging statistics for issues.
+
+    Returns dict with:
+      - avg_days_to_close: average days from creation to close
+      - stale_issues: list of ongoing issues not updated in 14+ days
+    """
+    db = get_db()
+    today = date.today()
+
+    # Average days to close
+    closed_rows = db.execute(
+        """SELECT created_at, closed_at FROM issues
+           WHERE status = 'closed' AND is_deleted = 0
+             AND closed_at IS NOT NULL AND created_at IS NOT NULL"""
+    ).fetchall()
+
+    days_list = []
+    for r in closed_rows:
+        try:
+            c = datetime.fromisoformat(r["created_at"]).date()
+            d = datetime.fromisoformat(r["closed_at"]).date()
+            days_list.append((d - c).days)
+        except (ValueError, TypeError):
+            pass
+
+    avg_days = round(sum(days_list) / len(days_list), 1) if days_list else 0
+
+    # Stale ongoing issues (no update in 14+ days)
+    stale_rows = db.execute(
+        """SELECT id, display_number, topic, requestor_name,
+                  week_year, week_number, latest_update_at, created_at
+           FROM issues
+           WHERE status = 'ongoing' AND is_deleted = 0
+           ORDER BY latest_update_at ASC"""
+    ).fetchall()
+
+    stale = []
+    for r in stale_rows:
+        try:
+            last = datetime.fromisoformat(r["latest_update_at"] or r["created_at"]).date()
+            age_days = (today - last).days
+            if age_days >= 90:
+                stale.append({
+                    "id": r["id"],
+                    "display_number": r["display_number"],
+                    "topic": r["topic"],
+                    "requestor_name": r["requestor_name"],
+                    "week_label": f"wk{r['week_year']}{r['week_number']:02d}",
+                    "days_stale": age_days,
+                })
+        except (ValueError, TypeError):
+            pass
+
+    return {"avg_days_to_close": avg_days, "stale_issues": stale}
+
+
+def get_almost_done_issues(max_remaining=2):
+    """Find ongoing issues where only 1-2 active nodes are NOT done/unneeded.
+
+    Returns list of dicts with issue info + remaining node names.
+    """
+    db = get_db()
+
+    all_nodes = db.execute(
+        "SELECT id, display_name FROM nodes WHERE is_active = 1"
+    ).fetchall()
+    all_node_ids = {n["id"] for n in all_nodes}
+    node_names = {n["id"]: n["display_name"] for n in all_nodes}
+    n_total = len(all_node_ids)
+
+    # Count done/unneeded nodes per ongoing issue
+    rows = db.execute(
+        """SELECT i.id, i.display_number, i.topic, i.requestor_name,
+                  i.week_year, i.week_number,
+                  COUNT(CASE WHEN s.state IN ('done', 'unneeded') THEN 1 END) as done_cnt
+           FROM issues i
+           LEFT JOIN issue_node_states s ON i.id = s.issue_id
+             AND s.node_id IN (SELECT id FROM nodes WHERE is_active = 1)
+           WHERE i.status = 'ongoing' AND i.is_deleted = 0
+           GROUP BY i.id
+           HAVING ? - done_cnt BETWEEN 1 AND ?""",
+        (n_total, max_remaining),
+    ).fetchall()
+
+    result = []
+    for r in rows:
+        # Find which nodes are still incomplete
+        done_nodes = db.execute(
+            """SELECT node_id FROM issue_node_states
+               WHERE issue_id = ? AND state IN ('done', 'unneeded')""",
+            (r["id"],),
+        ).fetchall()
+        done_ids = {d["node_id"] for d in done_nodes}
+        remaining_ids = all_node_ids - done_ids
+        remaining_names = [node_names[nid] for nid in sorted(remaining_ids)]
+
+        result.append({
+            "id": r["id"],
+            "display_number": r["display_number"],
+            "topic": r["topic"],
+            "requestor_name": r["requestor_name"],
+            "week_label": f"wk{r['week_year']}{r['week_number']:02d}",
+            "remaining_count": len(remaining_names),
+            "remaining_nodes": remaining_names,
+        })
+
+    # Sort: fewest remaining first
+    result.sort(key=lambda x: (x["remaining_count"], x["display_number"]))
+    return result
