@@ -108,6 +108,23 @@ def approve_user(user_id):
                    (user_id, gid))
     db.commit()
     _audit("approve_user", "user", user_id, {"groups": group_ids})
+
+    # Notify user by email
+    user = db.execute("SELECT email, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user and user["email"]:
+        from app.mail import send_mail
+        mail_from = setting_model.get("mail_from", "")
+        if mail_from:
+            login_url = url_for("auth.login", _external=True)
+            send_mail(
+                from_addr=mail_from,
+                to_addr=user["email"],
+                subject="[Gitea Tracker] 帳號已核准",
+                body=f"您好 {user['display_name']}，\n\n"
+                     f"您的 Gitea Tracker 帳號已通過審核，現在可以登入使用。\n\n"
+                     f"登入頁面：{login_url}\n",
+            )
+
     flash("帳號已核准", "success")
     return redirect(url_for("admin.pending_users"))
 
@@ -421,7 +438,7 @@ def disable_user(user_id):
         description: 停用成功後重導至使用者列表
     """
     db = get_db()
-    user = db.execute("SELECT username, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    user = db.execute("SELECT username, display_name, email FROM users WHERE id = ?", (user_id,)).fetchone()
     if user and user["username"] == "wy":
         flash("無法停用主要管理員帳號", "error")
         return redirect(url_for("admin.users"))
@@ -429,6 +446,21 @@ def disable_user(user_id):
                (_now(), user_id))
     db.commit()
     _audit("disable_user", "user", user_id, {"display_name": user["display_name"] if user else None})
+
+    # Notify user
+    if user and user["email"]:
+        from app.mail import send_mail
+        mail_from = setting_model.get("mail_from", "")
+        if mail_from:
+            send_mail(
+                from_addr=mail_from,
+                to_addr=user["email"],
+                subject="[Gitea Tracker] 帳號已停用",
+                body=f"您好 {user['display_name']}，\n\n"
+                     f"您的 Gitea Tracker 帳號已被管理員停用。\n"
+                     f"如有疑問，請聯繫管理員。\n",
+            )
+
     flash("使用者已停用", "success")
     return redirect(url_for("admin.users"))
 
@@ -461,7 +493,7 @@ def reset_user_password(user_id):
         flash("密碼至少 6 個字元", "error")
         return redirect(url_for("admin.users"))
 
-    user = db.execute("SELECT username, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    user = db.execute("SELECT username, display_name, email FROM users WHERE id = ?", (user_id,)).fetchone()
     if not user:
         flash("使用者不存在", "error")
         return redirect(url_for("admin.users"))
@@ -472,6 +504,23 @@ def reset_user_password(user_id):
     db.commit()
     _audit("reset_password", "user", user_id,
            {"display_name": user["display_name"], "by_admin": True})
+
+    # Notify user with new password
+    if user["email"]:
+        from app.mail import send_mail
+        mail_from = setting_model.get("mail_from", "")
+        if mail_from:
+            login_url = url_for("auth.login", _external=True)
+            send_mail(
+                from_addr=mail_from,
+                to_addr=user["email"],
+                subject="[Gitea Tracker] 密碼已重設",
+                body=f"您好 {user['display_name']}，\n\n"
+                     f"管理員已為您重設密碼。\n\n"
+                     f"新密碼：{new_password}\n\n"
+                     f"請登入後立即修改密碼：{login_url}\n",
+            )
+
     flash(f"{user['display_name']} 的密碼已重設", "success")
     return redirect(url_for("admin.users"))
 
@@ -712,72 +761,84 @@ def update_red_line():
     return redirect(url_for("admin.red_line"))
 
 
-# ── SMTP Settings ──
+# ── Mail Settings ──
 
 @bp.route("/smtp")
 @super_user_required
 def smtp():
-    """SMTP 設定頁面
+    """郵件設定頁面
     ---
     tags:
       - Admin - Settings
     responses:
       200:
-        description: 顯示目前的 SMTP 設定
+        description: 顯示目前的郵件設定 (寄件人 Email)
     """
-    keys = ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from_email"]
-    settings = {k: setting_model.get(k, "") for k in keys}
+    settings = {"mail_from": setting_model.get("mail_from", "")}
     return render_template("admin/smtp.html", settings=settings)
 
 
 @bp.route("/smtp", methods=["POST"])
 @super_user_required
 def update_smtp():
-    """更新 SMTP 設定
+    """更新郵件設定
     ---
     tags:
       - Admin - Settings
     parameters:
-      - name: smtp_host
+      - name: mail_from
         in: formData
         type: string
-      - name: smtp_port
-        in: formData
-        type: string
-      - name: smtp_user
-        in: formData
-        type: string
-      - name: smtp_password
-        in: formData
-        type: string
-      - name: smtp_from_email
-        in: formData
-        type: string
+        required: true
+        description: 寄件人 Email
     responses:
       302:
-        description: 儲存成功後重導至 SMTP 設定頁
+        description: 儲存成功後重導至郵件設定頁
     """
-    for key in ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from_email"]:
-        val = request.form.get(key, "").strip()
-        if val:
-            setting_model.set(key, val)
-    flash("SMTP 設定已儲存", "success")
+    mail_from = request.form.get("mail_from", "").strip()
+    if mail_from:
+        setting_model.set("mail_from", mail_from)
+    flash("郵件設定已儲存", "success")
     return redirect(url_for("admin.smtp"))
 
 
 @bp.route("/smtp/test", methods=["POST"])
 @super_user_required
 def test_smtp():
-    """測試 SMTP 寄信 (尚未實作)
+    """寄送測試信
     ---
     tags:
       - Admin - Settings
+    parameters:
+      - name: test_to
+        in: formData
+        type: string
+        required: true
+        description: 測試收件人 Email
     responses:
       302:
-        description: 重導至 SMTP 設定頁
+        description: 重導至郵件設定頁
     """
-    # TODO: implement actual SMTP test email sending
-    flash("SMTP 測試信功能將在後續實作", "warning")
+    from app.mail import send_mail
+    mail_from = setting_model.get("mail_from", "")
+    test_to = request.form.get("test_to", "").strip()
+    if not mail_from:
+        flash("請先設定寄件人 Email", "error")
+        return redirect(url_for("admin.smtp"))
+    if not test_to:
+        flash("請輸入測試收件人", "error")
+        return redirect(url_for("admin.smtp"))
+
+    ok = send_mail(
+        from_addr=mail_from,
+        to_addr=test_to,
+        subject="[Gitea Tracker] 測試信",
+        body="這是 Gitea Tracker 的測試信。如果你收到這封信，代表郵件設定正確。",
+    )
+    if ok:
+        flash(f"測試信已寄出到 {test_to}", "success")
+    else:
+        flash("寄信失敗，請確認 ddi_api.pl 是否可用（開發環境下會 log 到 console）", "warning")
     return redirect(url_for("admin.smtp"))
 
 

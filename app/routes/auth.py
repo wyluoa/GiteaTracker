@@ -304,10 +304,24 @@ def forgot_password():
             )
             db.commit()
 
-            # Build reset URL (for display/logging — actual email sending needs SMTP config)
             reset_url = url_for("auth.reset_password", token=token, _external=True)
-            # TODO Phase 3.4: send email via smtplib
-            print(f"[Password Reset] User: {user['username']}, URL: {reset_url}")
+
+            # Send reset email via company mail API
+            from app.mail import send_mail
+            from app.models import setting as setting_model
+            mail_from = setting_model.get("mail_from", "")
+            if mail_from:
+                send_mail(
+                    from_addr=mail_from,
+                    to_addr=email,
+                    subject="[Gitea Tracker] 密碼重設",
+                    body=f"您好 {user['display_name']}，\n\n"
+                         f"請點擊以下連結重設密碼（1 小時內有效）：\n\n"
+                         f"{reset_url}\n\n"
+                         f"如果您沒有申請重設密碼，請忽略此信。",
+                )
+            else:
+                print(f"[Password Reset] mail_from not configured. URL: {reset_url}")
 
         return redirect(url_for("auth.login"))
 
