@@ -68,7 +68,7 @@
                       <button class="cal-event-done"
                               x-show="!done"
                               title="Quick Done"
-                              @click.stop="fetch('/issues/{{ ev.issue_id }}/cell/{{ ev.node_id }}/quick_done',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'}}).then(r=>{if(r.ok) done=true})">
+                              @click.stop="fetch(window.__BASE__+'/issues/{{ ev.issue_id }}/cell/{{ ev.node_id }}/quick_done',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'}}).then(r=>{if(r.ok) done=true})">
                         &#10003;
                       </button>
                       <span class="text-green" x-show="done" style="font-size:11px;">&#10003;</span>

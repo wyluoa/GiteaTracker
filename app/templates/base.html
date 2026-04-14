@@ -11,6 +11,9 @@
   <!-- App CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 
+  <!-- Base URL for JS (reverse proxy path prefix) -->
+  <script>window.__BASE__ = "{{ request.script_root }}";</script>
+
   <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
 

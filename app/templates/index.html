@@ -71,7 +71,7 @@
 
           <!-- HTMX test -->
           <button class="btn btn-outline-primary"
-                  hx-get="/healthz"
+                  hx-get="{{ url_for('main.healthz') }}"
                   hx-target="#htmx-result"
                   hx-swap="innerHTML">
             HTMX ping /healthz

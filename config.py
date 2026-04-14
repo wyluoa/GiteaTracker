@@ -37,6 +37,10 @@ class Config:
     HOST = os.environ.get("HOST", "127.0.0.1")
     PORT = int(os.environ.get("PORT", "5000"))
 
+    # Reverse proxy path prefix (e.g. "/GiteaTracker")
+    # Set in .env — NOT read from system environment variables.
+    BASE_URL = os.environ.get("BASE_URL", "")
+
 
 def get_config():
     return Config

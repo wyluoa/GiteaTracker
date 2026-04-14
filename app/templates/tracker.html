@@ -236,7 +236,7 @@
 
 {# ── Close topic modal (HTML dialog) ── #}
 <dialog x-ref="closeModal" class="modal-dialog-custom">
-  <form method="POST" :action="'/issues/' + closeIssueId + '/close'">
+  <form method="POST" :action="window.__BASE__ + '/issues/' + closeIssueId + '/close'">
     <h4>關單 #<span x-text="closeIssueNum"></span></h4>
     <div class="mb-3">
       <label class="form-label">關單備註（選填）</label>
@@ -270,7 +270,7 @@ function trackerApp() {
       if (!this.batchNodeId || !this.batchState) return;
       this.batchLoading = true;
       try {
-        const resp = await fetch('/issues/batch_update', {
+        const resp = await fetch(window.__BASE__ + '/issues/batch_update', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
@@ -442,7 +442,7 @@ document.body.addEventListener('cellUpdated', function(evt) {
   var cellId = 'cell-' + d.issueId + '-' + d.nodeId;
   var cell = document.getElementById(cellId);
   if (cell) {
-    htmx.ajax('GET', '/issues/' + d.issueId + '/cell/' + d.nodeId + '/chip', {
+    htmx.ajax('GET', window.__BASE__ + '/issues/' + d.issueId + '/cell/' + d.nodeId + '/chip', {
       target: cell,
       swap: 'innerHTML'
     });

@@ -3,7 +3,8 @@ Flask app factory.
 """
 from datetime import timedelta
 
-from flask import Flask
+from flask import Flask, Response
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from config import get_config
 from . import db
 from app.routes import main as main_routes
@@ -11,6 +12,12 @@ from app.routes import auth as auth_routes
 from app.routes import issues as issue_routes
 from app.routes import admin as admin_routes
 from app.routes import attachments as attachment_routes
+
+
+def _not_found_app(environ, start_response):
+    """Fallback WSGI app for requests outside the BASE_URL prefix."""
+    resp = Response("Not Found", status=404)
+    return resp(environ, start_response)
 
 
 def create_app():
@@ -34,5 +41,13 @@ def create_app():
     app.register_blueprint(issue_routes.bp)
     app.register_blueprint(admin_routes.bp)
     app.register_blueprint(attachment_routes.bp)
+
+    # Reverse proxy path prefix (e.g. /GiteaTracker)
+    base_url = (app.config.get("BASE_URL") or "").rstrip("/")
+    if base_url:
+        app.config["APPLICATION_ROOT"] = base_url
+        app.wsgi_app = DispatcherMiddleware(
+            _not_found_app, {base_url: app.wsgi_app}
+        )
 
     return app
