@@ -23,6 +23,14 @@ bp = Blueprint("main", __name__)
 @bp.route("/")
 @login_required
 def index():
+    """首頁 — 重導至 Dashboard
+    ---
+    tags:
+      - Dashboard
+    responses:
+      302:
+        description: 重導至 /dashboard
+    """
     return redirect(url_for("main.dashboard"))
 
 
@@ -31,7 +39,14 @@ def index():
 @bp.route("/dashboard")
 @login_required
 def dashboard():
-    """Summary dashboard with per-node cards."""
+    """儀表板 — 各 Node 卡片、趨勢圖表、Insights
+    ---
+    tags:
+      - Dashboard
+    responses:
+      200:
+        description: 渲染 dashboard.html，包含統計卡片、趨勢圖表、瓶頸分析
+    """
     nodes = node_model.get_all_active()
     red_line_year, red_line_week = setting_model.get_red_line()
 
@@ -88,7 +103,43 @@ def dashboard():
 @bp.route("/tracker")
 @login_required
 def tracker():
-    """Main tracker view with search/filter support."""
+    """追蹤器主表 — 搜尋 / 篩選 / 進階篩選
+    ---
+    tags:
+      - Tracker
+    parameters:
+      - name: q
+        in: query
+        type: string
+        description: 文字搜尋 (比對 #號、Topic、JIRA、UAT Path)
+      - name: owner
+        in: query
+        type: string
+        description: 篩選 Owner (requestor_name)
+      - name: state
+        in: query
+        type: string
+        description: 篩選狀態 (done/uat_done/uat/developing/tbd/unneeded/__blank__)
+      - name: week_from
+        in: query
+        type: string
+        description: 起始週 (格式 YYYYWW，如 202601)
+      - name: week_to
+        in: query
+        type: string
+        description: 結束週 (格式 YYYYWW，如 202612)
+      - name: adv_node_1
+        in: query
+        type: string
+        description: 進階篩選 1 — Node ID
+      - name: adv_state_1
+        in: query
+        type: string
+        description: 進階篩選 1 — 狀態
+    responses:
+      200:
+        description: 渲染 tracker.html，依週分組顯示 ongoing 和 on_hold issues
+    """
     nodes = node_model.get_all_active()
 
     # ── Search & filter params ──
@@ -252,6 +303,14 @@ def _apply_filters(issues, nodes, q, owner, state, week_from, week_to):
 @bp.route("/mark_all_read", methods=["POST"])
 @login_required
 def mark_all_read():
+    """標記全部已讀
+    ---
+    tags:
+      - Tracker
+    responses:
+      302:
+        description: 更新 last_viewed_at 後重導至 tracker
+    """
     user_model.update_last_viewed(g.current_user["id"])
     flash("已標記全部為已讀", "success")
     return redirect(url_for("main.tracker"))
@@ -262,6 +321,16 @@ def mark_all_read():
 @bp.route("/export")
 @login_required
 def export_excel():
+    """匯出 Excel — 下載目前所有 ongoing + on_hold issues
+    ---
+    tags:
+      - Export
+    produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    responses:
+      200:
+        description: 下載 .xlsx 檔案，包含 #號、狀態、Owner、各 Node 狀態、JIRA、UAT Path、Topic
+    """
     import openpyxl
     from openpyxl.styles import PatternFill, Font, Alignment
 
@@ -330,7 +399,23 @@ def export_excel():
 @bp.route("/calendar")
 @login_required
 def calendar_view():
-    """Monthly calendar showing check-in dates."""
+    """行事曆 — 依月份顯示 check-in 日期
+    ---
+    tags:
+      - Calendar
+    parameters:
+      - name: year
+        in: query
+        type: integer
+        description: 年份 (預設當年)
+      - name: month
+        in: query
+        type: integer
+        description: 月份 (預設當月)
+    responses:
+      200:
+        description: 渲染月曆，顯示各 cell 的 check-in 日期
+    """
     today = date.today()
     year = request.args.get("year", today.year, type=int)
     month = request.args.get("month", today.month, type=int)
@@ -393,7 +478,23 @@ def calendar_view():
 @bp.route("/closed")
 @login_required
 def closed():
-    """Closed issues page with pagination and search."""
+    """已關單列表 — 分頁 + 搜尋
+    ---
+    tags:
+      - Tracker
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        description: 頁碼 (預設 1)
+      - name: q
+        in: query
+        type: string
+        description: 搜尋 (比對 #號、Topic、JIRA)
+    responses:
+      200:
+        description: 渲染 closed.html，每頁 50 筆
+    """
     page = request.args.get("page", 1, type=int)
     q = request.args.get("q", "").strip()
     per_page = 50
@@ -442,4 +543,18 @@ def closed():
 
 @bp.route("/healthz")
 def healthz():
+    """健康檢查
+    ---
+    tags:
+      - Health
+    responses:
+      200:
+        description: '回傳 {"status": "ok"}'
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: ok
+    """
     return {"status": "ok"}

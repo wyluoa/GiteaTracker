@@ -39,6 +39,14 @@ def _audit(action, target_type=None, target_id=None, details=None):
 @bp.route("/")
 @super_user_required
 def index():
+    """管理後台首頁
+    ---
+    tags:
+      - Admin - Users
+    responses:
+      200:
+        description: 顯示待審核人數、使用者數、群組數、Node 數
+    """
     db = get_db()
     pending_count = db.execute("SELECT COUNT(*) as c FROM users WHERE status = 'pending'").fetchone()["c"]
     user_count = db.execute("SELECT COUNT(*) as c FROM users WHERE status != 'disabled'").fetchone()["c"]
@@ -54,6 +62,14 @@ def index():
 @bp.route("/pending_users")
 @super_user_required
 def pending_users():
+    """待審核使用者列表
+    ---
+    tags:
+      - Admin - Users
+    responses:
+      200:
+        description: 列出所有 status=pending 的使用者
+    """
     db = get_db()
     users = db.execute("SELECT * FROM users WHERE status = 'pending' ORDER BY created_at").fetchall()
     groups = db.execute("SELECT * FROM groups ORDER BY name").fetchall()
@@ -63,6 +79,25 @@ def pending_users():
 @bp.route("/pending_users/<int:user_id>/approve", methods=["POST"])
 @super_user_required
 def approve_user(user_id):
+    """核准使用者
+    ---
+    tags:
+      - Admin - Users
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+      - name: group_ids
+        in: formData
+        type: array
+        items:
+          type: integer
+        description: 指派的群組 ID 列表
+    responses:
+      302:
+        description: 核准成功後重導至待審核列表
+    """
     db = get_db()
     group_ids = request.form.getlist("group_ids", type=int)
 
@@ -80,6 +115,19 @@ def approve_user(user_id):
 @bp.route("/pending_users/<int:user_id>/reject", methods=["POST"])
 @super_user_required
 def reject_user(user_id):
+    """拒絕使用者
+    ---
+    tags:
+      - Admin - Users
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 拒絕後重導至待審核列表
+    """
     db = get_db()
     db.execute("UPDATE users SET status = 'disabled', updated_at = ? WHERE id = ?",
                (_now(), user_id))
@@ -94,6 +142,14 @@ def reject_user(user_id):
 @bp.route("/users")
 @super_user_required
 def users():
+    """使用者管理列表
+    ---
+    tags:
+      - Admin - Users
+    responses:
+      200:
+        description: 列出所有使用者及其群組
+    """
     db = get_db()
     all_users = db.execute(
         "SELECT * FROM users WHERE username != 'legacy' ORDER BY created_at"
@@ -116,6 +172,36 @@ def users():
 @bp.route("/users/<int:user_id>/update", methods=["POST"])
 @super_user_required
 def update_user(user_id):
+    """更新使用者資料
+    ---
+    tags:
+      - Admin - Users
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+      - name: display_name
+        in: formData
+        type: string
+      - name: status
+        in: formData
+        type: string
+        description: 狀態 (active/disabled)
+      - name: is_super_user
+        in: formData
+        type: string
+        description: 是否為管理員 ("1" 為是)
+      - name: group_ids
+        in: formData
+        type: array
+        items:
+          type: integer
+        description: 群組 ID 列表
+    responses:
+      302:
+        description: 更新成功後重導至使用者列表
+    """
     db = get_db()
     display_name = request.form.get("display_name", "").strip()
     status = request.form.get("status", "active")
@@ -145,6 +231,14 @@ def update_user(user_id):
 @bp.route("/groups")
 @super_user_required
 def groups():
+    """群組管理列表
+    ---
+    tags:
+      - Admin - Groups
+    responses:
+      200:
+        description: 列出所有群組、成員、及關聯 Node
+    """
     db = get_db()
     all_groups = db.execute("SELECT * FROM groups ORDER BY name").fetchall()
     all_users = db.execute("SELECT * FROM users WHERE status = 'active' ORDER BY display_name").fetchall()
@@ -166,6 +260,24 @@ def groups():
 @bp.route("/groups/create", methods=["POST"])
 @super_user_required
 def create_group():
+    """建立新群組
+    ---
+    tags:
+      - Admin - Groups
+    parameters:
+      - name: name
+        in: formData
+        type: string
+        required: true
+        description: 群組名稱
+      - name: description
+        in: formData
+        type: string
+        description: 群組描述
+    responses:
+      302:
+        description: 建立成功後重導至群組列表
+    """
     db = get_db()
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip() or None
@@ -184,6 +296,37 @@ def create_group():
 @bp.route("/groups/<int:group_id>/update", methods=["POST"])
 @super_user_required
 def update_group(group_id):
+    """更新群組 — 名稱、成員、關聯 Node
+    ---
+    tags:
+      - Admin - Groups
+    parameters:
+      - name: group_id
+        in: path
+        type: integer
+        required: true
+      - name: name
+        in: formData
+        type: string
+      - name: description
+        in: formData
+        type: string
+      - name: member_ids
+        in: formData
+        type: array
+        items:
+          type: integer
+        description: 成員 User ID 列表
+      - name: node_ids
+        in: formData
+        type: array
+        items:
+          type: integer
+        description: 關聯 Node ID 列表
+    responses:
+      302:
+        description: 更新成功後重導至群組列表
+    """
     db = get_db()
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip() or None
@@ -212,6 +355,19 @@ def update_group(group_id):
 @bp.route("/groups/<int:group_id>/delete", methods=["POST"])
 @super_user_required
 def delete_group(group_id):
+    """刪除群組
+    ---
+    tags:
+      - Admin - Groups
+    parameters:
+      - name: group_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 刪除成功後重導至群組列表
+    """
     db = get_db()
     group = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
     db.execute("DELETE FROM groups WHERE id = ?", (group_id,))
@@ -226,6 +382,14 @@ def delete_group(group_id):
 @bp.route("/nodes")
 @super_user_required
 def nodes():
+    """Node 管理列表
+    ---
+    tags:
+      - Admin - Nodes
+    responses:
+      200:
+        description: 列出所有 Node (含停用的)
+    """
     db = get_db()
     all_nodes = db.execute("SELECT * FROM nodes ORDER BY sort_order").fetchall()
     return render_template("admin/nodes.html", nodes=all_nodes)
@@ -234,6 +398,29 @@ def nodes():
 @bp.route("/nodes/create", methods=["POST"])
 @super_user_required
 def create_node():
+    """建立新 Node
+    ---
+    tags:
+      - Admin - Nodes
+    parameters:
+      - name: code
+        in: formData
+        type: string
+        required: true
+        description: Node 代碼 (如 n_a10)
+      - name: display_name
+        in: formData
+        type: string
+        required: true
+        description: 顯示名稱 (如 A10)
+      - name: sort_order
+        in: formData
+        type: integer
+        description: 排序 (預設 100)
+    responses:
+      302:
+        description: 建立成功後重導至 Node 列表
+    """
     db = get_db()
     code = request.form.get("code", "").strip()
     display_name = request.form.get("display_name", "").strip()
@@ -254,6 +441,29 @@ def create_node():
 @bp.route("/nodes/<int:node_id>/update", methods=["POST"])
 @super_user_required
 def update_node(node_id):
+    """更新 Node
+    ---
+    tags:
+      - Admin - Nodes
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+      - name: display_name
+        in: formData
+        type: string
+      - name: sort_order
+        in: formData
+        type: integer
+      - name: is_active
+        in: formData
+        type: string
+        description: 是否啟用 ("1" 為啟用)
+    responses:
+      302:
+        description: 更新成功後重導至 Node 列表
+    """
     db = get_db()
     display_name = request.form.get("display_name", "").strip()
     sort_order = request.form.get("sort_order", type=int)
@@ -274,6 +484,14 @@ def update_node(node_id):
 @bp.route("/red_line")
 @super_user_required
 def red_line():
+    """紅線設定頁面
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      200:
+        description: 顯示目前的紅線年份/週次設定
+    """
     red_year, red_week = setting_model.get_red_line()
     return render_template("admin/red_line.html", red_year=red_year, red_week=red_week)
 
@@ -281,6 +499,25 @@ def red_line():
 @bp.route("/red_line", methods=["POST"])
 @super_user_required
 def update_red_line():
+    """更新紅線
+    ---
+    tags:
+      - Admin - Settings
+    parameters:
+      - name: week_year
+        in: formData
+        type: integer
+        required: true
+        description: 年份
+      - name: week_number
+        in: formData
+        type: integer
+        required: true
+        description: 週次 (1-53)
+    responses:
+      302:
+        description: 更新成功後重導至紅線設定頁
+    """
     year = request.form.get("week_year", type=int)
     week = request.form.get("week_number", type=int)
 
@@ -303,6 +540,14 @@ def update_red_line():
 @bp.route("/smtp")
 @super_user_required
 def smtp():
+    """SMTP 設定頁面
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      200:
+        description: 顯示目前的 SMTP 設定
+    """
     keys = ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from_email"]
     settings = {k: setting_model.get(k, "") for k in keys}
     return render_template("admin/smtp.html", settings=settings)
@@ -311,6 +556,30 @@ def smtp():
 @bp.route("/smtp", methods=["POST"])
 @super_user_required
 def update_smtp():
+    """更新 SMTP 設定
+    ---
+    tags:
+      - Admin - Settings
+    parameters:
+      - name: smtp_host
+        in: formData
+        type: string
+      - name: smtp_port
+        in: formData
+        type: string
+      - name: smtp_user
+        in: formData
+        type: string
+      - name: smtp_password
+        in: formData
+        type: string
+      - name: smtp_from_email
+        in: formData
+        type: string
+    responses:
+      302:
+        description: 儲存成功後重導至 SMTP 設定頁
+    """
     for key in ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from_email"]:
         val = request.form.get(key, "").strip()
         if val:
@@ -322,6 +591,14 @@ def update_smtp():
 @bp.route("/smtp/test", methods=["POST"])
 @super_user_required
 def test_smtp():
+    """測試 SMTP 寄信 (尚未實作)
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      302:
+        description: 重導至 SMTP 設定頁
+    """
     # TODO: implement actual SMTP test email sending
     flash("SMTP 測試信功能將在後續實作", "warning")
     return redirect(url_for("admin.smtp"))
@@ -332,6 +609,23 @@ def test_smtp():
 @bp.route("/audit")
 @super_user_required
 def audit_log():
+    """稽核日誌 — 分頁 + 依 action 篩選
+    ---
+    tags:
+      - Admin - Audit
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        description: 頁碼 (預設 1)
+      - name: action
+        in: query
+        type: string
+        description: 篩選 action 類型
+    responses:
+      200:
+        description: 列出稽核日誌，每頁 50 筆
+    """
     db = get_db()
     page = request.args.get("page", 1, type=int)
     per_page = 50
@@ -500,12 +794,38 @@ def _build_diff(excel_issues, db):
 @bp.route("/excel_update")
 @super_user_required
 def excel_update():
+    """Excel 匯入頁面
+    ---
+    tags:
+      - Admin - Excel
+    responses:
+      200:
+        description: 顯示 Excel 上傳表單
+    """
     return render_template("admin/excel_update.html")
 
 
 @bp.route("/excel_update/preview", methods=["POST"])
 @super_user_required
 def excel_update_preview():
+    """Excel 預覽 — 上傳 .xlsx 檔案，比對差異
+    ---
+    tags:
+      - Admin - Excel
+    consumes:
+      - multipart/form-data
+    parameters:
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: .xlsx 檔案
+    responses:
+      200:
+        description: 顯示 Excel 與 DB 的差異預覽 (新增/更新/無變更)
+      302:
+        description: 上傳失敗或無差異時重導至 Excel 匯入頁
+    """
     file = request.files.get("file")
     if not file or not file.filename.endswith((".xlsx", ".xls")):
         flash("Please upload an .xlsx file", "error")
@@ -560,6 +880,38 @@ def excel_update_preview():
 @bp.route("/excel_update/apply", methods=["POST"])
 @super_user_required
 def excel_update_apply():
+    """Excel 套用 — 將預覽中勾選的變更寫入 DB
+    ---
+    tags:
+      - Admin - Excel
+    parameters:
+      - name: batch_id
+        in: formData
+        type: string
+        required: true
+        description: 預覽步驟產生的 batch ID
+      - name: new_issue
+        in: formData
+        type: array
+        items:
+          type: string
+        description: 勾選要新增的 issue display_number 列表
+      - name: update_field
+        in: formData
+        type: array
+        items:
+          type: string
+        description: 勾選要更新的欄位 (格式 "display_number:field_key")
+      - name: update_node
+        in: formData
+        type: array
+        items:
+          type: string
+        description: 勾選要更新的 Node (格式 "display_number:node_id:sub")
+    responses:
+      302:
+        description: 套用完成後重導至 Excel 匯入頁
+    """
     batch_id = request.form.get("batch_id", "")
     if not batch_id or not batch_id.isalnum():
         flash("Invalid batch ID", "error")

@@ -72,6 +72,21 @@ def save_attachments(timeline_entry_id, files):
 @bp.route("/attachments/<int:attachment_id>")
 @login_required
 def download(attachment_id):
+    """下載附件
+    ---
+    tags:
+      - Attachments
+    parameters:
+      - name: attachment_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: 回傳檔案內容 (inline)
+      404:
+        description: 附件不存在或檔案遺失
+    """
     db = get_db()
     att = db.execute("SELECT * FROM attachments WHERE id = ?", (attachment_id,)).fetchone()
     if not att:

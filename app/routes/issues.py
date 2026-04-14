@@ -28,7 +28,25 @@ def _now():
 @bp.route("/issues/<int:issue_id>/cell/<int:node_id>")
 @login_required
 def side_panel(issue_id, node_id):
-    """Return the side panel partial for a specific issue + node."""
+    """Side Panel — 取得特定 Issue + Node 的側邊面板 (HTMX partial)
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: 渲染 side_panel.html partial (含 cell 狀態、timeline)
+      404:
+        description: Issue 或 Node 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -77,7 +95,45 @@ def side_panel(issue_id, node_id):
 @login_required
 @can_edit_node("node_id")
 def update_cell(issue_id, node_id):
-    """Update a cell's state/check_in_date/short_note and create timeline entry."""
+    """更新 Cell — 修改狀態/check-in 日期/備註，產生 timeline 紀錄
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+      - name: state
+        in: formData
+        type: string
+        description: 新狀態 (done/uat_done/uat/developing/tbd/unneeded)
+      - name: check_in_date
+        in: formData
+        type: string
+        description: Check-in 日期 (YYYY-MM-DD)
+      - name: short_note
+        in: formData
+        type: string
+        description: 簡短備註
+      - name: body
+        in: formData
+        type: string
+        description: 更新說明 (寫入 timeline)
+      - name: attachments
+        in: formData
+        type: file
+        description: 附件 (PNG/JPG/PDF，最多 3 個)
+    responses:
+      200:
+        description: 回傳更新後的 side_panel partial，並透過 HX-Trigger 通知前端刷新 cell
+      404:
+        description: Issue 或 Node 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -155,7 +211,23 @@ def update_cell(issue_id, node_id):
 @bp.route("/issues/<int:issue_id>/cell/<int:node_id>/chip")
 @login_required
 def cell_chip(issue_id, node_id):
-    """Return just the cell chip partial for HTMX swap on main table."""
+    """Cell Chip — 取得單一 cell 的小元件 (用於 HTMX 更新主表格)
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: 渲染 cell_chip.html partial
+    """
     issue = issue_model.get_by_id(issue_id)
     cell = state_model.get_state(issue_id, node_id)
     node = node_model.get_by_id(node_id)
@@ -182,7 +254,34 @@ def cell_chip(issue_id, node_id):
 @bp.route("/issues/<int:issue_id>/timeline/comment", methods=["POST"])
 @login_required
 def add_comment(issue_id):
-    """Add a general comment to the issue timeline."""
+    """新增留言到 Timeline
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: body
+        in: formData
+        type: string
+        required: true
+        description: 留言內容
+      - name: node_id
+        in: formData
+        type: integer
+        description: 當前 Node ID (用於回傳 side panel)
+      - name: attachments
+        in: formData
+        type: file
+        description: 附件
+    responses:
+      200:
+        description: 回傳更新後的 side_panel partial
+      404:
+        description: Issue 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -218,7 +317,42 @@ def add_comment(issue_id):
 @bp.route("/issues/<int:issue_id>/timeline/meeting_note", methods=["POST"])
 @login_required
 def add_meeting_note(issue_id):
-    """Add a meeting note to the issue timeline."""
+    """新增會議紀錄到 Timeline
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: body
+        in: formData
+        type: string
+        required: true
+        description: 會議紀錄內容
+      - name: node_id
+        in: formData
+        type: integer
+        description: 當前 Node ID
+      - name: meeting_week_year
+        in: formData
+        type: integer
+        description: 會議週年份
+      - name: meeting_week_number
+        in: formData
+        type: integer
+        description: 會議週次
+      - name: attachments
+        in: formData
+        type: file
+        description: 附件
+    responses:
+      200:
+        description: 回傳更新後的 side_panel partial
+      404:
+        description: Issue 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -257,7 +391,25 @@ def add_meeting_note(issue_id):
 @bp.route("/issues/<int:issue_id>/timeline")
 @login_required
 def timeline_partial(issue_id):
-    """Return filtered timeline partial."""
+    """Timeline 篩選 — 取得篩選後的 timeline partial
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: type
+        in: query
+        type: string
+        description: 篩選類型 (state_change/comment/meeting_note)
+    responses:
+      200:
+        description: 渲染 timeline.html partial
+      404:
+        description: Issue 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -281,7 +433,25 @@ def timeline_partial(issue_id):
 @bp.route("/meeting/<int:year>/<int:week>")
 @login_required
 def meeting_mode(year, week):
-    """Meeting mode page — list issues for a given week with textarea for each."""
+    """會議模式 — 列出指定週的所有 issues，每題附文字框
+    ---
+    tags:
+      - Meeting
+    parameters:
+      - name: year
+        in: path
+        type: integer
+        required: true
+        description: 年份
+      - name: week
+        in: path
+        type: integer
+        required: true
+        description: 週次
+    responses:
+      200:
+        description: 渲染 meeting_mode.html
+    """
     from app.db import get_db
     db = get_db()
 
@@ -306,7 +476,27 @@ def meeting_mode(year, week):
 @bp.route("/meeting/<int:year>/<int:week>", methods=["POST"])
 @login_required
 def meeting_mode_submit(year, week):
-    """Submit meeting notes for multiple issues at once."""
+    """提交會議紀錄 — 批次儲存該週所有 issues 的會議紀錄
+    ---
+    tags:
+      - Meeting
+    parameters:
+      - name: year
+        in: path
+        type: integer
+        required: true
+      - name: week
+        in: path
+        type: integer
+        required: true
+      - name: note_{issue_id}
+        in: formData
+        type: string
+        description: 各 issue 的會議紀錄 (欄位名為 note_加上 issue ID)
+    responses:
+      302:
+        description: 儲存成功後重導至 tracker
+    """
     from app.db import get_db
     db = get_db()
 
@@ -343,7 +533,25 @@ def meeting_mode_submit(year, week):
 @bp.route("/issues/<int:issue_id>/close", methods=["POST"])
 @login_required
 def close_issue(issue_id):
-    """Close an issue (set status=closed)."""
+    """關單 — 將 issue 狀態設為 closed
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: closed_note
+        in: formData
+        type: string
+        description: 關單備註
+    responses:
+      302:
+        description: 關單成功後重導至 tracker
+      404:
+        description: Issue 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -385,7 +593,25 @@ def close_issue(issue_id):
 @bp.route("/issues/<int:issue_id>/reopen", methods=["POST"])
 @super_user_required
 def reopen_issue(issue_id):
-    """Reopen a closed issue (super user only)."""
+    """重新開啟 — 將已關單的 issue 重新開啟 (需管理員)
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: reason
+        in: formData
+        type: string
+        description: 重開原因
+    responses:
+      302:
+        description: 重開成功後重導至 closed 頁面
+      404:
+        description: Issue 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -428,7 +654,30 @@ def reopen_issue(issue_id):
 @login_required
 @can_edit_node("node_id")
 def quick_done(issue_id, node_id):
-    """Quick mark a cell as done (used from calendar view)."""
+    """快速標記完成 — 從行事曆快速將 cell 設為 done
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: '回傳 JSON {"ok": true}'
+        schema:
+          type: object
+          properties:
+            ok:
+              type: boolean
+      404:
+        description: Issue 或 Node 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)
@@ -467,7 +716,54 @@ def quick_done(issue_id, node_id):
 @bp.route("/issues/batch_update", methods=["POST"])
 @login_required
 def batch_update():
-    """Batch update node state for multiple issues."""
+    """批次更新 — 一次修改多個 issues 的同一 Node 狀態
+    ---
+    tags:
+      - Issues
+    consumes:
+      - application/json
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - issue_ids
+            - node_id
+          properties:
+            issue_ids:
+              type: array
+              items:
+                type: integer
+              description: 要更新的 issue ID 列表
+            node_id:
+              type: integer
+              description: 要更新的 Node ID
+            state:
+              type: string
+              description: 新狀態 (done/uat_done/uat/developing/tbd/unneeded)
+            note:
+              type: string
+              description: 更新備註
+    responses:
+      200:
+        description: 回傳更新結果
+        schema:
+          type: object
+          properties:
+            ok:
+              type: boolean
+            updated:
+              type: integer
+              description: 實際更新筆數
+      400:
+        description: 缺少必要欄位或 JSON 格式錯誤
+      403:
+        description: 無權限編輯此 Node
+      404:
+        description: Node 不存在
+    """
     data = request.get_json() if request.is_json else None
     if not data:
         return jsonify({"error": "invalid request"}), 400
@@ -538,7 +834,21 @@ def batch_update():
 @bp.route("/issues/<int:issue_id>/delete", methods=["POST"])
 @super_user_required
 def delete_issue(issue_id):
-    """Soft-delete an issue (super user only)."""
+    """刪除 Issue — 軟刪除 (需管理員)
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 刪除成功後重導至上一頁或 tracker
+      404:
+        description: Issue 不存在
+    """
     issue = issue_model.get_by_id(issue_id)
     if not issue:
         abort(404)

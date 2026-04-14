@@ -72,6 +72,25 @@ def can_edit_node(node_id_param="node_id"):
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    """登入
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: username
+        in: formData
+        type: string
+        required: true
+        description: 使用者帳號
+      - name: password
+        in: formData
+        type: string
+        required: true
+        description: 密碼
+    responses:
+      302:
+        description: 登入成功，重導至 tracker；失敗則回到登入頁
+    """
     if "user_id" in session:
         return redirect(url_for("main.tracker"))
 
@@ -98,6 +117,14 @@ def login():
 
 @bp.route("/logout")
 def logout():
+    """登出
+    ---
+    tags:
+      - Auth
+    responses:
+      302:
+        description: 清除 session 並重導至登入頁
+    """
     session.clear()
     return redirect(url_for("auth.login"))
 
@@ -106,6 +133,40 @@ def logout():
 
 @bp.route("/register", methods=["GET", "POST"])
 def register():
+    """註冊新帳號
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: username
+        in: formData
+        type: string
+        required: true
+        description: 帳號 (至少 2 字元)
+      - name: email
+        in: formData
+        type: string
+        required: true
+        description: Email
+      - name: display_name
+        in: formData
+        type: string
+        required: true
+        description: 顯示名稱
+      - name: password
+        in: formData
+        type: string
+        required: true
+        description: 密碼 (至少 6 字元)
+      - name: password2
+        in: formData
+        type: string
+        required: true
+        description: 確認密碼
+    responses:
+      302:
+        description: 註冊成功 (狀態為 pending，待管理員審核)
+    """
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         email = request.form.get("email", "").strip()
@@ -152,6 +213,20 @@ def register():
 
 @bp.route("/forgot_password", methods=["GET", "POST"])
 def forgot_password():
+    """忘記密碼 — 寄送重設連結
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: email
+        in: formData
+        type: string
+        required: true
+        description: 註冊時使用的 Email
+    responses:
+      302:
+        description: 無論 Email 是否存在，皆顯示相同訊息 (防止洩漏)
+    """
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         # Always show the same message to avoid leaking email existence
@@ -186,6 +261,30 @@ def forgot_password():
 
 @bp.route("/reset_password/<token>", methods=["GET", "POST"])
 def reset_password(token):
+    """重設密碼
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 密碼重設 Token (從 Email 連結取得)
+      - name: password
+        in: formData
+        type: string
+        required: true
+        description: 新密碼 (至少 6 字元)
+      - name: password2
+        in: formData
+        type: string
+        required: true
+        description: 確認新密碼
+    responses:
+      302:
+        description: 密碼重設成功，重導至登入頁
+    """
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     db = get_db()
     row = db.execute(
