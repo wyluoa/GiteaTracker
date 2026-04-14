@@ -24,13 +24,22 @@
 
 {# Existing groups #}
 {% for g in groups %}
-<div class="card mb-3">
+<div class="card mb-3{% if not g.is_active %} opacity-50{% endif %}">
   <div class="card-header">
-    <h3 class="card-title">{{ g.name }}</h3>
+    <h3 class="card-title">
+      {{ g.name }}
+      {% if not g.is_active %}<span class="badge bg-secondary ms-2">已停用</span>{% endif %}
+    </h3>
     <div class="card-actions">
-      <form method="POST" action="{{ url_for('admin.delete_group', group_id=g.id) }}" class="d-inline">
-        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('確定刪除 {{ g.name }}？')">刪除</button>
-      </form>
+      {% if g.is_active %}
+        <form method="POST" action="{{ url_for('admin.delete_group', group_id=g.id) }}" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('確定停用 {{ g.name }}？')">停用</button>
+        </form>
+      {% else %}
+        <form method="POST" action="{{ url_for('admin.restore_group', group_id=g.id) }}" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-success">恢復</button>
+        </form>
+      {% endif %}
     </div>
   </div>
   <div class="card-body">

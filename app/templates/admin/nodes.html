@@ -43,8 +43,20 @@
                 <option value="0" {{ 'selected' if not n.is_active }}>否</option>
               </select>
             </td>
-            <td><button type="submit" class="btn btn-sm btn-primary">儲存</button></td>
+            <td class="d-flex gap-1">
+              <button type="submit" class="btn btn-sm btn-primary">儲存</button>
           </form>
+              {% if n.is_active %}
+                <form method="POST" action="{{ url_for('admin.disable_node', node_id=n.id) }}" style="display:inline;"
+                      onsubmit="return confirm('確定停用 {{ n.display_name }}？停用後 Tracker 不再顯示此欄位。')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">停用</button>
+                </form>
+              {% else %}
+                <form method="POST" action="{{ url_for('admin.restore_node', node_id=n.id) }}" style="display:inline;">
+                  <button type="submit" class="btn btn-sm btn-success">恢復</button>
+                </form>
+              {% endif %}
+            </td>
         </tr>
         {% endfor %}
       </tbody>

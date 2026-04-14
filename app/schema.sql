@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS groups (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT NOT NULL UNIQUE,
     description  TEXT,
+    is_active    INTEGER NOT NULL DEFAULT 1,
     created_at   TEXT NOT NULL
 );
 
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS issues (
     is_deleted            INTEGER NOT NULL DEFAULT 0,
     latest_update_at      TEXT,
     all_nodes_done        INTEGER NOT NULL DEFAULT 0,
+    group_label           TEXT,             -- non-week group label (e.g. "強身健體系列")
     created_at            TEXT NOT NULL,
     created_by_user_id    INTEGER REFERENCES users(id),
     updated_at            TEXT NOT NULL

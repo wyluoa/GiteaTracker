@@ -9,7 +9,7 @@
 
     {% if red_year %}
       <div class="alert alert-info">
-        目前紅線位置：<strong>wk{{ red_year }}{{ '%02d'|format(red_week) }}</strong>
+        目前紅線位置：<strong>wk{{ red_year - 2020 }}{{ '%02d'|format(red_week) }}</strong>
       </div>
     {% else %}
       <div class="alert alert-warning">尚未設定紅線</div>

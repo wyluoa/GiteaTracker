@@ -64,7 +64,7 @@
             <td>{{ issue.display_number }}</td>
             <td>{{ issue.topic }}</td>
             <td>{{ issue.requestor_name or '-' }}</td>
-            <td>wk{{ issue.week_year }}{{ '%02d' % issue.week_number }}</td>
+            <td>wk{{ issue.week_year - 2020 }}{{ '%02d' % issue.week_number }}</td>
             <td>{{ issue.status }}</td>
             <td>{{ issue.jira_ticket or '-' }}</td>
           </tr>

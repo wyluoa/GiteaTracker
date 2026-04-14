@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}wk{{ year }}{{ '%02d'|format(week) }} 會議模式 — Gitea Tracker{% endblock %}
+{% block title %}wk{{ year - 2020 }}{{ '%02d'|format(week) }} 會議模式 — Gitea Tracker{% endblock %}
 
 {% block content %}
 <div class="card">
   <div class="card-header">
-    <h3 class="card-title">wk{{ year }}{{ '%02d'|format(week) }} 會議模式</h3>
+    <h3 class="card-title">wk{{ year - 2020 }}{{ '%02d'|format(week) }} 會議模式</h3>
     <div class="card-actions">
       <a href="{{ url_for('main.tracker') }}" class="btn btn-sm">返回主畫面</a>
     </div>

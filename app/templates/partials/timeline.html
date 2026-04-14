@@ -68,7 +68,7 @@
             <strong>Meeting Note</strong>
             · {{ entry.author_name_snapshot }}
             {% if entry.meeting_week_year %}
-              · wk{{ entry.meeting_week_year }}{{ '%02d'|format(entry.meeting_week_number) }}
+              · wk{{ entry.meeting_week_year - 2020 }}{{ '%02d'|format(entry.meeting_week_number) }}
             {% endif %}
           </div>
           <div class="te-body">{{ entry.body }}</div>

@@ -46,7 +46,7 @@
       hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
       hx-target="#side-panel-content"
       hx-swap="innerHTML"
-      @click="panelOpen = true">
+      @click="$dispatch('open-panel')">
     <span class="state-chip"
           style="background:{{ RED_ALERT_BG if use_red else info.bg }};color:{{ 'white' if use_red else info.text }};">
       {{ info.label }}
@@ -62,7 +62,9 @@
 
 {# Macro: render a topic row #}
 {% macro render_issue_row(issue, nodes, extra_class='') %}
-  <tr class="{{ extra_class }}" :class="{ 'table-active': selectedIds.includes({{ issue.id }}) }">
+  <tbody class="{{ extra_class }}" x-data="rowApply({{ issue.id }}, {{ '{' }}{% for node in nodes %}'{{ node.id }}':'{{ node.display_name }}'{{ ',' if not loop.last }}{% endfor %}{{ '}' }})">
+  <tr
+      :class="{ 'table-active': selectedIds.includes({{ issue.id }}) }">
     <td class="cell-number" style="white-space:nowrap;">
       <input type="checkbox" class="form-check-input batch-cb"
              :checked="selectedIds.includes({{ issue.id }})"
@@ -75,20 +77,61 @@
           &#10003; 關
         </button>
       {% endif %}
+      {% if user.is_super_user %}
+      <button class="btn btn-sm btn-ghost-primary py-0 px-1 ms-1" title="整行套用"
+              x-show="!editing" @click.stop="editing=true">&#9998;</button>
+      {% endif %}
     </td>
     <td class="cell-topic">{{ issue.topic }}</td>
     <td class="cell-owner">{{ issue.requestor_name or '' }}</td>
     {% for node in nodes %}
       {{ render_cell(issue, node) }}
     {% endfor %}
-    <td class="cell-jira">{{ issue.jira_ticket or '' }}</td>
+    <td class="cell-jira">{{ (issue.jira_ticket or '')|replace('\n', '<br>')|safe }}</td>
     <td class="cell-path" title="點擊複製: {{ issue.uat_path or '' }}"
-        onclick="event.stopPropagation();if(this.textContent.trim()){navigator.clipboard.writeText(this.textContent.trim());var s=document.createElement('span');s.className='copy-ok';s.textContent='✓ 已複製';this.appendChild(s);setTimeout(()=>s.remove(),1300)}">{{ issue.uat_path or '' }}</td>
+        onclick="event.stopPropagation();copyText(this.getAttribute('data-copy'))"
+        data-copy="{{ issue.uat_path or '' }}">{{ issue.uat_path or '' }}</td>
   </tr>
+  <tr x-show="editing" x-cloak style="background:#f0f4ff;">
+    <td colspan="{{ nodes|length + 5 }}" class="py-2 px-3">
+      <div class="d-flex flex-wrap align-items-center gap-2" @click.stop>
+        <span class="fw-bold" style="font-size:12px;">Node:</span>
+        <label class="form-check form-check-inline mb-0" style="font-size:12px;">
+          <input type="checkbox" class="form-check-input" @change="toggleAllNodes($event)" :checked="allSelected">
+          <span class="form-check-label">全選</span>
+        </label>
+        <template x-for="[nid, name] in Object.entries(nodeMap)" :key="nid">
+          <label class="form-check form-check-inline mb-0" style="font-size:12px;">
+            <input type="checkbox" class="form-check-input" :value="nid"
+                   :checked="selectedNodes.includes(nid)" @change="toggleNode(nid)">
+            <span class="form-check-label" x-text="name"></span>
+          </label>
+        </template>
+        <span class="ms-2 fw-bold" style="font-size:12px;">狀態:</span>
+        <select x-model="applyState" class="form-select form-select-sm" style="width:110px; font-size:12px;">
+          <option value="">-- 選狀態 --</option>
+          <option value="done">Done</option>
+          <option value="uat_done">UAT done</option>
+          <option value="uat">UAT</option>
+          <option value="developing">Dev</option>
+          <option value="tbd">TBD</option>
+          <option value="unneeded">Unneeded</option>
+        </select>
+        <input type="text" x-model="comment" class="form-control form-control-sm" placeholder="備註 (選填)"
+               style="width:200px; font-size:12px;">
+        <button class="btn btn-sm btn-primary" @click="applySelected()"
+                :disabled="saving || !applyState || selectedNodes.length === 0">
+          <span x-show="!saving">Apply</span><span x-show="saving">...</span>
+        </button>
+        <button class="btn btn-sm btn-ghost-secondary" @click="editing=false">&#10005;</button>
+      </div>
+    </td>
+  </tr>
+  </tbody>
 {% endmacro %}
 
 {# ── Page content ── #}
-<div x-data="trackerApp()" class="tracker-layout">
+<div x-data="trackerApp()" @open-panel.window="panelOpen = true" class="tracker-layout">
 
 <div class="tracker-main">
 {# ── Toolbar ── #}
@@ -148,10 +191,12 @@
         <button type="button" class="btn btn-sm btn-outline-secondary"
                 onclick="fetch('{{ url_for('main.mark_all_read') }}',{method:'POST',credentials:'same-origin'}).then(()=>location.reload())">標記已讀</button>
         <a href="{{ url_for('main.export_excel') }}" class="btn btn-sm btn-outline-secondary">匯出 Excel</a>
+        {% if user.is_super_user %}
         <a href="{{ url_for('issues.meeting_mode', year=current_week_year, week=current_week_number) }}"
            class="btn btn-warning btn-sm">
-          wk{{ current_week_year }}{{ '%02d'|format(current_week_number) }} 會議模式
+          wk{{ current_week_year - 2020 }}{{ '%02d'|format(current_week_number) }} 會議模式
         </a>
+        {% endif %}
       </div>
 
       {# ── Advanced filter panel ── #}
@@ -221,18 +266,44 @@
         </select>
       </div>
       <div class="col-auto">
-        <input type="text" x-model="batchNote" class="form-control form-control-sm"
-               placeholder="更新說明（選填）" style="width:200px;">
-      </div>
-      <div class="col-auto">
-        <button class="btn btn-sm btn-primary" @click="doBatch()"
-                :disabled="!batchNodeId || !batchState || batchLoading"
-                x-text="batchLoading ? '處理中...' : '批次套用'"></button>
+        <button class="btn btn-sm btn-primary"
+                @click="if(batchNodeId && batchState) $refs.batchModal.showModal()"
+                :disabled="!batchNodeId || !batchState">批次套用</button>
         <button class="btn btn-sm" @click="selectedIds = []">取消選取</button>
       </div>
     </div>
   </div>
 </div>
+
+{# ── Batch confirm modal ── #}
+<dialog x-ref="batchModal" class="modal-dialog-custom">
+  <div style="min-width:360px;">
+    <h4 class="mb-3">批次套用確認</h4>
+    <div class="mb-3 p-2 rounded" style="background:#f0f4ff; font-size:13px;">
+      <strong x-text="selectedIds.length + ' 題'"></strong>
+      <span class="mx-1">&times;</span>
+      <span x-text="batchNodeId ? $refs.batchModal.querySelector('[data-node-id=\'' + batchNodeId + '\']')?.textContent || batchNodeId : ''"></span>
+      <span class="mx-1">&rarr;</span>
+      <span class="fw-bold" x-text="{ done:'Done', uat_done:'UAT done', uat:'UAT', developing:'Dev', tbd:'TBD', unneeded:'Unneeded' }[batchState] || ''"></span>
+    </div>
+    {% for node in nodes %}
+      <span data-node-id="{{ node.id }}" style="display:none;">{{ node.display_name }}</span>
+    {% endfor %}
+    <div class="mb-3">
+      <label class="form-label fw-bold">備註 <span class="text-danger">*</span></label>
+      <textarea x-model="batchNote" class="form-control form-control-sm" rows="2"
+                placeholder="請說明此次批次更新的原因或內容" required></textarea>
+    </div>
+    <div class="d-flex gap-2 justify-content-end">
+      <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">取消</button>
+      <button type="button" class="btn btn-sm btn-primary" @click="doBatch()"
+              :disabled="!batchNote.trim() || batchLoading">
+        <span x-show="!batchLoading">確認套用</span>
+        <span x-show="batchLoading">處理中...</span>
+      </button>
+    </div>
+  </div>
+</dialog>
 
 {# ── Close topic modal (HTML dialog) ── #}
 <dialog x-ref="closeModal" class="modal-dialog-custom">
@@ -268,6 +339,7 @@ function trackerApp() {
     },
     async doBatch() {
       if (!this.batchNodeId || !this.batchState) return;
+      if (!this.batchNote.trim()) { alert('請填寫備註'); return; }
       this.batchLoading = true;
       try {
         const resp = await fetch(window.__BASE__ + '/issues/batch_update', {
@@ -278,11 +350,12 @@ function trackerApp() {
             issue_ids: this.selectedIds,
             node_id: parseInt(this.batchNodeId),
             state: this.batchState,
-            note: this.batchNote,
+            note: this.batchNote.trim(),
           }),
         });
         const data = await resp.json();
         if (data.ok) {
+          this.$refs.batchModal.close();
           location.reload();
         } else {
           alert(data.error || '批次更新失敗');
@@ -322,7 +395,7 @@ function advFilter() {
     <h3 class="card-title">Ongoing Topics</h3>
     <div class="card-actions">
       {% if red_line_year %}
-        <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>
+        <span class="badge bg-red-lt">Red Line: wk{{ red_line_year - 2020 }}{{ '%02d'|format(red_line_week) }}</span>
       {% endif %}
     </div>
   </div>
@@ -358,10 +431,10 @@ function advFilter() {
 
           {# Week group header #}
           {% set wg_class = 'wg-' ~ loop.index %}
-          <tr class="week-header" x-data="{ open: true }" @click="open = !open; $el.closest('tbody').querySelectorAll('.{{ wg_class }}').forEach(r => r.style.display = open ? '' : 'none')" style="cursor:pointer;">
+          <tr class="week-header" x-data="{ open: true }" @click="open = !open; $el.closest('table').querySelectorAll('.{{ wg_class }}').forEach(r => r.style.display = open ? '' : 'none')" style="cursor:pointer;">
             <td colspan="{{ nodes|length + 5 }}">
               <span x-text="open ? '\u25BC' : '\u25B6'"></span>
-              wk{{ wg.week_year }}{{ '%02d'|format(wg.week_number) }}
+              wk{{ wg.week_year - 2020 }}{{ '%02d'|format(wg.week_number) }}
               <span class="text-muted ms-2">{{ wg.issues|length }} 題</span>
             </td>
           </tr>
@@ -382,6 +455,43 @@ function advFilter() {
     </table>
   </div>
 </div>
+
+{# ── Label groups (special projects) ── #}
+{% if label_groups %}
+{% for lg in label_groups %}
+<div class="card mt-3" x-data="{ open: true }">
+  <div class="card-header" @click="open = !open" style="cursor:pointer; background: #f0f4ff;">
+    <h3 class="card-title text-primary">
+      <span x-text="open ? '\u25BC' : '\u25B6'"></span>
+      {{ lg.label }} ({{ lg.issues|length }})
+    </h3>
+  </div>
+  <div x-show="open" x-cloak>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-sm tracker-table">
+        <thead>
+          <tr>
+            <th class="th-number">#</th>
+            <th class="th-topic">Topic</th>
+            <th class="th-owner">Owner</th>
+            {% for node in nodes %}
+              <th class="th-node">{{ node.display_name }}</th>
+            {% endfor %}
+            <th class="th-jira">JIRA</th>
+            <th class="th-path">Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for issue in lg.issues %}
+            {{ render_issue_row(issue, nodes) }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
 
 {# ── On Hold section ── #}
 <div class="card mt-3" x-data="{ open: false }">
@@ -434,6 +544,29 @@ function advFilter() {
 </div>{# /tracker-layout #}
 
 <script>
+// Copy text to clipboard (works on HTTP, not just HTTPS)
+function copyText(text) {
+  if (!text) return;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text);
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  // Visual feedback
+  var toast = document.createElement('div');
+  toast.textContent = '\u2713 已複製';
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#27ae60;color:#fff;padding:6px 16px;border-radius:6px;font-size:13px;z-index:9999;';
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.remove(); }, 1200);
+}
+
 // Listen for cellUpdated event from HTMX (fired after state save)
 // and refresh the corresponding cell chip in the main table
 document.body.addEventListener('cellUpdated', function(evt) {
@@ -448,6 +581,46 @@ document.body.addEventListener('cellUpdated', function(evt) {
     });
   }
 });
+
+// Row apply: select nodes + state + optional comment
+function rowApply(issueId, nodeMap) {
+  const allIds = Object.keys(nodeMap);
+  return {
+    editing: false,
+    saving: false,
+    nodeMap: nodeMap,
+    selectedNodes: [...allIds],
+    applyState: '',
+    comment: '',
+    get allSelected() { return this.selectedNodes.length === allIds.length; },
+    toggleNode(nid) {
+      const idx = this.selectedNodes.indexOf(nid);
+      if (idx >= 0) this.selectedNodes.splice(idx, 1);
+      else this.selectedNodes.push(nid);
+    },
+    toggleAllNodes(e) {
+      this.selectedNodes = e.target.checked ? [...allIds] : [];
+    },
+    async applySelected() {
+      if (!this.applyState || this.selectedNodes.length === 0) return;
+      this.saving = true;
+      try {
+        const states = {};
+        this.selectedNodes.forEach(nid => { states[nid] = this.applyState; });
+        const resp = await fetch(window.__BASE__ + '/issues/' + issueId + '/row_update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ states: states, comment: this.comment || null })
+        });
+        if (resp.ok) {
+          this.editing = false;
+          location.reload();
+        }
+      } finally { this.saving = false; }
+    }
+  };
+}
 </script>
 
 {% endblock %}

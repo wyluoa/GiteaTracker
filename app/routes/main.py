@@ -224,17 +224,32 @@ def tracker():
             all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
             all_states = state_model.get_all_states_for_issues(all_issue_ids)
 
-    # Group ongoing issues by week
+    # Separate issues with group_label from week-based issues
+    week_issues = [i for i in ongoing_issues if not i["group_label"]]
+    labeled_issues = [i for i in ongoing_issues if i["group_label"]]
+
+    # Group week-based issues by week
     week_groups = []
     current_key = None
     current_group = None
-    for issue in ongoing_issues:
+    for issue in week_issues:
         key = (issue["week_year"], issue["week_number"])
         if key != current_key:
             current_key = key
             current_group = {"week_year": key[0], "week_number": key[1], "issues": []}
             week_groups.append(current_group)
         current_group["issues"].append(issue)
+
+    # Group labeled issues by group_label
+    label_groups = []
+    current_label = None
+    current_lgroup = None
+    for issue in labeled_issues:
+        if issue["group_label"] != current_label:
+            current_label = issue["group_label"]
+            current_lgroup = {"label": current_label, "issues": []}
+            label_groups.append(current_lgroup)
+        current_lgroup["issues"].append(issue)
 
     # Red line
     red_line_year, red_line_week = setting_model.get_red_line()
@@ -256,6 +271,7 @@ def tracker():
         "tracker.html",
         nodes=nodes,
         week_groups=week_groups,
+        label_groups=label_groups,
         on_hold_issues=on_hold_issues,
         all_states=all_states,
         red_line_year=red_line_year,
@@ -364,7 +380,7 @@ def export_excel():
         wk = (issue["week_year"], issue["week_number"])
         if wk != current_week:
             current_week = wk
-            ws.append([f"wk{wk[0]}{wk[1]:02d}"])
+            ws.append([f"wk{wk[0] - 2020}{wk[1]:02d}"])
 
         row_data = [issue["display_number"], issue["status"], issue["requestor_name"] or ""]
         states = all_states.get(issue["id"], {})

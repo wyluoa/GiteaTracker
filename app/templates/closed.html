@@ -4,13 +4,12 @@
 
 {% set STATE_COLORS = {
   'done':       {'bg': '#27ae60', 'text': 'white', 'label': 'Done'},
-  'uat_done':   {'bg': '#3498db', 'text': 'white', 'label': 'UAT&#10003;'},
+  'uat_done':   {'bg': '#3498db', 'text': 'white', 'label': 'UAT\u2713'},
   'uat':        {'bg': '#e67e22', 'text': 'white', 'label': 'UAT'},
   'developing': {'bg': '#95a5a6', 'text': 'white', 'label': 'Dev'},
   'tbd':        {'bg': '#8e44ad', 'text': 'white', 'label': 'TBD'},
-  'unneeded':   {'bg': '#bdc3c7', 'text': '#666',  'label': '&mdash;'},
+  'unneeded':   {'bg': '#bdc3c7', 'text': '#666',  'label': '\u2014'},
 } %}
-{% set EMPTY_COLOR = {'bg': '#ecf0f1', 'text': '#aaa', 'label': '&middot;'} %}
 
 {% block content %}
 <div x-data="{ panelOpen: false }" class="tracker-layout">
@@ -75,16 +74,20 @@
             {% set states = all_states.get(issue.id, {}) %}
             {% set cell = states.get(node.id) %}
             {% set state = cell['state'] if cell and cell['state'] else None %}
-            {% set info = STATE_COLORS.get(state, EMPTY_COLOR) %}
-            <td class="cell-node cell-clickable"
-                hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
-                hx-target="#side-panel-content"
-                hx-swap="innerHTML"
-                @click="panelOpen = true">
-              <span class="state-chip" style="background:{{ info.bg }};color:{{ info.text }};">
-                {{ info.label }}
-              </span>
-            </td>
+            {% if state %}
+              {% set info = STATE_COLORS.get(state) %}
+              <td class="cell-node cell-clickable"
+                  hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
+                  hx-target="#side-panel-content"
+                  hx-swap="innerHTML"
+                  @click="panelOpen = true">
+                <span class="state-chip" style="background:{{ info.bg }};color:{{ info.text }};">
+                  {{ info.label }}
+                </span>
+              </td>
+            {% else %}
+              <td class="cell-node"></td>
+            {% endif %}
           {% endfor %}
           <td style="font-size:11px; white-space:nowrap;">
             {% if issue.closed_at %}

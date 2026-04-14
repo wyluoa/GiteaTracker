@@ -190,6 +190,7 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
     results = []
     current_week_year = None
     current_week_number = None
+    current_group_label = None   # non-week group label (e.g. "強身健體系列")
 
     for row in ws.iter_rows(min_row=2, values_only=False):
         first_val = row[0].value
@@ -203,7 +204,14 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
         wk_match = WK_PATTERN.match(first_str)
         if wk_match:
             raw_week = int(wk_match.group(1))
-            if raw_week > 100:
+            if raw_week > 100000:
+                # Legacy full-year format: wk202612 → year=2026, week=12
+                year_part = raw_week // 100
+                week_part = raw_week % 100
+                current_week_year = year_part
+                current_week_number = week_part
+            elif raw_week > 100:
+                # Short format: wk612 → year=2026, week=12
                 year_part = raw_week // 100
                 week_part = raw_week % 100
                 current_week_year = 2020 + year_part
@@ -211,11 +219,14 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
             else:
                 current_week_year = current_week_year or 2025
                 current_week_number = raw_week
+            current_group_label = None  # reset group on new week
             continue
 
         try:
             display_number = str(int(float(first_str)))
         except (ValueError, TypeError):
+            # Non-numeric, non-wk row → treat as group label
+            current_group_label = first_str
             continue
 
         if current_week_year is None:
@@ -229,10 +240,12 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
 
         status_val = str(cell_val(status_col) or "ongoing").strip().lower()
         issue_status = "ongoing"
-        if is_closed_sheet or status_val == "closed":
+        if is_closed_sheet:
             issue_status = "closed"
         elif status_val in ("on hold", "on_hold"):
             issue_status = "on_hold"
+        # Note: status_val == "closed" on non-closed sheets is intentionally
+        # kept as "ongoing" — the user handles closing via the web UI.
 
         owner_name = str(cell_val(owner_col) or "").strip() or None
         jira = str(cell_val(jira_col) or "").strip() or None
@@ -261,6 +274,7 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
             "icv": icv,
             "uat_path": uat_path,
             "status": issue_status,
+            "group_label": current_group_label,
             "nodes": nodes,
         })
 

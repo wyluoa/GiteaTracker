@@ -152,9 +152,9 @@ def users():
     """
     db = get_db()
     all_users = db.execute(
-        "SELECT * FROM users WHERE username != 'legacy' ORDER BY created_at"
+        "SELECT * FROM users WHERE username != 'legacy' ORDER BY status, created_at"
     ).fetchall()
-    groups = db.execute("SELECT * FROM groups ORDER BY name").fetchall()
+    groups = db.execute("SELECT * FROM groups WHERE is_active = 1 ORDER BY name").fetchall()
 
     # Build user -> groups mapping
     user_groups = {}
@@ -240,7 +240,7 @@ def groups():
         description: 列出所有群組、成員、及關聯 Node
     """
     db = get_db()
-    all_groups = db.execute("SELECT * FROM groups ORDER BY name").fetchall()
+    all_groups = db.execute("SELECT * FROM groups ORDER BY is_active DESC, name").fetchall()
     all_users = db.execute("SELECT * FROM users WHERE status = 'active' ORDER BY display_name").fetchall()
     all_nodes = db.execute("SELECT * FROM nodes WHERE is_active = 1 ORDER BY sort_order").fetchall()
 
@@ -355,7 +355,7 @@ def update_group(group_id):
 @bp.route("/groups/<int:group_id>/delete", methods=["POST"])
 @super_user_required
 def delete_group(group_id):
-    """刪除群組
+    """停用群組 (soft delete)
     ---
     tags:
       - Admin - Groups
@@ -366,18 +366,195 @@ def delete_group(group_id):
         required: true
     responses:
       302:
-        description: 刪除成功後重導至群組列表
+        description: 停用成功後重導至群組列表
     """
     db = get_db()
     group = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
-    db.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+    db.execute("UPDATE groups SET is_active = 0 WHERE id = ?", (group_id,))
     db.commit()
-    _audit("delete_group", "group", group_id, {"name": group["name"] if group else None})
-    flash("Group 已刪除", "success")
+    _audit("disable_group", "group", group_id, {"name": group["name"] if group else None})
+    flash("Group 已停用", "success")
     return redirect(url_for("admin.groups"))
 
 
-# ── Nodes ──
+@bp.route("/groups/<int:group_id>/restore", methods=["POST"])
+@super_user_required
+def restore_group(group_id):
+    """恢復群組
+    ---
+    tags:
+      - Admin - Groups
+    parameters:
+      - name: group_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 恢復成功後重導至群組列表
+    """
+    db = get_db()
+    group = db.execute("SELECT name FROM groups WHERE id = ?", (group_id,)).fetchone()
+    db.execute("UPDATE groups SET is_active = 1 WHERE id = ?", (group_id,))
+    db.commit()
+    _audit("restore_group", "group", group_id, {"name": group["name"] if group else None})
+    flash("Group 已恢復", "success")
+    return redirect(url_for("admin.groups"))
+
+
+# ── Users: disable / restore ──
+
+@bp.route("/users/<int:user_id>/disable", methods=["POST"])
+@super_user_required
+def disable_user(user_id):
+    """停用使用者 (soft delete)
+    ---
+    tags:
+      - Admin - Users
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 停用成功後重導至使用者列表
+    """
+    db = get_db()
+    user = db.execute("SELECT username, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user and user["username"] == "wy":
+        flash("無法停用主要管理員帳號", "error")
+        return redirect(url_for("admin.users"))
+    db.execute("UPDATE users SET status = 'disabled', updated_at = ? WHERE id = ?",
+               (_now(), user_id))
+    db.commit()
+    _audit("disable_user", "user", user_id, {"display_name": user["display_name"] if user else None})
+    flash("使用者已停用", "success")
+    return redirect(url_for("admin.users"))
+
+
+@bp.route("/users/<int:user_id>/reset_password", methods=["POST"])
+@super_user_required
+def reset_user_password(user_id):
+    """管理員重設使用者密碼
+    ---
+    tags:
+      - Admin - Users
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+      - name: new_password
+        in: formData
+        type: string
+        required: true
+        description: 新密碼 (至少 6 字元)
+    responses:
+      302:
+        description: 重設成功後重導至使用者列表
+    """
+    import bcrypt
+    db = get_db()
+    new_password = request.form.get("new_password", "")
+    if len(new_password) < 6:
+        flash("密碼至少 6 個字元", "error")
+        return redirect(url_for("admin.users"))
+
+    user = db.execute("SELECT username, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user:
+        flash("使用者不存在", "error")
+        return redirect(url_for("admin.users"))
+
+    password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    db.execute("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+               (password_hash, _now(), user_id))
+    db.commit()
+    _audit("reset_password", "user", user_id,
+           {"display_name": user["display_name"], "by_admin": True})
+    flash(f"{user['display_name']} 的密碼已重設", "success")
+    return redirect(url_for("admin.users"))
+
+
+@bp.route("/users/<int:user_id>/restore", methods=["POST"])
+@super_user_required
+def restore_user(user_id):
+    """恢復使用者
+    ---
+    tags:
+      - Admin - Users
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 恢復成功後重導至使用者列表
+    """
+    db = get_db()
+    user = db.execute("SELECT display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    db.execute("UPDATE users SET status = 'active', updated_at = ? WHERE id = ?",
+               (_now(), user_id))
+    db.commit()
+    _audit("restore_user", "user", user_id, {"display_name": user["display_name"] if user else None})
+    flash("使用者已恢復", "success")
+    return redirect(url_for("admin.users"))
+
+
+# ── Nodes: disable / restore ──
+
+@bp.route("/nodes/<int:node_id>/disable", methods=["POST"])
+@super_user_required
+def disable_node(node_id):
+    """停用 Node (soft delete)
+    ---
+    tags:
+      - Admin - Nodes
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 停用成功後重導至 Node 列表
+    """
+    db = get_db()
+    node = db.execute("SELECT display_name FROM nodes WHERE id = ?", (node_id,)).fetchone()
+    db.execute("UPDATE nodes SET is_active = 0 WHERE id = ?", (node_id,))
+    db.commit()
+    _audit("disable_node", "node", node_id, {"display_name": node["display_name"] if node else None})
+    flash("Node 已停用", "success")
+    return redirect(url_for("admin.nodes"))
+
+
+@bp.route("/nodes/<int:node_id>/restore", methods=["POST"])
+@super_user_required
+def restore_node(node_id):
+    """恢復 Node
+    ---
+    tags:
+      - Admin - Nodes
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      302:
+        description: 恢復成功後重導至 Node 列表
+    """
+    db = get_db()
+    node = db.execute("SELECT display_name FROM nodes WHERE id = ?", (node_id,)).fetchone()
+    db.execute("UPDATE nodes SET is_active = 1 WHERE id = ?", (node_id,))
+    db.commit()
+    _audit("restore_node", "node", node_id, {"display_name": node["display_name"] if node else None})
+    flash("Node 已恢復", "success")
+    return redirect(url_for("admin.nodes"))
+
+
+# ── Nodes (CRUD) ──
 
 @bp.route("/nodes")
 @super_user_required
@@ -526,9 +703,9 @@ def update_red_line():
         setting_model.set("red_line_week_year", str(year))
         setting_model.set("red_line_week_number", str(week))
         _audit("set_red_line", "setting", None,
-               {"old": f"wk{old_year}{old_week:02d}" if old_year else "none",
-                "new": f"wk{year}{week:02d}"})
-        flash(f"紅線已設定為 wk{year}{week:02d}", "success")
+               {"old": f"wk{old_year - 2020}{old_week:02d}" if old_year else "none",
+                "new": f"wk{year - 2020}{week:02d}"})
+        flash(f"紅線已設定為 wk{year - 2020}{week:02d}", "success")
     else:
         flash("請輸入有效的年份和週次 (1-53)", "error")
 
@@ -711,6 +888,7 @@ def _build_diff(excel_issues, db):
         ("status", "Status"),
         ("week_year", "Week Year"),
         ("week_number", "Week Number"),
+        ("group_label", "Group"),
     ]
 
     for ei in excel_issues:
@@ -964,12 +1142,12 @@ def excel_update_apply():
             """INSERT INTO issues
                (display_number, topic, requestor_name, owner_user_id,
                 week_year, week_number, jira_ticket, icv, uat_path,
-                status, created_at, updated_at, latest_update_at,
+                status, group_label, created_at, updated_at, latest_update_at,
                 created_by_user_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (dn, ei["topic"], ei["requestor_name"], None,
              ei["week_year"], ei["week_number"], ei["jira_ticket"],
-             ei["icv"], ei["uat_path"], ei["status"],
+             ei["icv"], ei["uat_path"], ei["status"], ei.get("group_label"),
              now_str, now_str, now_str, user_id),
         )
         issue_id = cur.lastrowid

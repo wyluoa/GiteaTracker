@@ -71,7 +71,8 @@ def side_panel(issue_id, node_id):
         perm = db.execute(
             """SELECT 1 FROM user_groups ug
                JOIN group_nodes gn ON ug.group_id = gn.group_id
-               WHERE ug.user_id = ? AND gn.node_id = ? LIMIT 1""",
+               JOIN groups gr ON ug.group_id = gr.id
+               WHERE ug.user_id = ? AND gn.node_id = ? AND gr.is_active = 1 LIMIT 1""",
             (g.current_user["id"], node_id),
         ).fetchone()
         can_edit = perm is not None
@@ -431,7 +432,7 @@ def timeline_partial(issue_id):
 # ── Meeting Mode ──
 
 @bp.route("/meeting/<int:year>/<int:week>")
-@login_required
+@super_user_required
 def meeting_mode(year, week):
     """會議模式 — 列出指定週的所有 issues，每題附文字框
     ---
@@ -474,7 +475,7 @@ def meeting_mode(year, week):
 
 
 @bp.route("/meeting/<int:year>/<int:week>", methods=["POST"])
-@login_required
+@super_user_required
 def meeting_mode_submit(year, week):
     """提交會議紀錄 — 批次儲存該週所有 issues 的會議紀錄
     ---
@@ -526,6 +527,103 @@ def meeting_mode_submit(year, week):
 
     flash(f"已儲存 {count} 筆會議紀錄", "success")
     return redirect(url_for("main.tracker"))
+
+
+# ── Row Update (inline edit all nodes) ──
+
+@bp.route("/issues/<int:issue_id>/row_update", methods=["POST"])
+@super_user_required
+def row_update(issue_id):
+    """整行更新 — 一次修改一個 issue 的所有 Node 狀態
+    ---
+    tags:
+      - Issues
+    consumes:
+      - application/json
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            states:
+              type: object
+              description: 'Node ID → new state 的 mapping，如 {"1": "done", "2": "uat"}'
+            comment:
+              type: string
+              description: 備註 (選填，寫入 timeline)
+    responses:
+      200:
+        description: '回傳 {"ok": true, "updated": N}'
+      404:
+        description: Issue 不存在
+    """
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        return jsonify({"error": "Issue not found"}), 404
+
+    data = request.get_json() if request.is_json else None
+    if not data:
+        return jsonify({"error": "invalid request"}), 400
+
+    states_map = data.get("states", {})
+    comment = (data.get("comment") or "").strip() or None
+    if not states_map:
+        return jsonify({"ok": True, "updated": 0})
+
+    updated = 0
+    for node_id_str, new_state in states_map.items():
+        node_id = int(node_id_str)
+        node = node_model.get_by_id(node_id)
+        if not node:
+            continue
+
+        # Permission check
+        if not g.current_user["is_super_user"]:
+            db = get_db()
+            perm = db.execute(
+                """SELECT 1 FROM user_groups ug
+                   JOIN group_nodes gn ON ug.group_id = gn.group_id
+                   WHERE ug.user_id = ? AND gn.node_id = ? LIMIT 1""",
+                (g.current_user["id"], node_id),
+            ).fetchone()
+            if not perm:
+                continue  # skip nodes user can't edit
+
+        old_cell = state_model.get_state(issue_id, node_id)
+        old_state = old_cell["state"] if old_cell else None
+        new_state = new_state.strip() if new_state else None
+
+        if new_state != old_state:
+            state_model.upsert_state(
+                issue_id, node_id,
+                state=new_state,
+                check_in_date=old_cell["check_in_date"] if old_cell else None,
+                short_note=old_cell["short_note"] if old_cell else None,
+                updated_by_user_id=g.current_user["id"],
+                updated_by_name_snapshot=g.current_user["display_name"],
+            )
+            timeline_model.create_entry(
+                issue_id=issue_id,
+                entry_type="state_change",
+                node_id=node_id,
+                old_state=old_state,
+                new_state=new_state,
+                body=comment,
+                author_user_id=g.current_user["id"],
+                author_name_snapshot=g.current_user["display_name"],
+            )
+            updated += 1
+
+    if updated:
+        issue_model.refresh_cache(issue_id)
+
+    return jsonify({"ok": True, "updated": updated})
 
 
 # ── Close Issue ──
@@ -789,7 +887,8 @@ def batch_update():
         perm = db.execute(
             """SELECT 1 FROM user_groups ug
                JOIN group_nodes gn ON ug.group_id = gn.group_id
-               WHERE ug.user_id = ? AND gn.node_id = ? LIMIT 1""",
+               JOIN groups gr ON ug.group_id = gr.id
+               WHERE ug.user_id = ? AND gn.node_id = ? AND gr.is_active = 1 LIMIT 1""",
             (g.current_user["id"], node_id),
         ).fetchone()
         if not perm:

@@ -43,6 +43,7 @@
             <a href="{{ url_for('admin.index') }}" class="nav-link">Admin</a>
           {% endif %}
           <span class="nav-link text-white pe-2">{{ g.current_user['display_name'] }}</span>
+          <a href="{{ url_for('auth.change_password') }}" class="nav-link" style="font-size:12px;">改密碼</a>
           <a href="{{ url_for('auth.logout') }}" class="nav-link">登出</a>
         </div>
         {% endif %}

@@ -56,7 +56,8 @@ def can_edit_node(node_id_param="node_id"):
             row = db.execute(
                 """SELECT 1 FROM user_groups ug
                    JOIN group_nodes gn ON ug.group_id = gn.group_id
-                   WHERE ug.user_id = ? AND gn.node_id = ?
+                   JOIN groups gr ON ug.group_id = gr.id
+                   WHERE ug.user_id = ? AND gn.node_id = ? AND gr.is_active = 1
                    LIMIT 1""",
                 (g.current_user["id"], node_id),
             ).fetchone()
@@ -113,6 +114,62 @@ def login():
             flash("帳號或密碼錯誤", "error")
 
     return render_template("login.html")
+
+
+@bp.route("/change_password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    """修改密碼
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: current_password
+        in: formData
+        type: string
+        required: true
+        description: 目前密碼
+      - name: new_password
+        in: formData
+        type: string
+        required: true
+        description: 新密碼 (至少 6 字元)
+      - name: new_password2
+        in: formData
+        type: string
+        required: true
+        description: 確認新密碼
+    responses:
+      200:
+        description: 顯示修改密碼表單
+      302:
+        description: 修改成功後重導至 tracker
+    """
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        new_password2 = request.form.get("new_password2", "")
+
+        if not user_model.verify_password(g.current_user, current_password):
+            flash("目前密碼不正確", "error")
+            return render_template("change_password.html")
+        if len(new_password) < 6:
+            flash("新密碼至少 6 個字元", "error")
+            return render_template("change_password.html")
+        if new_password != new_password2:
+            flash("兩次新密碼不一致", "error")
+            return render_template("change_password.html")
+
+        import bcrypt
+        password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+        db = get_db()
+        db.execute("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+                   (password_hash, _now(), g.current_user["id"]))
+        db.commit()
+        flash("密碼已修改", "success")
+        return redirect(url_for("main.tracker"))
+
+    return render_template("change_password.html")
 
 
 @bp.route("/logout")

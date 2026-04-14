@@ -10,7 +10,7 @@
     </div>
     <div class="col-auto ms-auto">
       {% if red_line_year %}
-        <span class="badge bg-red-lt">Red Line: wk{{ red_line_year }}{{ '%02d'|format(red_line_week) }}</span>
+        <span class="badge bg-red-lt">Red Line: wk{{ red_line_year - 2020 }}{{ '%02d'|format(red_line_week) }}</span>
       {% endif %}
     </div>
   </div>

@@ -294,7 +294,7 @@ def get_dashboard_trends():
             cum[p] += c[p]
         total = sum(cum.values())
         rate = round(cum["Close"] / total * 100, 1) if total else 0
-        result_weeks.append(f"wk{wk[0]}{wk[1]:02d}")
+        result_weeks.append(f"wk{wk[0] - 2020}{wk[1]:02d}")
         result_cum.append(dict(cum))
         result_rates.append(rate)
 
@@ -410,7 +410,7 @@ def get_weekly_velocity():
     created = []
     closed = []
     for wk in all_weeks:
-        weeks.append(f"wk{wk[0]}{wk[1]:02d}")
+        weeks.append(f"wk{wk[0] - 2020}{wk[1]:02d}")
         created.append(created_map.get(wk, 0))
         closed.append(closed_by_week.get(wk, 0))
 
@@ -465,7 +465,7 @@ def get_aging_stats():
                     "display_number": r["display_number"],
                     "topic": r["topic"],
                     "requestor_name": r["requestor_name"],
-                    "week_label": f"wk{r['week_year']}{r['week_number']:02d}",
+                    "week_label": f"wk{r['week_year'] - 2020}{r['week_number']:02d}",
                     "days_stale": age_days,
                 })
         except (ValueError, TypeError):
@@ -519,7 +519,7 @@ def get_almost_done_issues(max_remaining=2):
             "display_number": r["display_number"],
             "topic": r["topic"],
             "requestor_name": r["requestor_name"],
-            "week_label": f"wk{r['week_year']}{r['week_number']:02d}",
+            "week_label": f"wk{r['week_year'] - 2020}{r['week_number']:02d}",
             "remaining_count": len(remaining_names),
             "remaining_nodes": remaining_names,
         })
