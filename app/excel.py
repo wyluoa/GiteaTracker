@@ -31,16 +31,17 @@ STATE_LABELS = {
 }
 
 HEADER_TO_CODE = {
-    "A10":   "n_a10",
-    "A12":   "n_a12",
-    "A14":   "n_a14",
-    "N2":    "n_n2",
-    "A16":   "n_a16",
-    "N3":    "n_n3",
-    "N4/N5": "n_n4n5",
-    "N6/N7": "n_n6n7",
-    "000":   "n_000",
-    "MtM":   "n_mtm",
+    "A10":    "n_a10",
+    "A12":    "n_a12",
+    "A14":    "n_a14",
+    "N2":     "n_n2",
+    "A16":    "n_a16",
+    "N2/A16": ["n_n2", "n_a16"],   # combined column → import to both nodes
+    "N3":     "n_n3",
+    "N4/N5":  "n_n4n5",
+    "N6/N7":  "n_n6n7",
+    "000":    "n_000",
+    "MtM":    "n_mtm",
 }
 
 WK_PATTERN = re.compile(r"^wk(\d+)$", re.IGNORECASE)
@@ -167,7 +168,7 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
             status_col = idx
         elif h == "Owner":
             owner_col = idx
-        elif h == "JIRA":
+        elif h in ("JIRA", "JIRA No.", "JIRA No"):
             jira_col = idx
         elif h == "ICV":
             icv_col = idx
@@ -176,9 +177,12 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
         elif h == "Topic":
             topic_col = idx
         elif h in HEADER_TO_CODE:
-            code = HEADER_TO_CODE[h]
-            if code in node_lookup:
-                node_columns[idx] = node_lookup[code]
+            codes = HEADER_TO_CODE[h]
+            if isinstance(codes, str):
+                codes = [codes]
+            for code in codes:
+                if code in node_lookup:
+                    node_columns.setdefault(idx, []).append(node_lookup[code])
 
     if not node_columns:
         return []
@@ -237,14 +241,15 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
         topic = str(cell_val(topic_col) or "").strip() or f"Issue #{display_number}"
 
         nodes = {}
-        for col_idx, node_id in node_columns.items():
+        for col_idx, node_ids in node_columns.items():
             raw = cell_val(col_idx)
             state, check_in_date, short_note = parse_cell(raw)
-            nodes[node_id] = {
-                "state": state,
-                "check_in_date": check_in_date,
-                "short_note": short_note,
-            }
+            for node_id in node_ids:
+                nodes[node_id] = {
+                    "state": state,
+                    "check_in_date": check_in_date,
+                    "short_note": short_note,
+                }
 
         results.append({
             "display_number": display_number,

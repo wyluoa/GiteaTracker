@@ -11,9 +11,14 @@ Admin -> Excel Update feature instead, which provides diff preview
 and conflict detection.
 """
 import argparse
+import io
 import re
 import sys
 from pathlib import Path
+
+# Ensure stdout can handle Unicode (Chinese characters, etc.)
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 import openpyxl
 
@@ -39,16 +44,17 @@ STATE_MAP = {
 
 # Excel header → node code mapping
 HEADER_TO_CODE = {
-    "A10":   "n_a10",
-    "A12":   "n_a12",
-    "A14":   "n_a14",
-    "N2":    "n_n2",
-    "A16":   "n_a16",
-    "N3":    "n_n3",
-    "N4/N5": "n_n4n5",
-    "N6/N7": "n_n6n7",
-    "000":   "n_000",
-    "MtM":   "n_mtm",
+    "A10":    "n_a10",
+    "A12":    "n_a12",
+    "A14":    "n_a14",
+    "N2":     "n_n2",
+    "A16":    "n_a16",
+    "N2/A16": ["n_n2", "n_a16"],   # combined column → import to both nodes
+    "N3":     "n_n3",
+    "N4/N5":  "n_n4n5",
+    "N6/N7":  "n_n6n7",
+    "000":    "n_000",
+    "MtM":    "n_mtm",
 }
 
 WK_PATTERN = re.compile(r"^wk(\d+)$", re.IGNORECASE)
@@ -157,7 +163,7 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
             status_col = idx
         elif h == "Owner":
             owner_col = idx
-        elif h == "JIRA":
+        elif h in ("JIRA", "JIRA No.", "JIRA No"):
             jira_col = idx
         elif h == "ICV":
             icv_col = idx
@@ -166,9 +172,12 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
         elif h == "Topic":
             topic_col = idx
         elif h in HEADER_TO_CODE:
-            code = HEADER_TO_CODE[h]
-            if code in node_lookup:
-                node_columns[idx] = node_lookup[code]
+            codes = HEADER_TO_CODE[h]
+            if isinstance(codes, str):
+                codes = [codes]
+            for code in codes:
+                if code in node_lookup:
+                    node_columns.setdefault(idx, []).append(node_lookup[code])
 
     if not node_columns:
         return 0, 0, ["No node columns found in header"]
@@ -274,34 +283,35 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
             issue_id = cur.lastrowid
 
         # Process node states
-        for col_idx, node_id in node_columns.items():
+        for col_idx, node_ids in node_columns.items():
             raw = cell_val(col_idx)
             state, check_in_date, short_note = parse_cell(raw)
 
-            existing_state = db.execute(
-                "SELECT id FROM issue_node_states WHERE issue_id = ? AND node_id = ?",
-                (issue_id, node_id),
-            ).fetchone()
+            for node_id in node_ids:
+                existing_state = db.execute(
+                    "SELECT id FROM issue_node_states WHERE issue_id = ? AND node_id = ?",
+                    (issue_id, node_id),
+                ).fetchone()
 
-            if existing_state:
-                db.execute(
-                    """UPDATE issue_node_states
-                       SET state=?, check_in_date=?, short_note=?,
-                           updated_at=?, updated_by_user_id=?,
-                           updated_by_name_snapshot=?
-                       WHERE issue_id=? AND node_id=?""",
-                    (state, check_in_date, short_note, now_str,
-                     legacy_user_id, "Legacy", issue_id, node_id),
-                )
-            else:
-                db.execute(
-                    """INSERT INTO issue_node_states
-                       (issue_id, node_id, state, check_in_date, short_note,
-                        updated_at, updated_by_user_id, updated_by_name_snapshot)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (issue_id, node_id, state, check_in_date, short_note,
-                     now_str, legacy_user_id, "Legacy"),
-                )
+                if existing_state:
+                    db.execute(
+                        """UPDATE issue_node_states
+                           SET state=?, check_in_date=?, short_note=?,
+                               updated_at=?, updated_by_user_id=?,
+                               updated_by_name_snapshot=?
+                           WHERE issue_id=? AND node_id=?""",
+                        (state, check_in_date, short_note, now_str,
+                         legacy_user_id, "Legacy", issue_id, node_id),
+                    )
+                else:
+                    db.execute(
+                        """INSERT INTO issue_node_states
+                           (issue_id, node_id, state, check_in_date, short_note,
+                            updated_at, updated_by_user_id, updated_by_name_snapshot)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (issue_id, node_id, state, check_in_date, short_note,
+                         now_str, legacy_user_id, "Legacy"),
+                    )
 
         # Update cache
         cache = db.execute(
