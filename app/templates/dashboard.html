@@ -47,8 +47,16 @@
       <div class="card-body">
         <div class="subheader">Closed</div>
         <div class="h1 mb-0 text-muted">{{ closed_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg">
+    <div class="card" style="border-left: 3px solid #2fb344;">
+      <div class="card-body">
+        <div class="subheader">Closing Rate（含 MtM）</div>
+        <div class="h1 mb-0 text-green">{{ closing_rate }}%</div>
         <div class="text-muted" style="font-size:13px;">
-          Closing Rate: <strong>{{ closing_rate }}%</strong>
+          {{ closed_count }} / {{ ongoing_count + on_hold_count + closed_count }} 筆
         </div>
       </div>
     </div>
@@ -56,7 +64,7 @@
   <div class="col-6 col-lg">
     <div class="card" style="border-left: 3px solid #206bc4;">
       <div class="card-body">
-        <div class="subheader">Closing Rate (excl. MtM)</div>
+        <div class="subheader">Closing Rate（不含 MtM）</div>
         <div class="h1 mb-0 text-blue">{{ closing_rate_ex_mtm }}%</div>
         <div class="text-muted" style="font-size:13px;">
           {{ eff_closed_ex_mtm }} / {{ ongoing_count + on_hold_count + closed_count }} 筆
@@ -112,8 +120,15 @@
   </div>
   <div class="col-lg-5">
     <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">Closing Rate Trend</h3>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0">Closing Rate Trend</h3>
+        {% if manual_trend.weeks %}
+        <select id="trendRangeSelect" class="form-select form-select-sm" style="width:auto;">
+          <option value="ytd" selected>YTD</option>
+          <option value="30">近 30 週</option>
+          <option value="50">近 50 週</option>
+        </select>
+        {% endif %}
       </div>
       <div class="card-body">
         <canvas id="chartClosingRate" height="280"></canvas>
@@ -123,31 +138,6 @@
 </div>
 {% endif %}
 
-{# ── Charts row 2: Velocity ── #}
-{% if velocity.weeks %}
-<div class="row row-deck row-cards mb-3">
-  <div class="col-lg-7">
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">Weekly Velocity（新增 vs 關閉）</h3>
-      </div>
-      <div class="card-body">
-        <canvas id="chartVelocity" height="260"></canvas>
-      </div>
-    </div>
-  </div>
-  <div class="col-lg-5">
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">Bottleneck Nodes（僅剩 1-2 nodes 時的 blocker）</h3>
-      </div>
-      <div class="card-body">
-        <canvas id="chartBottleneck" height="260"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
 
 {# ── Almost Done table ── #}
 {% if almost_done %}
@@ -336,84 +326,68 @@
     },
   });
 
-  new Chart(document.getElementById('chartClosingRate'), {
-    type: 'line',
-    data: {
-      labels: weeks,
-      datasets: [{
-        label: 'Closing Rate (%)', data: rates,
-        borderColor: '#2fb344', backgroundColor: 'rgba(47,179,68,0.1)',
-        fill: true, tension: 0.3, pointRadius: 4, pointHoverRadius: 6,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } }
+  // Closing Rate Trend — prefer manual data if available
+  const manualWeeks = {{ manual_trend.weeks | tojson }};
+  const manualData  = {{ manual_trend.data | tojson }};
+
+  function filterByRange(weeks, data, range) {
+    if (!weeks.length) return { weeks: [], data: [] };
+    if (range === 'ytd') {
+      const thisYear = new Date().getFullYear();
+      const prefix = 'wk' + (thisYear - 2020);
+      const filtered = weeks.map((w, i) => ({w, d: data[i]})).filter(x => x.w.startsWith(prefix));
+      return { weeks: filtered.map(x => x.w), data: filtered.map(x => x.d) };
+    }
+    const n = parseInt(range) || 50;
+    const sliced = weeks.map((w, i) => ({w, d: data[i]})).slice(-n);
+    return { weeks: sliced.map(x => x.w), data: sliced.map(x => x.d) };
+  }
+
+  let closingRateChart;
+  function renderClosingRateChart(range) {
+    let chartWeeks, chartRates;
+    if (manualWeeks.length > 0) {
+      const f = filterByRange(manualWeeks, manualData, range);
+      chartWeeks = f.weeks;
+      chartRates = f.data.map(d => d.rate);
+    } else {
+      chartWeeks = weeks;
+      chartRates = rates;
+    }
+    if (closingRateChart) closingRateChart.destroy();
+    closingRateChart = new Chart(document.getElementById('chartClosingRate'), {
+      type: 'line',
+      data: {
+        labels: chartWeeks,
+        datasets: [{
+          label: 'Closing Rate (%)', data: chartRates,
+          borderColor: '#2fb344', backgroundColor: 'rgba(47,179,68,0.1)',
+          fill: true, tension: 0.3, pointRadius: 4, pointHoverRadius: 6,
+        }],
       },
-      scales: {
-        y: { beginAtZero: true, max: 100,
-             title: { display: true, text: 'Closing Rate (%)' },
-             ticks: { callback: v => v + '%' } },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } }
+        },
+        scales: {
+          y: { beginAtZero: true, max: 100,
+               title: { display: true, text: 'Closing Rate (%)' },
+               ticks: { callback: v => v + '%' } },
+        },
       },
-    },
-  });
+    });
+  }
+  renderClosingRateChart('ytd');
+
+  const rangeSelect = document.getElementById('trendRangeSelect');
+  if (rangeSelect) {
+    rangeSelect.addEventListener('change', function() {
+      renderClosingRateChart(this.value);
+    });
+  }
   {% endif %}
 
-  {# ── Velocity: Created vs Closed per week ── #}
-  {% if velocity.weeks %}
-  const velWeeks   = {{ velocity.weeks | tojson }};
-  const velCreated = {{ velocity.created | tojson }};
-  const velClosed  = {{ velocity.closed | tojson }};
-  const velNet     = velCreated.map((c, i) => c - velClosed[i]);
-
-  new Chart(document.getElementById('chartVelocity'), {
-    type: 'bar',
-    data: {
-      labels: velWeeks,
-      datasets: [
-        { label: 'New',    data: velCreated, backgroundColor: '#206bc4' },
-        { label: 'Closed', data: velClosed,  backgroundColor: '#2fb344' },
-        { label: 'Net',    data: velNet,     type: 'line',
-          borderColor: '#d63939', backgroundColor: 'transparent',
-          borderDash: [5, 3], pointRadius: 3, tension: 0.3 },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'top' } },
-      scales: { y: { beginAtZero: true, title: { display: true, text: 'Topics' } } },
-    },
-  });
-
-  {# ── Bottleneck horizontal bar ── #}
-  const bnData = {{ bottleneck | tojson }};
-  const nodeMap = { {% for n in nodes %}'{{ n.id }}': '{{ n.display_name }}'{{ ',' if not loop.last }}{% endfor %} };
-  const bnEntries = Object.entries(bnData)
-    .map(([nid, cnt]) => ({ name: nodeMap[nid] || ('Node ' + nid), cnt }))
-    .sort((a, b) => b.cnt - a.cnt);
-
-  new Chart(document.getElementById('chartBottleneck'), {
-    type: 'bar',
-    data: {
-      labels: bnEntries.map(e => e.name),
-      datasets: [{
-        label: 'Blocker count',
-        data: bnEntries.map(e => e.cnt),
-        backgroundColor: bnEntries.map((_, i) => i === 0 ? '#d63939' : '#e8816d'),
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      indexAxis: 'y',
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { beginAtZero: true, title: { display: true, text: 'Topics blocked' },
-             ticks: { stepSize: 1 } },
-      },
-    },
-  });
-  {% endif %}
 })();
 </script>
 {% endif %}

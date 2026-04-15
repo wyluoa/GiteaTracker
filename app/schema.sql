@@ -145,3 +145,16 @@ CREATE TABLE IF NOT EXISTS audit_log (
     details        TEXT,
     created_at     TEXT NOT NULL
 );
+
+-- Weekly trend data (manually entered via Admin)
+CREATE TABLE IF NOT EXISTS weekly_trend_data (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    week_year     INTEGER NOT NULL,
+    week_number   INTEGER NOT NULL,
+    cnt_uat       INTEGER NOT NULL DEFAULT 0,
+    cnt_tbd       INTEGER NOT NULL DEFAULT 0,
+    cnt_dev       INTEGER NOT NULL DEFAULT 0,
+    cnt_close     INTEGER NOT NULL DEFAULT 0,
+    updated_at    TEXT,
+    UNIQUE (week_year, week_number)
+);

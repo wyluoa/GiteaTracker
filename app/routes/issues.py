@@ -56,7 +56,7 @@ def side_panel(issue_id, node_id):
 
     cell = state_model.get_state(issue_id, node_id)
     nodes = node_model.get_all_active()
-    timeline = timeline_model.get_for_issue(issue_id)
+    timeline = timeline_model.get_for_issue(issue_id, node_id=node_id)
 
     # Get node display names for timeline rendering
     node_map = {n["id"]: n["display_name"] for n in nodes}
@@ -416,7 +416,8 @@ def timeline_partial(issue_id):
         abort(404)
 
     entry_type = request.args.get("type", "").strip() or None
-    timeline = timeline_model.get_for_issue(issue_id, entry_type=entry_type)
+    filter_node_id = request.args.get("node_id", type=int) or None
+    timeline = timeline_model.get_for_issue(issue_id, entry_type=entry_type, node_id=filter_node_id)
     nodes = node_model.get_all_active()
     node_map = {n["id"]: n["display_name"] for n in nodes}
 
@@ -426,6 +427,7 @@ def timeline_partial(issue_id):
         timeline=timeline,
         node_map=node_map,
         filter_type=entry_type,
+        filter_node_id=filter_node_id,
     )
 
 
@@ -684,6 +686,34 @@ def close_issue(issue_id):
 
     flash(f"#{issue['display_number']} 已關單", "success")
     return redirect(url_for("main.tracker"))
+
+
+# ── Update Closed Note ──
+
+@bp.route("/issues/<int:issue_id>/closed_note", methods=["POST"])
+@login_required
+def update_closed_note(issue_id):
+    """更新關單備註（super_user only）
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: JSON ok
+    """
+    if not g.current_user["is_super_user"]:
+        return jsonify({"error": "需要管理員權限"}), 403
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        return jsonify({"error": "not found"}), 404
+    new_note = request.json.get("closed_note", "").strip() if request.is_json else ""
+    issue_model.update_issue(issue_id, closed_note=new_note or None)
+    return jsonify({"ok": True, "closed_note": new_note})
 
 
 # ── Reopen Issue ──

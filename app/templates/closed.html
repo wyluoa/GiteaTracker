@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Closed Topics — Gitea Tracker{% endblock %}
+{% block container_class %}container-fluid{% endblock %}
 
 {% set STATE_COLORS = {
   'done':       {'bg': '#27ae60', 'text': 'white', 'label': 'Done'},
@@ -8,8 +9,9 @@
   'uat':        {'bg': '#e67e22', 'text': 'white', 'label': 'UAT'},
   'developing': {'bg': '#95a5a6', 'text': 'white', 'label': 'Dev'},
   'tbd':        {'bg': '#8e44ad', 'text': 'white', 'label': 'TBD'},
-  'unneeded':   {'bg': '#bdc3c7', 'text': '#666',  'label': '\u2014'},
+  'unneeded':   {'bg': '#bdc3c7', 'text': '#555',  'label': 'Unneeded'},
 } %}
+{% set EMPTY_COLOR = {'bg': '#ecf0f1', 'text': '#aaa', 'label': '\u00b7'} %}
 
 {% block content %}
 <div x-data="{ panelOpen: false }" class="tracker-layout">
@@ -47,7 +49,7 @@
 
 {# ── Table ── #}
 <div class="card">
-  <div class="table-responsive">
+  <div class="tracker-table-wrap">
     <table class="table table-vcenter table-sm tracker-table">
       <thead>
         <tr>
@@ -59,73 +61,103 @@
           {% endfor %}
           <th style="width:100px;">Closed</th>
           <th style="width:80px;">Note</th>
-          {% if user.is_super_user %}
+          {% if user.get('is_super_user') %}
             <th style="width:70px;"></th>
           {% endif %}
         </tr>
       </thead>
       <tbody>
-        {% for issue in issues %}
-        <tr>
-          <td class="cell-number">{{ issue.display_number }}</td>
-          <td class="cell-topic">{{ issue.topic }}</td>
-          <td class="cell-owner">{{ issue.requestor_name or '' }}</td>
-          {% for node in nodes %}
-            {% set states = all_states.get(issue.id, {}) %}
-            {% set cell = states.get(node.id) %}
-            {% set state = cell['state'] if cell and cell['state'] else None %}
-            {% if state %}
-              {% set info = STATE_COLORS.get(state) %}
-              <td class="cell-node cell-clickable"
+        {% for wg in week_groups %}
+          {# Week group header #}
+          <tr class="week-header">
+            <td colspan="{{ nodes|length + 5 + (1 if user.get('is_super_user') else 0) }}">
+              wk{{ wg.week_year - 2020 }}{{ '%02d'|format(wg.week_number) }}
+              <span class="text-muted ms-2">{{ wg.issues|length }} 題</span>
+            </td>
+          </tr>
+          {% for issue in wg.issues %}
+          <tr>
+            <td class="cell-number">{{ issue.display_number }}</td>
+            <td class="cell-topic">{{ issue.topic }}</td>
+            <td class="cell-owner">{{ issue.requestor_name or '' }}</td>
+            {% for node in nodes %}
+              {% set states = all_states.get(issue.id, {}) %}
+              {% set cell = states.get(node.id) %}
+              {% set state = cell['state'] if cell and cell['state'] else None %}
+              {% set info = STATE_COLORS.get(state, EMPTY_COLOR) %}
+              <td class="cell-node{% if user.get('id') %} cell-clickable{% endif %}"
+                  {% if user.get('id') %}
                   hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
                   hx-target="#side-panel-content"
                   hx-swap="innerHTML"
-                  @click="panelOpen = true">
+                  @click="panelOpen = true"
+                  {% endif %}>
                 <span class="state-chip" style="background:{{ info.bg }};color:{{ info.text }};">
                   {{ info.label }}
                 </span>
+                {% if cell and cell['check_in_date'] %}
+                  <span class="cell-date">&rarr;{{ cell['check_in_date'] }}</span>
+                {% endif %}
+                {% if cell and cell['short_note'] %}
+                  <span class="cell-note">{{ cell['short_note'] }}</span>
+                {% endif %}
               </td>
+            {% endfor %}
+            <td style="font-size:11px; white-space:nowrap;">
+              {% if issue.closed_at %}
+                {{ issue.closed_at[:10] }}
+              {% endif %}
+            </td>
+            {% if user.get('is_super_user') %}
+            <td style="font-size:11px; cursor:pointer;" title="點擊編輯"
+                x-data="{ editing: false, val: '{{ (issue.closed_note or '')|e }}' }"
+                @click="if(!editing){ editing=true; $nextTick(()=>$refs.inp.focus()) }">
+              <template x-if="!editing">
+                <span x-text="val || '—'" style="color: #888;"></span>
+              </template>
+              <template x-if="editing">
+                <input type="text" x-ref="inp" x-model="val" class="form-control form-control-sm"
+                       style="font-size:11px; padding:1px 4px; min-width:80px;"
+                       @blur="editing=false; fetch(window.__BASE__+'/issues/{{ issue.id }}/closed_note',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({closed_note:val})})"
+                       @keydown.enter="$el.blur()"
+                       @click.stop>
+              </template>
+            </td>
             {% else %}
-              <td class="cell-node"></td>
+            <td style="font-size:11px;" title="{{ issue.closed_note or '' }}">
+              {{ (issue.closed_note or '')[:20] }}
+            </td>
             {% endif %}
+            {% if user.get('is_super_user') %}
+            <td>
+              <button class="btn btn-sm btn-outline-warning"
+                      onclick="document.getElementById('reopenModal{{ issue.id }}').showModal()">
+                Reopen
+              </button>
+              <dialog id="reopenModal{{ issue.id }}" class="modal-dialog-custom">
+                <form method="POST" action="{{ url_for('issues.reopen_issue', issue_id=issue.id) }}">
+                  <h4>Reopen #{{ issue.display_number }}</h4>
+                  <p class="text-muted" style="font-size:13px;">{{ issue.topic }}</p>
+                  <div class="mb-3">
+                    <label class="form-label">原因</label>
+                    <input type="text" name="reason" class="form-control form-control-sm"
+                           placeholder="例：需補充 UAT 驗證">
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-warning btn-sm">確認 Reopen</button>
+                    <button type="button" class="btn btn-sm"
+                            onclick="this.closest('dialog').close()">取消</button>
+                  </div>
+                </form>
+              </dialog>
+            </td>
+            {% endif %}
+          </tr>
           {% endfor %}
-          <td style="font-size:11px; white-space:nowrap;">
-            {% if issue.closed_at %}
-              {{ issue.closed_at[:10] }}
-            {% endif %}
-          </td>
-          <td style="font-size:11px;" title="{{ issue.closed_note or '' }}">
-            {{ (issue.closed_note or '')[:20] }}
-          </td>
-          {% if user.is_super_user %}
-          <td>
-            <button class="btn btn-sm btn-outline-warning"
-                    onclick="document.getElementById('reopenModal{{ issue.id }}').showModal()">
-              Reopen
-            </button>
-            <dialog id="reopenModal{{ issue.id }}" class="modal-dialog-custom">
-              <form method="POST" action="{{ url_for('issues.reopen_issue', issue_id=issue.id) }}">
-                <h4>Reopen #{{ issue.display_number }}</h4>
-                <p class="text-muted" style="font-size:13px;">{{ issue.topic }}</p>
-                <div class="mb-3">
-                  <label class="form-label">原因</label>
-                  <input type="text" name="reason" class="form-control form-control-sm"
-                         placeholder="例：需補充 UAT 驗證">
-                </div>
-                <div class="d-flex gap-2">
-                  <button type="submit" class="btn btn-warning btn-sm">確認 Reopen</button>
-                  <button type="button" class="btn btn-sm"
-                          onclick="this.closest('dialog').close()">取消</button>
-                </div>
-              </form>
-            </dialog>
-          </td>
-          {% endif %}
-        </tr>
         {% endfor %}
-        {% if not issues %}
+        {% if not week_groups %}
         <tr>
-          <td colspan="{{ nodes|length + 5 + (1 if user.is_super_user else 0) }}" class="text-center text-muted py-3">
+          <td colspan="{{ nodes|length + 5 + (1 if user.get('is_super_user') else 0) }}" class="text-center text-muted py-3">
             沒有 Closed Topics
           </td>
         </tr>
@@ -176,5 +208,67 @@
 </div>
 
 </div>{# /tracker-layout #}
+
+{# ── Floating sticky header (JS) ── #}
+<script>
+(function() {
+  var table = document.querySelector('.tracker-table');
+  if (!table) return;
+  var thead = table.querySelector('thead');
+  if (!thead) return;
+  var wrap = table.closest('.tracker-table-wrap');
+
+  function getScrollParent(el) {
+    var node = el.parentElement;
+    while (node && node !== document.body) {
+      var style = getComputedStyle(node);
+      if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) return node;
+      node = node.parentElement;
+    }
+    return window;
+  }
+  var scrollParent = getScrollParent(table);
+
+  var float = document.createElement('div');
+  float.className = 'floating-thead';
+  var ct = document.createElement('table');
+  ct.className = table.className;
+  var ch = thead.cloneNode(true);
+  ct.appendChild(ch);
+  float.appendChild(ct);
+  document.body.appendChild(float);
+
+  var navbar = document.querySelector('header.navbar');
+  function navH() { return navbar ? navbar.getBoundingClientRect().bottom : 0; }
+
+  function sync() {
+    var theadRect = thead.getBoundingClientRect();
+    var tableRect = table.getBoundingClientRect();
+    var nh = Math.max(navH(), 0);
+    if (tableRect.bottom < nh + 10 || theadRect.top >= nh) { float.style.display = 'none'; return; }
+    float.style.display = 'block';
+    float.style.top = nh + 'px';
+    float.style.left = tableRect.left + 'px';
+    float.style.width = tableRect.width + 'px';
+    ct.style.width = tableRect.width + 'px';
+    var ths = thead.querySelectorAll('th');
+    var cths = ch.querySelectorAll('th');
+    for (var i = 0; i < ths.length && i < cths.length; i++) {
+      var w = ths[i].getBoundingClientRect().width + 'px';
+      cths[i].style.width = w; cths[i].style.minWidth = w; cths[i].style.maxWidth = w;
+    }
+  }
+
+  if (scrollParent === window) {
+    window.addEventListener('scroll', sync, { passive: true });
+  } else {
+    scrollParent.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('scroll', sync, { passive: true });
+  }
+  window.addEventListener('resize', sync);
+  sync();
+  setTimeout(sync, 500);
+})();
+</script>
 
 {% endblock %}

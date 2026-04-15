@@ -34,6 +34,39 @@
     </div>
   </div>
 
+  {# ── Owner / Topic / Path edit (super_user only) ── #}
+  {% if user.is_super_user %}
+  <div class="mt-2 mb-2" x-data="{ editMeta: false }">
+    <button class="btn btn-sm btn-outline-secondary" style="font-size:11px;"
+            @click="editMeta = !editMeta" x-text="editMeta ? '收起' : '編輯 Owner / Topic / Path'"></button>
+    <div x-show="editMeta" x-cloak class="mt-2 p-2 border rounded" style="font-size:12px;">
+      {# Owner #}
+      <form method="POST" action="{{ url_for('admin.update_issue_owner', issue_id=issue.id) }}" class="mb-2">
+        <label class="form-label mb-1">Owner</label>
+        <div class="d-flex gap-1">
+          <input type="text" name="requestor_name" class="form-control form-control-sm"
+                 value="{{ issue.requestor_name or '' }}" style="width:160px;">
+          <button type="submit" class="btn btn-sm btn-primary">更新</button>
+        </div>
+      </form>
+      {# Topic / Path #}
+      <form method="POST" action="{{ url_for('admin.edit_issue', issue_id=issue.id) }}">
+        <div class="mb-2">
+          <label class="form-label mb-1">Topic</label>
+          <input type="text" name="topic" class="form-control form-control-sm"
+                 value="{{ issue.topic }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label mb-1">UAT Path</label>
+          <input type="text" name="uat_path" class="form-control form-control-sm"
+                 value="{{ issue.uat_path or '' }}">
+        </div>
+        <button type="submit" class="btn btn-sm btn-primary">更新 Topic / Path</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
   <hr class="my-2">
 
   {# ── Edit form (only if user has permission) ── #}
@@ -105,17 +138,33 @@
       </div>
     </div>
 
-    {# Filter #}
-    <div class="mb-2">
-      <select class="form-select form-select-sm" style="width:auto;display:inline-block;"
+    {# Filter — default to current node #}
+    <div class="mb-2 d-flex gap-2 align-items-center flex-wrap" x-data="{ scope: 'node' }">
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn" :class="scope === 'node' ? 'btn-primary' : 'btn-outline-secondary'"
+                @click="scope = 'node'"
+                hx-get="{{ url_for('issues.timeline_partial', issue_id=issue.id, node_id=node.id) }}"
+                hx-target="#timeline-list" hx-swap="innerHTML">
+          {{ node.display_name }}
+        </button>
+        <button type="button" class="btn" :class="scope === 'all' ? 'btn-primary' : 'btn-outline-secondary'"
+                @click="scope = 'all'"
+                hx-get="{{ url_for('issues.timeline_partial', issue_id=issue.id) }}"
+                hx-target="#timeline-list" hx-swap="innerHTML">
+          查看全部
+        </button>
+      </div>
+      <select class="form-select form-select-sm" style="width:auto;"
               hx-get="{{ url_for('issues.timeline_partial', issue_id=issue.id) }}"
               hx-target="#timeline-list"
               hx-swap="innerHTML"
-              name="type">
-        <option value="">全部</option>
-        <option value="state_change">只看狀態變更</option>
-        <option value="comment">只看留言</option>
-        <option value="meeting_note">只看會議紀錄</option>
+              hx-include="this"
+              name="type"
+              @change="scope = 'filter'">
+        <option value="">依類型篩選...</option>
+        <option value="state_change">狀態變更</option>
+        <option value="comment">留言</option>
+        <option value="meeting_note">會議紀錄</option>
       </select>
     </div>
 

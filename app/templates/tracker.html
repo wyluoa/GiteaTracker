@@ -1,8 +1,28 @@
 {% extends "base.html" %}
 
 {% block title %}Ongoing — Gitea Tracker{% endblock %}
+{% block container_class %}container-fluid{% endblock %}
 
 {% block content %}
+
+{# ── Gitea URL helper macro ── #}
+{% macro gitea_url_for(display_number) %}
+  {%- set ns = namespace(url='') -%}
+  {%- for m in gitea_url_mappings -%}
+    {%- if m.prefix and display_number.upper().startswith(m.prefix.upper()) -%}
+      {%- set num_part = display_number[m.prefix|length:] -%}
+      {%- set ns.url = m.url_template|replace('{number}', num_part) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- if not ns.url -%}
+    {%- for m in gitea_url_mappings -%}
+      {%- if not m.prefix and display_number.isdigit() -%}
+        {%- set ns.url = m.url_template|replace('{number}', display_number) -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {{- ns.url -}}
+{% endmacro %}
 
 {# ── Helpers ── #}
 {% set STATE_COLORS = {
@@ -11,7 +31,7 @@
   'uat':        {'bg': '#e67e22', 'text': 'white', 'label': 'UAT'},
   'developing': {'bg': '#95a5a6', 'text': 'white', 'label': 'Dev'},
   'tbd':        {'bg': '#8e44ad', 'text': 'white', 'label': 'TBD'},
-  'unneeded':   {'bg': '#bdc3c7', 'text': '#666',  'label': '\u2014'},
+  'unneeded':   {'bg': '#bdc3c7', 'text': '#555',  'label': 'Unneeded'},
 } %}
 {% set EMPTY_COLOR = {'bg': '#ecf0f1', 'text': '#aaa', 'label': '\u00b7'} %}
 {% set RED_ALERT_BG = '#c0392b' %}
@@ -41,12 +61,14 @@
   {% set use_red = (above == 'true') and state in ('uat', 'tbd') %}
 
   {% set is_new = last_viewed and cell and cell['updated_at'] and cell['updated_at'] > last_viewed %}
-  <td class="cell-node cell-clickable{% if is_new %} cell-new-change{% endif %}"
+  <td class="cell-node{% if user.get('id') %} cell-clickable{% endif %}{% if is_new %} cell-new-change{% endif %}"
       id="cell-{{ issue.id }}-{{ node.id }}"
+      {% if user.get('id') %}
       hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
       hx-target="#side-panel-content"
       hx-swap="innerHTML"
-      @click="$dispatch('open-panel')">
+      @click="$dispatch('open-panel')"
+      {% endif %}>
     <span class="state-chip"
           style="background:{{ RED_ALERT_BG if use_red else info.bg }};color:{{ 'white' if use_red else info.text }};">
       {{ info.label }}
@@ -66,18 +88,26 @@
   <tr
       :class="{ 'table-active': selectedIds.includes({{ issue.id }}) }">
     <td class="cell-number" style="white-space:nowrap;">
+      {% if user.get('id') %}
       <input type="checkbox" class="form-check-input batch-cb"
              :checked="selectedIds.includes({{ issue.id }})"
              @change="toggleId({{ issue.id }})">
-      {{ issue.display_number }}
-      {% if issue.all_nodes_done %}
+      {% endif %}
+      {% set g_url = gitea_url_for(issue.display_number)|trim %}
+      {% if g_url %}
+        <a href="{{ g_url }}" target="_blank" title="Open Gitea Issue"
+           style="text-decoration:none;" onclick="event.stopPropagation()">{{ issue.display_number }}</a>
+      {% else %}
+        {{ issue.display_number }}
+      {% endif %}
+      {% if user.get('id') and issue.all_nodes_done %}
         <button class="btn btn-sm btn-outline-green py-0 px-1 ms-1 close-issue-btn"
                 title="關單"
                 x-on:click.stop="closeIssueId={{ issue.id }}; closeIssueNum='{{ issue.display_number }}'; $refs.closeModal.showModal()">
           &#10003; 關
         </button>
       {% endif %}
-      {% if user.is_super_user %}
+      {% if user.get('is_super_user') %}
       <button class="btn btn-sm btn-ghost-primary py-0 px-1 ms-1" title="整行套用"
               x-show="!editing" @click.stop="editing=true">&#9998;</button>
       {% endif %}
@@ -188,14 +218,19 @@
         {% endif %}
       </div>
       <div class="col-auto ms-auto d-flex gap-1">
+        {% if user.get('id') %}
         <button type="button" class="btn btn-sm btn-outline-secondary"
                 onclick="fetch('{{ url_for('main.mark_all_read') }}',{method:'POST',credentials:'same-origin'}).then(()=>location.reload())">標記已讀</button>
         <a href="{{ url_for('main.export_excel') }}" class="btn btn-sm btn-outline-secondary">匯出 Excel</a>
-        {% if user.is_super_user %}
+        {% if user.get('is_super_user') %}
+        <a href="{{ url_for('admin.create_issue') }}" class="btn btn-sm btn-outline-success">+ 新增題目</a>
         <a href="{{ url_for('issues.meeting_mode', year=current_week_year, week=current_week_number) }}"
            class="btn btn-warning btn-sm">
           wk{{ current_week_year - 2020 }}{{ '%02d'|format(current_week_number) }} 會議模式
         </a>
+        {% endif %}
+        {% else %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-primary">登入</a>
         {% endif %}
       </div>
 
@@ -240,6 +275,7 @@
 </div>
 
 {# ── Batch action bar ── #}
+{% if user.get('id') %}
 <div class="card mb-2" x-show="selectedIds.length > 0" x-cloak>
   <div class="card-body py-2">
     <div class="row g-2 align-items-center">
@@ -304,8 +340,10 @@
     </div>
   </div>
 </dialog>
+{% endif %}{# /user.get('id') batch bar + modals #}
 
 {# ── Close topic modal (HTML dialog) ── #}
+{% if user.get('id') %}
 <dialog x-ref="closeModal" class="modal-dialog-custom">
   <form method="POST" :action="window.__BASE__ + '/issues/' + closeIssueId + '/close'">
     <h4>關單 #<span x-text="closeIssueNum"></span></h4>
@@ -320,6 +358,7 @@
     </div>
   </form>
 </dialog>
+{% endif %}{# /close modal #}
 
 <script>
 function trackerApp() {
@@ -399,7 +438,7 @@ function advFilter() {
       {% endif %}
     </div>
   </div>
-  <div class="table-responsive">
+  <div class="tracker-table-wrap">
     <table class="table table-vcenter table-sm tracker-table">
       <thead>
         <tr>
@@ -467,7 +506,7 @@ function advFilter() {
     </h3>
   </div>
   <div x-show="open" x-cloak>
-    <div class="table-responsive">
+    <div class="tracker-table-wrap">
       <table class="table table-vcenter table-sm tracker-table">
         <thead>
           <tr>
@@ -503,7 +542,7 @@ function advFilter() {
   </div>
   <div x-show="open" x-cloak>
     {% if on_hold_issues %}
-    <div class="table-responsive">
+    <div class="tracker-table-wrap">
       <table class="table table-vcenter table-sm tracker-table">
         <thead>
           <tr>
@@ -621,6 +660,87 @@ function rowApply(issueId, nodeMap) {
     }
   };
 }
+</script>
+
+{# ── Floating sticky header (JS) ── #}
+<script>
+(function() {
+  var table = document.querySelector('.tracker-main .tracker-table');
+  if (!table) return;
+  var thead = table.querySelector('thead');
+  if (!thead) return;
+  var wrap = table.closest('.tracker-table-wrap');
+
+  // Find the real scroll container (Tabler may scroll inside .page-wrapper)
+  function getScrollParent(el) {
+    var node = el.parentElement;
+    while (node && node !== document.body) {
+      var style = getComputedStyle(node);
+      if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) return node;
+      node = node.parentElement;
+    }
+    return window;
+  }
+  var scrollParent = getScrollParent(table);
+
+  // Create floating clone
+  var float = document.createElement('div');
+  float.className = 'floating-thead';
+  var ct = document.createElement('table');
+  ct.className = table.className;
+  var ch = thead.cloneNode(true);
+  ct.appendChild(ch);
+  float.appendChild(ct);
+  document.body.appendChild(float);
+
+  // Navbar height (fixed reference point)
+  var navbar = document.querySelector('header.navbar');
+  function navH() { return navbar ? navbar.getBoundingClientRect().bottom : 0; }
+
+  function sync() {
+    var theadRect = thead.getBoundingClientRect();
+    var tableRect = table.getBoundingClientRect();
+    var nh = Math.max(navH(), 0);
+
+    // Hide when table is entirely above or the header is still visible
+    if (tableRect.bottom < nh + 10 || theadRect.top >= nh) {
+      float.style.display = 'none';
+      return;
+    }
+
+    float.style.display = 'block';
+    float.style.top = nh + 'px';
+
+    // Width & horizontal position: match the wrapper's visible area
+    // Match position and width to the real table
+    float.style.left = tableRect.left + 'px';
+    float.style.width = tableRect.width + 'px';
+    ct.style.width = tableRect.width + 'px';
+
+    // Sync column widths
+    var ths = thead.querySelectorAll('th');
+    var cths = ch.querySelectorAll('th');
+    for (var i = 0; i < ths.length && i < cths.length; i++) {
+      var w = ths[i].getBoundingClientRect().width + 'px';
+      cths[i].style.width = w;
+      cths[i].style.minWidth = w;
+      cths[i].style.maxWidth = w;
+    }
+  }
+
+  // Bind scroll on the correct container
+  if (scrollParent === window) {
+    window.addEventListener('scroll', sync, { passive: true });
+  } else {
+    scrollParent.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('scroll', sync, { passive: true });
+  }
+  window.addEventListener('resize', sync);
+
+  // Initial sync + delayed re-sync after fonts/images load
+  sync();
+  setTimeout(sync, 500);
+})();
 </script>
 
 {% endblock %}

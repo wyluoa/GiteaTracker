@@ -1,0 +1,65 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'gitea_urls' %}
+{% block title %}Gitea URL 映射 — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Gitea URL 映射設定</h3></div>
+  <div class="card-body">
+    <p class="text-muted" style="font-size:13px;">
+      設定題號前綴與 Gitea Issue URL 的對應規則。URL 模板中用 <code>{number}</code> 代表數字部分。
+      <br>例如前綴 <code>P</code>，模板 <code>http://drc:8080/gitea/PDKD-3-04/perl_scripts/issues/{number}</code>
+      <br>題號 P260 就會對應到 <code>.../issues/260</code>
+    </p>
+    <form method="POST" action="{{ url_for('admin.update_gitea_urls') }}" x-data="urlMappings()">
+      <table class="table table-sm" style="font-size:13px;">
+        <thead>
+          <tr>
+            <th style="width:100px;">前綴</th>
+            <th>URL 模板 (含 {number})</th>
+            <th style="width:50px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(row, idx) in rows" :key="idx">
+            <tr>
+              <td><input type="text" name="prefix" class="form-control form-control-sm"
+                         x-model="row.prefix" placeholder="P, CN, SNPS..."></td>
+              <td><input type="text" name="url_template" class="form-control form-control-sm"
+                         x-model="row.url_template"
+                         placeholder="http://drc:8080/gitea/ORG/REPO/issues/{number}"></td>
+              <td>
+                <button type="button" class="btn btn-sm btn-ghost-danger" @click="removeRow(idx)">&times;</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <button type="button" class="btn btn-sm btn-outline-primary mb-3" @click="addRow()">+ 新增規則</button>
+
+      <div class="mb-3 p-3 rounded" style="background:#f8f9fc;">
+        <label class="form-label fw-bold">純數字預設 URL 模板</label>
+        <input type="text" name="default_url_template" class="form-control form-control-sm"
+               value="{{ default_url }}"
+               placeholder="http://drc:8080/gitea/PDKD-3-04/QC_requests/issues/{number}">
+        <div class="text-muted" style="font-size:12px;">當題號為純數字時使用此模板</div>
+      </div>
+
+      <button type="submit" class="btn btn-sm btn-primary">儲存</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function urlMappings() {
+  const initial = {{ mappings | tojson }};
+  // Separate prefix-based rules from default (prefix="")
+  const prefixed = initial.filter(m => m.prefix);
+  if (prefixed.length === 0) prefixed.push({prefix: '', url_template: ''});
+  return {
+    rows: prefixed,
+    addRow() { this.rows.push({prefix: '', url_template: ''}); },
+    removeRow(idx) { this.rows.splice(idx, 1); if (this.rows.length === 0) this.rows.push({prefix: '', url_template: ''}); },
+  };
+}
+</script>
+{% endblock %}

@@ -95,6 +95,22 @@ def create_app():
     }
     Swagger(app, config=swagger_config, template=swagger_template)
 
+    # Inject dynamic settings into template context
+    @app.context_processor
+    def inject_dynamic_settings():
+        import json as _json
+        from app.models import setting as setting_model
+        raw_mappings = setting_model.get("gitea_url_mappings", "[]")
+        try:
+            _url_mappings = _json.loads(raw_mappings)
+        except (ValueError, TypeError):
+            _url_mappings = []
+        return {
+            "col_topic_min_width": setting_model.get("col_topic_min_width", "280"),
+            "col_path_min_width": setting_model.get("col_path_min_width", "220"),
+            "gitea_url_mappings": _url_mappings,
+        }
+
     # Reverse proxy path prefix (e.g. /GiteaTracker)
     # The reverse proxy strips the prefix before forwarding, so Flask
     # receives bare paths like /dashboard.  We only need SCRIPT_NAME so

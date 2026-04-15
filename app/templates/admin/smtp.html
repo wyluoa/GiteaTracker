@@ -6,14 +6,24 @@
   <div class="card-header"><h3 class="card-title">郵件設定</h3></div>
   <div class="card-body">
     <p class="text-muted" style="font-size:13px;">
-      寄信透過公司內部 API (ddi_api.pl)，只需設定寄件人地址。
+      寄信透過公司內部 SMTP Relay (smtplib)。
     </p>
     <form method="POST" action="{{ url_for('admin.update_smtp') }}">
       <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">SMTP Host</label>
+          <input type="text" name="smtp_host" class="form-control form-control-sm"
+                 value="{{ settings.smtp_host }}" placeholder="10.234.8.22" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Port</label>
+          <input type="number" name="smtp_port" class="form-control form-control-sm"
+                 value="{{ settings.smtp_port }}" placeholder="2525" required>
+        </div>
         <div class="col-md-6">
           <label class="form-label">寄件人 Email (From)</label>
           <input type="email" name="mail_from" class="form-control form-control-sm"
-                 value="{{ settings.mail_from }}" placeholder="gitea-tracker@company.com" required>
+                 value="{{ settings.mail_from }}" placeholder="p_drc@tsmc.com" required>
         </div>
       </div>
       <div class="mt-3">

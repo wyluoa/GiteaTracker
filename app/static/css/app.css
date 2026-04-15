@@ -5,28 +5,74 @@ body {
   font-family: -apple-system, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
 }
 
+/* ── Column width CSS variables (adjustable via Admin or override) ── */
+:root {
+  --col-topic-min-width: 280px;
+  --col-path-min-width: 220px;
+}
+
 /* ── Tracker table ── */
 .tracker-table {
   white-space: nowrap;
   font-size: 13px;
+  width: 100%;
+  table-layout: fixed;        /* fixed layout respects explicit widths */
 }
 .tracker-table th,
 .tracker-table td {
   padding: 3px 5px;
   vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tracker-table th {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
 }
 
-.th-number { width: 42px; }
-.th-topic  { min-width: 220px; }
+/* ── Table wrapper ── */
+.tracker-table-wrap {
+  overflow: hidden;            /* no horizontal scroll */
+}
+
+/* ── Sticky header (JS-cloned floating header) ── */
+.floating-thead {
+  position: fixed;
+  top: 0;
+  z-index: 50;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  overflow: hidden;
+  pointer-events: none;     /* don't block clicks on underlying page */
+  display: none;             /* shown by JS */
+}
+.floating-thead table {
+  margin: 0;
+  table-layout: fixed;
+}
+.floating-thead th {
+  background: #fff !important;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+}
+
+/* Column widths for table-layout:fixed.
+   Topic & Path use CSS variables (adjustable via Admin > 欄寬設定). */
+.th-number { width: 70px; }
+.th-topic  { width: var(--col-topic-min-width); }
 .th-owner  { width: 55px; }
 .th-node   { width: 64px; text-align: center; }
 .th-jira   { width: 80px; }
-.th-path   { min-width: 160px; }
+.th-path   { width: var(--col-path-min-width); }
 
-.cell-number { font-weight: 600; }
+.cell-number {
+  font-weight: 600;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap;
+}
 .cell-topic  {
   white-space: normal;
   word-break: break-word;
@@ -46,6 +92,7 @@ body {
   white-space: normal;
   word-break: break-all;
   position: relative;
+  padding: 3px 8px !important;
 }
 .cell-path:hover {
   color: #0d6efd;
@@ -334,7 +381,274 @@ body {
   background: rgba(0,0,0,0.3);
 }
 
+/* ── Navbar ── */
+.gt-navbar {
+  background: #2c3e50;
+  padding: 0 1rem;
+  min-height: 48px;
+}
+.gt-navbar-brand {
+  color: #fff !important;
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.gt-nav-link {
+  color: rgba(255,255,255,0.8) !important;
+  font-size: 14px;
+  padding: 8px 10px !important;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.gt-nav-link:hover {
+  color: #fff !important;
+  background: rgba(255,255,255,0.12);
+}
+.gt-navbar-user {
+  color: #f0c040;
+  font-size: 13px;
+  font-weight: 600;
+}
+.gt-theme-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #f0c040;
+  border-radius: 6px;
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gt-theme-btn:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+/* Dark mode navbar */
+[data-bs-theme="dark"] .gt-navbar {
+  background: #161b22;
+}
+[data-bs-theme="dark"] .gt-nav-link {
+  color: rgba(201,209,217,0.8) !important;
+}
+[data-bs-theme="dark"] .gt-nav-link:hover {
+  color: #e6edf3 !important;
+  background: rgba(255,255,255,0.08);
+}
+[data-bs-theme="dark"] .gt-navbar-user {
+  color: #e3b341;
+}
+[data-bs-theme="dark"] .gt-theme-btn {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.15);
+  color: #e3b341;
+}
+[data-bs-theme="dark"] .gt-theme-btn:hover {
+  background: rgba(255,255,255,0.15);
+}
+
 /* ── Login page ── */
 .col-login {
   max-width: 360px;
+}
+
+/* ══════════════════════════════════════════
+   Dark Mode
+   Activated via data-bs-theme="dark" on <body>
+   ══════════════════════════════════════════ */
+[data-bs-theme="dark"] {
+  --tblr-body-bg: #1a1d23;
+  --tblr-body-color: #c9d1d9;
+  color-scheme: dark;
+}
+
+[data-bs-theme="dark"] body,
+[data-bs-theme="dark"] .page-wrapper,
+[data-bs-theme="dark"] .page-body {
+  background: #1a1d23;
+  color: #c9d1d9;
+}
+
+/* Navbar */
+[data-bs-theme="dark"] .navbar {
+  background: #161b22 !important;
+}
+
+/* Cards */
+[data-bs-theme="dark"] .card {
+  background: #21262d;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+[data-bs-theme="dark"] .card-header {
+  background: #21262d;
+  border-color: #30363d;
+}
+
+/* Tracker table */
+[data-bs-theme="dark"] .tracker-table {
+  color: #c9d1d9;
+}
+[data-bs-theme="dark"] .tracker-table th {
+  color: #e6edf3;
+  background: #21262d;
+  border-color: #30363d;
+}
+[data-bs-theme="dark"] .tracker-table td {
+  border-color: #30363d;
+}
+[data-bs-theme="dark"] .tracker-table tbody tr:hover {
+  background: #292e36;
+}
+
+/* Floating header */
+[data-bs-theme="dark"] .floating-thead {
+  background: #21262d;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+[data-bs-theme="dark"] .floating-thead th {
+  background: #21262d !important;
+  color: #e6edf3;
+}
+
+/* Week group header */
+[data-bs-theme="dark"] .week-header td {
+  background: #272c35 !important;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
+/* Cell colors */
+[data-bs-theme="dark"] .cell-topic {
+  color: #c9d1d9;
+}
+[data-bs-theme="dark"] .cell-path {
+  color: #8b949e;
+}
+[data-bs-theme="dark"] .cell-path:hover {
+  color: #58a6ff;
+}
+[data-bs-theme="dark"] .cell-date {
+  color: #79a7d3;
+}
+[data-bs-theme="dark"] .cell-note {
+  color: #b5922d;
+}
+[data-bs-theme="dark"] .cell-clickable:hover {
+  background: #2a2f38 !important;
+}
+[data-bs-theme="dark"] .cell-new-change {
+  background: #3b3520 !important;
+}
+
+/* Side panel */
+[data-bs-theme="dark"] .side-panel {
+  background: #21262d;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+[data-bs-theme="dark"] .side-panel-backdrop {
+  background: rgba(0,0,0,0.4);
+}
+[data-bs-theme="dark"] .sp-header h3 {
+  color: #e6edf3;
+}
+[data-bs-theme="dark"] .sp-edit h4,
+[data-bs-theme="dark"] .sp-timeline h4 {
+  color: #c9d1d9;
+}
+
+/* Timeline */
+[data-bs-theme="dark"] .timeline-entry {
+  border-color: #30363d;
+}
+[data-bs-theme="dark"] .te-body {
+  color: #b0b8c1;
+}
+[data-bs-theme="dark"] .te-meeting_note {
+  background: #2d2a1a;
+}
+
+/* Forms */
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+  background: #161b22;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+  background: #1a1f28;
+  border-color: #58a6ff;
+  color: #e6edf3;
+}
+
+/* Modals / Dialogs */
+[data-bs-theme="dark"] .modal-dialog-custom {
+  background: #21262d;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
+/* Red line */
+[data-bs-theme="dark"] .red-line {
+  border-color: #f85149;
+}
+
+/* Alerts */
+[data-bs-theme="dark"] .alert {
+  border: none;
+}
+
+/* Subheader / muted text */
+[data-bs-theme="dark"] .text-muted {
+  color: #8b949e !important;
+}
+[data-bs-theme="dark"] .subheader {
+  color: #8b949e;
+}
+
+/* Label groups */
+[data-bs-theme="dark"] .card-header[style*="f0f4ff"] {
+  background: #1f2937 !important;
+}
+[data-bs-theme="dark"] .card-header[style*="fff5f5"] {
+  background: #2d1f1f !important;
+}
+
+/* Calendar */
+[data-bs-theme="dark"] .cal-other-month {
+  background: #161b22;
+  color: #484f58;
+}
+[data-bs-theme="dark"] .cal-today {
+  background: #1a2332 !important;
+}
+
+/* Admin sidebar */
+[data-bs-theme="dark"] .list-group-item {
+  background: #21262d;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+[data-bs-theme="dark"] .list-group-item:hover {
+  background: #292e36;
+}
+[data-bs-theme="dark"] .list-group-item.active {
+  background: #1f6feb;
+  border-color: #1f6feb;
+}
+
+/* Table striped rows (Tabler) */
+[data-bs-theme="dark"] .table {
+  --tblr-table-bg: transparent;
+  --tblr-table-striped-bg: #272c35;
+  color: #c9d1d9;
+}
+[data-bs-theme="dark"] .table > :not(caption) > * > * {
+  border-color: #30363d;
 }

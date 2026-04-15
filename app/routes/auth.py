@@ -33,6 +33,20 @@ def login_required(f):
     return decorated
 
 
+def optional_login(f):
+    """Load user if logged in, otherwise set g.current_user to None."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" in session:
+            g.current_user = user_model.get_by_id(session["user_id"])
+            if g.current_user is None or g.current_user["status"] != "active":
+                g.current_user = None
+        else:
+            g.current_user = None
+        return f(*args, **kwargs)
+    return decorated
+
+
 def super_user_required(f):
     @wraps(f)
     @login_required

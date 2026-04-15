@@ -1,0 +1,31 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'column_width' %}
+{% block title %}欄寬設定 — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">欄寬設定</h3></div>
+  <div class="card-body">
+    <p class="text-muted" style="font-size:13px;">
+      調整 Tracker 表格中 Topic 和 Path 欄位的最小寬度 (單位: px)。
+      <br>也可直接在 CSS 中修改 <code>--col-topic-min-width</code> / <code>--col-path-min-width</code> 變數。
+    </p>
+    <form method="POST" action="{{ url_for('admin.update_column_width') }}">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Topic 最小寬度 (px)</label>
+          <input type="number" name="col_topic_min_width" class="form-control form-control-sm"
+                 value="{{ settings.col_topic_min_width }}" min="100" max="800" step="10">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Path 最小寬度 (px)</label>
+          <input type="number" name="col_path_min_width" class="form-control form-control-sm"
+                 value="{{ settings.col_path_min_width }}" min="100" max="800" step="10">
+        </div>
+      </div>
+      <div class="mt-3">
+        <button type="submit" class="btn btn-sm btn-primary">儲存</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

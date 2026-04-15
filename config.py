@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 # Load .env if present (for local dev)
 BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / ".env", override=True)
 
 
 class Config:

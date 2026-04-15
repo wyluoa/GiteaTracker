@@ -11,6 +11,14 @@
   <!-- App CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 
+  <!-- Dynamic column widths from Admin settings -->
+  <style>
+    :root {
+      --col-topic-min-width: {{ col_topic_min_width }}px;
+      --col-path-min-width: {{ col_path_min_width }}px;
+    }
+  </style>
+
   <!-- Base URL for JS (reverse proxy path prefix) -->
   <script>window.__BASE__ = "{{ request.script_root }}";</script>
 
@@ -21,31 +29,41 @@
   <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
 </head>
 <body>
-  <header class="navbar navbar-expand-md navbar-dark d-print-none">
+  <script>
+    // Apply saved theme before first paint to avoid flash
+    (function(){var t=localStorage.getItem('theme');if(t==='dark')document.body.setAttribute('data-bs-theme','dark');})();
+  </script>
+  <header class="navbar navbar-expand-md d-print-none gt-navbar">
     <div class="container-xl">
-      <h1 class="navbar-brand navbar-brand-autodark">
-        <a href="{{ url_for('main.dashboard') }}">
+      <h1 class="navbar-brand mb-0">
+        <a href="{{ url_for('main.dashboard') }}" class="gt-navbar-brand">
           Gitea Tracker
         </a>
       </h1>
-      {% if session.get('user_id') and g.current_user %}
       <div class="navbar-nav d-none d-md-flex">
-        <a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
-        <a class="nav-link" href="{{ url_for('main.tracker') }}">Tracker</a>
-        <a class="nav-link" href="{{ url_for('main.calendar_view') }}">Calendar</a>
-        <a class="nav-link" href="{{ url_for('main.closed') }}">Closed</a>
+        {% if session.get('user_id') and g.get('current_user') %}
+        <a class="nav-link gt-nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+        {% endif %}
+        <a class="nav-link gt-nav-link" href="{{ url_for('main.tracker') }}">Tracker</a>
+        {% if session.get('user_id') and g.get('current_user') %}
+        <a class="nav-link gt-nav-link" href="{{ url_for('main.calendar_view') }}">Calendar</a>
+        {% endif %}
+        <a class="nav-link gt-nav-link" href="{{ url_for('main.closed') }}">Closed</a>
       </div>
-      {% endif %}
-      <div class="navbar-nav flex-row order-md-last">
-        {% if session.get('user_id') and g.current_user %}
-        <div class="nav-item d-flex align-items-center">
+      <div class="navbar-nav flex-row order-md-last align-items-center">
+        <button id="themeToggle" class="gt-theme-btn" onclick="toggleTheme()"
+                title="切換 Dark / Light">
+          <span id="themeIcon">&#9790;</span>
+        </button>
+        {% if session.get('user_id') and g.get('current_user') %}
           {% if g.current_user['is_super_user'] %}
-            <a href="{{ url_for('admin.index') }}" class="nav-link">Admin</a>
+            <a href="{{ url_for('admin.index') }}" class="gt-nav-link ms-2">Admin</a>
           {% endif %}
-          <span class="nav-link text-white pe-2">{{ g.current_user['display_name'] }}</span>
-          <a href="{{ url_for('auth.change_password') }}" class="nav-link" style="font-size:12px;">改密碼</a>
-          <a href="{{ url_for('auth.logout') }}" class="nav-link">登出</a>
-        </div>
+          <span class="gt-navbar-user ms-2">{{ g.current_user['display_name'] }}</span>
+          <a href="{{ url_for('auth.change_password') }}" class="gt-nav-link ms-2" style="font-size:12px;">改密碼</a>
+          <a href="{{ url_for('auth.logout') }}" class="gt-nav-link ms-2">登出</a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="gt-nav-link ms-2">登入</a>
         {% endif %}
       </div>
     </div>
@@ -53,7 +71,7 @@
 
   <div class="page-wrapper">
     <div class="page-body">
-      <div class="container-xl py-3">
+      <div class="{% block container_class %}container-xl{% endblock %} py-3">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% for category, message in messages %}
             <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible" role="alert">
@@ -67,5 +85,25 @@
       </div>
     </div>
   </div>
+  <script>
+    function toggleTheme() {
+      var dark = document.body.getAttribute('data-bs-theme') === 'dark';
+      if (dark) {
+        document.body.removeAttribute('data-bs-theme');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.body.setAttribute('data-bs-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+      }
+      updateThemeIcon();
+    }
+    function updateThemeIcon() {
+      var icon = document.getElementById('themeIcon');
+      if (!icon) return;
+      var dark = document.body.getAttribute('data-bs-theme') === 'dark';
+      icon.textContent = dark ? '\u2600' : '\u263D';  // ☀ or ☽
+    }
+    updateThemeIcon();
+  </script>
 </body>
 </html>

@@ -33,20 +33,22 @@ def create_entry(*, issue_id, entry_type, author_user_id=None,
     return cur.lastrowid
 
 
-def get_for_issue(issue_id, entry_type=None):
+def get_for_issue(issue_id, entry_type=None, node_id=None):
     db = get_db()
+    sql = "SELECT * FROM timeline_entries WHERE issue_id = ?"
+    params = [issue_id]
+
     if entry_type:
-        entries = db.execute(
-            """SELECT * FROM timeline_entries
-               WHERE issue_id = ? AND entry_type = ?
-               ORDER BY created_at DESC""",
-            (issue_id, entry_type),
-        ).fetchall()
-    else:
-        entries = db.execute(
-            "SELECT * FROM timeline_entries WHERE issue_id = ? ORDER BY created_at DESC",
-            (issue_id,),
-        ).fetchall()
+        sql += " AND entry_type = ?"
+        params.append(entry_type)
+
+    if node_id:
+        # Show entries for this node + entries without a node (comments, meeting notes)
+        sql += " AND (node_id = ? OR node_id IS NULL)"
+        params.append(node_id)
+
+    sql += " ORDER BY created_at DESC"
+    entries = db.execute(sql, params).fetchall()
 
     # Load attachments for each entry
     entry_ids = [e["id"] for e in entries]

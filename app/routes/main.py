@@ -8,7 +8,7 @@ from io import BytesIO
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, send_file
 
 from app.db import get_db
-from app.routes.auth import login_required, super_user_required
+from app.routes.auth import login_required, super_user_required, optional_login
 from app.models import issue as issue_model
 from app.models import node as node_model
 from app.models import issue_node_state as state_model
@@ -21,17 +21,16 @@ bp = Blueprint("main", __name__)
 # ── Landing page → redirect to dashboard ──
 
 @bp.route("/")
-@login_required
 def index():
-    """首頁 — 重導至 Dashboard
+    """首頁 — 重導至 Tracker
     ---
     tags:
-      - Dashboard
+      - Tracker
     responses:
       302:
-        description: 重導至 /dashboard
+        description: 重導至 /tracker
     """
-    return redirect(url_for("main.dashboard"))
+    return redirect(url_for("main.tracker"))
 
 
 # ── Dashboard ──
@@ -56,8 +55,27 @@ def dashboard():
     ongoing_count = issue_model.count_by_status("ongoing")
     closed_count = issue_model.count_closed()
 
-    # Trend data for charts
+    # Trend data for charts (auto-calculated)
     trends = issue_model.get_dashboard_trends()
+
+    # Manual trend data (from Admin > Trend Data)
+    db = get_db()
+    manual_trend_rows = db.execute(
+        "SELECT * FROM weekly_trend_data ORDER BY week_year, week_number"
+    ).fetchall()
+    manual_trend = {
+        "weeks": [],
+        "data": [],
+    }
+    for r in manual_trend_rows:
+        manual_trend["weeks"].append(f"wk{r['week_year'] - 2020}{r['week_number']:02d}")
+        total = r["cnt_uat"] + r["cnt_tbd"] + r["cnt_dev"] + r["cnt_close"]
+        rate = round(r["cnt_close"] / total * 100, 1) if total else 0
+        manual_trend["data"].append({
+            "UAT": r["cnt_uat"], "TBD": r["cnt_tbd"],
+            "Dev": r["cnt_dev"], "Close": r["cnt_close"],
+            "rate": rate,
+        })
     total_all = ongoing_count + on_hold_count + closed_count
     closing_rate = round(closed_count / total_all * 100, 1) if total_all else 0
 
@@ -84,6 +102,7 @@ def dashboard():
         closed_count=closed_count,
         closing_rate=closing_rate,
         trends=trends,
+        manual_trend=manual_trend,
         uat_total=uat_total, uat_per_node=uat_per_node,
         tbd_total=tbd_total, tbd_per_node=tbd_per_node,
         closing_rate_ex_mtm=closing_rate_ex_mtm,
@@ -101,7 +120,7 @@ def dashboard():
 # ── Tracker (main table) ──
 
 @bp.route("/tracker")
-@login_required
+@optional_login
 def tracker():
     """追蹤器主表 — 搜尋 / 篩選 / 進階篩選
     ---
@@ -259,7 +278,7 @@ def tracker():
     iso = today.isocalendar()
 
     # Version diff: last_viewed_at
-    last_viewed = g.current_user["last_viewed_at"]
+    last_viewed = g.current_user["last_viewed_at"] if g.current_user else None
 
     # Distinct owners for filter dropdown
     db = get_db()
@@ -279,7 +298,7 @@ def tracker():
         current_week_year=iso[0],
         current_week_number=iso[1],
         last_viewed=last_viewed,
-        user=g.current_user,
+        user=dict(g.current_user) if g.current_user else {},
         # Filter state
         q=q, filter_owner=filter_owner, filter_state=filter_state,
         filter_week_from=filter_week_from, filter_week_to=filter_week_to,
@@ -492,7 +511,7 @@ def calendar_view():
 # ── Closed Issues ──
 
 @bp.route("/closed")
-@login_required
+@optional_login
 def closed():
     """已關單列表 — 分頁 + 搜尋
     ---
@@ -515,17 +534,15 @@ def closed():
     q = request.args.get("q", "").strip()
     per_page = 50
 
-    total = issue_model.count_closed()
+    db = get_db()
 
     if q:
-        # Search within closed issues
-        db = get_db()
         ql = f"%{q}%"
         rows = db.execute(
             """SELECT * FROM issues
                WHERE status = 'closed' AND is_deleted = 0
                  AND (display_number LIKE ? OR topic LIKE ? OR jira_ticket LIKE ?)
-               ORDER BY closed_at DESC
+               ORDER BY week_year, week_number, CAST(display_number AS INTEGER)
                LIMIT ? OFFSET ?""",
             (ql, ql, ql, per_page, (page - 1) * per_page),
         ).fetchall()
@@ -537,7 +554,26 @@ def closed():
         ).fetchone()
         total = total_row["cnt"]
     else:
-        rows = issue_model.get_closed(limit=per_page, offset=(page - 1) * per_page)
+        total = issue_model.count_closed()
+        rows = db.execute(
+            """SELECT * FROM issues
+               WHERE status = 'closed' AND is_deleted = 0
+               ORDER BY week_year, week_number, CAST(display_number AS INTEGER)
+               LIMIT ? OFFSET ?""",
+            (per_page, (page - 1) * per_page),
+        ).fetchall()
+
+    # Group by week (same as tracker)
+    week_groups = []
+    current_key = None
+    current_group = None
+    for issue in rows:
+        key = (issue["week_year"], issue["week_number"])
+        if key != current_key:
+            current_key = key
+            current_group = {"week_year": key[0], "week_number": key[1], "issues": []}
+            week_groups.append(current_group)
+        current_group["issues"].append(issue)
 
     nodes = node_model.get_all_active()
     all_ids = [i["id"] for i in rows]
@@ -546,14 +582,14 @@ def closed():
 
     return render_template(
         "closed.html",
-        issues=rows,
+        week_groups=week_groups,
         nodes=nodes,
         all_states=all_states,
         page=page,
         total_pages=total_pages,
         total=total,
         q=q,
-        user=g.current_user,
+        user=dict(g.current_user) if g.current_user else {},
     )
 
 

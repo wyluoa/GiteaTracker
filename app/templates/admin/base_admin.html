@@ -13,6 +13,9 @@
         <a href="{{ url_for('admin.nodes') }}" class="list-group-item list-group-item-action {% if active_page == 'nodes' %}active{% endif %}">Nodes</a>
         <a href="{{ url_for('admin.red_line') }}" class="list-group-item list-group-item-action {% if active_page == 'red_line' %}active{% endif %}">紅線設定</a>
         <a href="{{ url_for('admin.excel_update') }}" class="list-group-item list-group-item-action {% if active_page == 'excel_update' %}active{% endif %}">Excel Update</a>
+        <a href="{{ url_for('admin.gitea_urls') }}" class="list-group-item list-group-item-action {% if active_page == 'gitea_urls' %}active{% endif %}">Gitea URL 映射</a>
+        <a href="{{ url_for('admin.column_width') }}" class="list-group-item list-group-item-action {% if active_page == 'column_width' %}active{% endif %}">欄寬設定</a>
+        <a href="{{ url_for('admin.trend_data') }}" class="list-group-item list-group-item-action {% if active_page == 'trend_data' %}active{% endif %}">趨勢數據</a>
         <a href="{{ url_for('admin.smtp') }}" class="list-group-item list-group-item-action {% if active_page == 'smtp' %}active{% endif %}">SMTP</a>
         <a href="{{ url_for('admin.audit_log') }}" class="list-group-item list-group-item-action {% if active_page == 'audit' %}active{% endif %}">Audit Log</a>
         <a href="{{ url_for('main.tracker') }}" class="list-group-item list-group-item-action text-primary">&larr; 返回主畫面</a>

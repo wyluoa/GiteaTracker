@@ -774,7 +774,11 @@ def smtp():
       200:
         description: 顯示目前的郵件設定 (寄件人 Email)
     """
-    settings = {"mail_from": setting_model.get("mail_from", "")}
+    settings = {
+        "mail_from": setting_model.get("mail_from", ""),
+        "smtp_host": setting_model.get("smtp_host", "10.234.8.22"),
+        "smtp_port": setting_model.get("smtp_port", "2525"),
+    }
     return render_template("admin/smtp.html", settings=settings)
 
 
@@ -796,8 +800,14 @@ def update_smtp():
         description: 儲存成功後重導至郵件設定頁
     """
     mail_from = request.form.get("mail_from", "").strip()
+    smtp_host = request.form.get("smtp_host", "").strip()
+    smtp_port = request.form.get("smtp_port", "").strip()
     if mail_from:
         setting_model.set("mail_from", mail_from)
+    if smtp_host:
+        setting_model.set("smtp_host", smtp_host)
+    if smtp_port:
+        setting_model.set("smtp_port", smtp_port)
     flash("郵件設定已儲存", "success")
     return redirect(url_for("admin.smtp"))
 
@@ -829,16 +839,20 @@ def test_smtp():
         flash("請輸入測試收件人", "error")
         return redirect(url_for("admin.smtp"))
 
+    smtp_host = setting_model.get("smtp_host", "10.234.8.22")
+    smtp_port = setting_model.get("smtp_port", "2525")
     ok = send_mail(
         from_addr=mail_from,
         to_addr=test_to,
         subject="[Gitea Tracker] 測試信",
         body="這是 Gitea Tracker 的測試信。如果你收到這封信，代表郵件設定正確。",
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
     )
     if ok:
         flash(f"測試信已寄出到 {test_to}", "success")
     else:
-        flash("寄信失敗，請確認 ddi_api.pl 是否可用（開發環境下會 log 到 console）", "warning")
+        flash("寄信失敗，請檢查 SMTP 設定（開發環境下會 log 到 console）", "warning")
     return redirect(url_for("admin.smtp"))
 
 
@@ -1086,6 +1100,16 @@ def excel_update_preview():
             flash("No issues found in the uploaded Excel file", "error")
             os.remove(xlsx_path)
             return redirect(url_for("admin.excel_update"))
+
+        # Check for duplicate display_numbers within Excel
+        dn_counts = {}
+        for ei in excel_issues:
+            dn = ei["display_number"]
+            dn_counts[dn] = dn_counts.get(dn, 0) + 1
+        duplicates = {dn: cnt for dn, cnt in dn_counts.items() if cnt > 1}
+        if duplicates:
+            dup_list = ", ".join(f"#{dn} ({cnt}次)" for dn, cnt in sorted(duplicates.items()))
+            flash(f"Warning: Excel 中有重複的題號 — {dup_list}", "warning")
 
         db = get_db()
         diff = _build_diff(excel_issues, db)
@@ -1357,3 +1381,333 @@ def excel_update_apply():
 
     flash(f"Excel update completed: {created_count} new, {updated_count} updated", "success")
     return redirect(url_for("admin.excel_update"))
+
+
+# ── Gitea URL Mapping ──
+
+@bp.route("/gitea_urls")
+@super_user_required
+def gitea_urls():
+    """Gitea URL 映射設定
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      200:
+        description: 顯示 Gitea URL 前綴映射規則
+    """
+    raw = setting_model.get("gitea_url_mappings", "[]")
+    try:
+        mappings = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        mappings = []
+    # Separate default (empty prefix) from prefixed rules
+    default_url = ""
+    for m in mappings:
+        if not m.get("prefix"):
+            default_url = m.get("url_template", "")
+    prefixed = [m for m in mappings if m.get("prefix")]
+    return render_template("admin/gitea_urls.html",
+                           mappings=prefixed, default_url=default_url)
+
+
+@bp.route("/gitea_urls", methods=["POST"])
+@super_user_required
+def update_gitea_urls():
+    """儲存 Gitea URL 映射
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      302:
+        description: 儲存後重導至設定頁
+    """
+    prefixes = request.form.getlist("prefix")
+    templates = request.form.getlist("url_template")
+    mappings = []
+    for p, t in zip(prefixes, templates):
+        p = p.strip()
+        t = t.strip()
+        if p and t:
+            mappings.append({"prefix": p, "url_template": t})
+    # Also save the "default" (pure numeric) template
+    default_tmpl = request.form.get("default_url_template", "").strip()
+    if default_tmpl:
+        mappings.append({"prefix": "", "url_template": default_tmpl})
+    setting_model.set("gitea_url_mappings", json.dumps(mappings, ensure_ascii=False))
+    flash("Gitea URL 映射已儲存", "success")
+    return redirect(url_for("admin.gitea_urls"))
+
+
+# ── Column Width Settings ──
+
+@bp.route("/column_width")
+@super_user_required
+def column_width():
+    """欄寬設定
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      200:
+        description: 顯示欄寬設定
+    """
+    settings = {
+        "col_topic_min_width": setting_model.get("col_topic_min_width", "280"),
+        "col_path_min_width": setting_model.get("col_path_min_width", "220"),
+    }
+    return render_template("admin/column_width.html", settings=settings)
+
+
+@bp.route("/column_width", methods=["POST"])
+@super_user_required
+def update_column_width():
+    """儲存欄寬設定
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      302:
+        description: 儲存後重導
+    """
+    topic_w = request.form.get("col_topic_min_width", "280").strip()
+    path_w = request.form.get("col_path_min_width", "220").strip()
+    setting_model.set("col_topic_min_width", topic_w)
+    setting_model.set("col_path_min_width", path_w)
+    flash("欄寬設定已儲存", "success")
+    return redirect(url_for("admin.column_width"))
+
+
+# ── Weekly Trend Data ──
+
+@bp.route("/trend_data")
+@super_user_required
+def trend_data():
+    """每週 Trend 數據管理
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      200:
+        description: 顯示週趨勢數據編輯表格
+    """
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM weekly_trend_data ORDER BY week_year, week_number"
+    ).fetchall()
+    return render_template("admin/trend_data.html", rows=rows)
+
+
+@bp.route("/trend_data", methods=["POST"])
+@super_user_required
+def update_trend_data():
+    """儲存/新增週趨勢數據
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      302:
+        description: 儲存後重導
+    """
+    db = get_db()
+    now_str = _now()
+
+    # Handle bulk update from table
+    week_years = request.form.getlist("week_year")
+    week_numbers = request.form.getlist("week_number")
+    cnt_uats = request.form.getlist("cnt_uat")
+    cnt_tbds = request.form.getlist("cnt_tbd")
+    cnt_devs = request.form.getlist("cnt_dev")
+    cnt_closes = request.form.getlist("cnt_close")
+
+    for i in range(len(week_years)):
+        try:
+            wy = int(week_years[i])
+            wn = int(week_numbers[i])
+            c_uat = int(cnt_uats[i]) if cnt_uats[i] else 0
+            c_tbd = int(cnt_tbds[i]) if cnt_tbds[i] else 0
+            c_dev = int(cnt_devs[i]) if cnt_devs[i] else 0
+            c_close = int(cnt_closes[i]) if cnt_closes[i] else 0
+        except (ValueError, IndexError):
+            continue
+
+        db.execute(
+            """INSERT INTO weekly_trend_data
+               (week_year, week_number, cnt_uat, cnt_tbd, cnt_dev, cnt_close, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(week_year, week_number) DO UPDATE SET
+               cnt_uat=?, cnt_tbd=?, cnt_dev=?, cnt_close=?, updated_at=?""",
+            (wy, wn, c_uat, c_tbd, c_dev, c_close, now_str,
+             c_uat, c_tbd, c_dev, c_close, now_str),
+        )
+
+    db.commit()
+    flash("趨勢數據已儲存", "success")
+    return redirect(url_for("admin.trend_data"))
+
+
+@bp.route("/trend_data/delete", methods=["POST"])
+@super_user_required
+def delete_trend_data():
+    """刪除一筆週趨勢數據
+    ---
+    tags:
+      - Admin - Settings
+    responses:
+      302:
+        description: 刪除後重導
+    """
+    row_id = request.form.get("id", type=int)
+    if row_id:
+        db = get_db()
+        db.execute("DELETE FROM weekly_trend_data WHERE id = ?", (row_id,))
+        db.commit()
+        flash("已刪除", "success")
+    return redirect(url_for("admin.trend_data"))
+
+
+# ── Issue Owner Update (admin only) ──
+
+@bp.route("/issues/<int:issue_id>/owner", methods=["POST"])
+@super_user_required
+def update_issue_owner(issue_id):
+    """更新 Issue 的 Owner
+    ---
+    tags:
+      - Admin - Users
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: requestor_name
+        in: formData
+        type: string
+        required: true
+    responses:
+      302:
+        description: 更新後重導至 tracker
+    """
+    from app.models import issue as issue_model
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        flash("Issue 不存在", "error")
+        return redirect(url_for("main.tracker"))
+
+    new_owner = request.form.get("requestor_name", "").strip()
+    old_owner = issue["requestor_name"] or ""
+    if new_owner != old_owner:
+        issue_model.update_issue(issue_id, requestor_name=new_owner)
+        _audit("update_owner", "issue", issue_id,
+               {"old": old_owner, "new": new_owner})
+        flash(f"#{issue['display_number']} Owner 已更新為 {new_owner}", "success")
+    return redirect(request.referrer or url_for("main.tracker"))
+
+
+# ── Issue Edit (Topic / Path — super_user only) ──
+
+@bp.route("/issues/<int:issue_id>/edit", methods=["POST"])
+@super_user_required
+def edit_issue(issue_id):
+    """編輯 Issue 的 Topic / Path
+    ---
+    tags:
+      - Issues
+    parameters:
+      - name: issue_id
+        in: path
+        type: integer
+        required: true
+      - name: topic
+        in: formData
+        type: string
+      - name: uat_path
+        in: formData
+        type: string
+    responses:
+      302:
+        description: 更新後重導
+    """
+    from app.models import issue as issue_model
+    issue = issue_model.get_by_id(issue_id)
+    if not issue:
+        flash("Issue 不存在", "error")
+        return redirect(url_for("main.tracker"))
+
+    updates = {}
+    new_topic = request.form.get("topic", "").strip()
+    new_path = request.form.get("uat_path", "").strip()
+
+    if new_topic and new_topic != issue["topic"]:
+        updates["topic"] = new_topic
+    if new_path != (issue["uat_path"] or ""):
+        updates["uat_path"] = new_path or None
+
+    if updates:
+        issue_model.update_issue(issue_id, **updates)
+        _audit("edit_issue", "issue", issue_id, updates)
+        flash(f"#{issue['display_number']} 已更新", "success")
+    return redirect(request.referrer or url_for("main.tracker"))
+
+
+# ── Create Issue (super_user only) ──
+
+@bp.route("/issues/create", methods=["GET", "POST"])
+@super_user_required
+def create_issue():
+    """新增題目
+    ---
+    tags:
+      - Issues
+    responses:
+      200:
+        description: 顯示新增表單
+      302:
+        description: 新增成功後重導至 tracker
+    """
+    from app.models import issue as issue_model
+    from datetime import date
+
+    if request.method == "GET":
+        today = date.today()
+        iso = today.isocalendar()
+        return render_template("admin/create_issue.html",
+                               current_week_year=iso[0],
+                               current_week_number=iso[1])
+
+    # POST: create the issue
+    display_number = request.form.get("display_number", "").strip()
+    topic = request.form.get("topic", "").strip()
+    requestor_name = request.form.get("requestor_name", "").strip() or None
+    week_year = request.form.get("week_year", type=int)
+    week_number = request.form.get("week_number", type=int)
+    jira_ticket = request.form.get("jira_ticket", "").strip() or None
+    uat_path = request.form.get("uat_path", "").strip() or None
+    group_label = request.form.get("group_label", "").strip() or None
+
+    if not display_number or not topic or not week_year or not week_number:
+        flash("題號、Topic、Week 為必填", "error")
+        return redirect(url_for("admin.create_issue"))
+
+    # Check if display_number already exists
+    existing = issue_model.get_by_display_number(display_number)
+    if existing:
+        flash(f"題號 #{display_number} 已存在", "error")
+        return redirect(url_for("admin.create_issue"))
+
+    new_id = issue_model.create_issue(
+        display_number=display_number,
+        topic=topic,
+        requestor_name=requestor_name,
+        week_year=week_year,
+        week_number=week_number,
+        jira_ticket=jira_ticket,
+        uat_path=uat_path,
+        created_by_user_id=g.current_user["id"],
+    )
+
+    _audit("create_issue", "issue", new_id,
+           {"display_number": display_number, "topic": topic})
+
+    flash(f"#{display_number} 已新增", "success")
+    return redirect(url_for("main.tracker"))
