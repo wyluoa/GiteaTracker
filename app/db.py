@@ -34,12 +34,17 @@ def _run_migrations(app):
     """
     conn = sqlite3.connect(app.config["DB_PATH"])
     try:
-        cols = {r[1] for r in conn.execute("PRAGMA table_info(issues)").fetchall()}
-        if "pending_close" not in cols:
+        issue_cols = {r[1] for r in conn.execute("PRAGMA table_info(issues)").fetchall()}
+        if "pending_close" not in issue_cols:
             conn.execute(
                 "ALTER TABLE issues ADD COLUMN pending_close INTEGER NOT NULL DEFAULT 0"
             )
-            conn.commit()
+        user_cols = {r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "is_manager" not in user_cols:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN is_manager INTEGER NOT NULL DEFAULT 0"
+            )
+        conn.commit()
     finally:
         conn.close()
 

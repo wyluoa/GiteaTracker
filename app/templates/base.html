@@ -31,7 +31,7 @@
 <body>
   <script>
     // Apply saved theme before first paint to avoid flash
-    (function(){var t=localStorage.getItem('theme');if(t==='dark')document.body.setAttribute('data-bs-theme','dark');})();
+    (function(){var t=localStorage.getItem('theme');if(t==='dark'||t==='gray')document.body.setAttribute('data-bs-theme',t);})();
   </script>
   <header class="navbar navbar-expand-md d-print-none gt-navbar">
     <div class="container-xl">
@@ -52,7 +52,7 @@
       </div>
       <div class="navbar-nav flex-row order-md-last align-items-center">
         <button id="themeToggle" class="gt-theme-btn" onclick="toggleTheme()"
-                title="切換 Dark / Light">
+                title="切換主題 (Light / Dark / Gray)">
           <span id="themeIcon">&#9790;</span>
         </button>
         {% if session.get('user_id') and g.get('current_user') %}
@@ -86,22 +86,28 @@
     </div>
   </div>
   <script>
+    // Theme cycle: light → dark → gray → light
     function toggleTheme() {
-      var dark = document.body.getAttribute('data-bs-theme') === 'dark';
-      if (dark) {
+      var cur = document.body.getAttribute('data-bs-theme');
+      var next = cur === 'dark' ? 'gray' : cur === 'gray' ? 'light' : 'dark';
+      if (next === 'light') {
         document.body.removeAttribute('data-bs-theme');
-        localStorage.setItem('theme', 'light');
       } else {
-        document.body.setAttribute('data-bs-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
+        document.body.setAttribute('data-bs-theme', next);
       }
+      localStorage.setItem('theme', next);
       updateThemeIcon();
     }
     function updateThemeIcon() {
       var icon = document.getElementById('themeIcon');
       if (!icon) return;
-      var dark = document.body.getAttribute('data-bs-theme') === 'dark';
-      icon.textContent = dark ? '\u2600' : '\u263D';  // ☀ or ☽
+      var cur = document.body.getAttribute('data-bs-theme') || 'light';
+      // Icon shows the CURRENT theme
+      icon.textContent = cur === 'dark' ? '\u2600'       // ☀ dark mode
+                      : cur === 'gray' ? '\u25D0'        // ◐ gray mode
+                      : '\u263D';                        // ☽ light mode
+      var btn = document.getElementById('themeToggle');
+      if (btn) btn.title = '目前: ' + cur + ' (點擊切換)';
     }
     updateThemeIcon();
   </script>

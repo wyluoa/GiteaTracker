@@ -1,6 +1,11 @@
 {# Side panel partial — loaded via HTMX into #side-panel-content #}
 
-{% set STATE_OPTIONS = [
+{# Role-filtered state options. Done requires super_user; Unneeded requires
+   super_user or manager. Options the user may not set are hidden — unless the
+   cell is already at that state (kept visible so the dropdown reflects truth). #}
+{% set _is_super = user.is_super_user %}
+{% set _is_manager_or_super = user.is_manager or user.is_super_user %}
+{% set _all_state_options = [
   ('', '(空)'),
   ('done', 'Done'),
   ('uat_done', 'UAT done'),
@@ -9,6 +14,16 @@
   ('tbd', 'TBD'),
   ('unneeded', 'Unneeded'),
 ] %}
+{% set _ns = namespace(opts=[]) %}
+{% for val, label in _all_state_options %}
+  {% set _can_set = (val != 'done' or _is_super) and (val != 'unneeded' or _is_manager_or_super) %}
+  {% if _can_set %}
+    {% set _ns.opts = _ns.opts + [(val, label)] %}
+  {% elif cell and cell.state == val %}
+    {% set _ns.opts = _ns.opts + [(val, label + ' (僅管理員可改)')] %}
+  {% endif %}
+{% endfor %}
+{% set STATE_OPTIONS = _ns.opts %}
 
 <div class="side-panel-inner">
   {# ── Header ── #}
@@ -73,14 +88,16 @@
   {% if can_edit %}
   <div class="sp-edit">
     <h4 class="mb-2">{{ node.display_name }} 狀態編輯</h4>
+    {% set _cur_state = cell.state if cell and cell.state else '' %}
     <form hx-post="{{ url_for('issues.update_cell', issue_id=issue.id, node_id=node.id) }}"
           hx-target="#side-panel-content"
           hx-swap="innerHTML"
-          hx-encoding="multipart/form-data">
+          hx-encoding="multipart/form-data"
+          x-data="{ selState: '{{ _cur_state }}', body: '' }">
       <div class="row g-2 mb-2">
         <div class="col-6">
           <label class="form-label">狀態</label>
-          <select name="state" class="form-select form-select-sm">
+          <select name="state" class="form-select form-select-sm" x-model="selState">
             {% for val, label in STATE_OPTIONS %}
               <option value="{{ val }}" {{ 'selected' if (cell and cell.state == val) or (not cell and val == '') }}>{{ label }}</option>
             {% endfor %}
@@ -98,10 +115,20 @@
                placeholder="例：等廠商 3/15 回覆"
                value="{{ cell.short_note if cell and cell.short_note else '' }}">
       </div>
-      <div class="mb-2">
-        <label class="form-label">更新說明 <span class="text-muted">(選填，記入 timeline)</span></label>
+      <div class="mb-2"
+           :class="selState !== '{{ _cur_state }}' ? 'required-highlight' : ''">
+        <label class="form-label">
+          更新說明
+          <span x-show="selState !== '{{ _cur_state }}'" class="text-danger fw-bold">* 必填</span>
+          <span x-show="selState === '{{ _cur_state }}'" class="text-muted">(選填，記入 timeline)</span>
+        </label>
         <input type="text" name="body" class="form-control form-control-sm"
-               placeholder="例：已完成 UAT">
+               x-model="body"
+               :class="selState !== '{{ _cur_state }}' && !body.trim() ? 'is-invalid' : ''"
+               placeholder="狀態變動時請說明原因/驗收細節">
+        <div x-show="selState !== '{{ _cur_state }}' && !body.trim()" class="text-danger" style="font-size:11px;">
+          狀態變動必須填寫更新說明
+        </div>
       </div>
       <div class="mb-2">
         <label class="form-label">附件 <span class="text-muted">(png/jpg/pdf, 5MB, 最多 3 個)</span></label>
@@ -109,7 +136,10 @@
                accept=".png,.jpg,.jpeg,.pdf">
       </div>
       <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm">儲存變更</button>
+        <button type="submit" class="btn btn-primary btn-sm"
+                :disabled="selState !== '{{ _cur_state }}' && !body.trim()">
+          儲存變更
+        </button>
         <button type="button" class="btn btn-sm" @click="panelOpen = false">取消</button>
       </div>
     </form>

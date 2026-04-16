@@ -223,12 +223,13 @@ def update_user(user_id):
     display_name = request.form.get("display_name", "").strip()
     status = request.form.get("status", "active")
     is_super = request.form.get("is_super_user") == "1"
+    is_manager = request.form.get("is_manager") == "1"
     group_ids = request.form.getlist("group_ids", type=int)
 
     if display_name:
         db.execute(
-            "UPDATE users SET display_name=?, status=?, is_super_user=?, updated_at=? WHERE id=?",
-            (display_name, status, int(is_super), _now(), user_id),
+            "UPDATE users SET display_name=?, status=?, is_super_user=?, is_manager=?, updated_at=? WHERE id=?",
+            (display_name, status, int(is_super), int(is_manager), _now(), user_id),
         )
 
     # Rebuild user groups
@@ -238,7 +239,9 @@ def update_user(user_id):
                    (user_id, gid))
     db.commit()
     _audit("update_user", "user", user_id,
-           {"display_name": display_name, "status": status, "is_super_user": is_super, "groups": group_ids})
+           {"display_name": display_name, "status": status,
+            "is_super_user": is_super, "is_manager": is_manager,
+            "groups": group_ids})
     flash("使用者已更新", "success")
     return redirect(url_for("admin.users"))
 

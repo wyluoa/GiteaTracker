@@ -23,6 +23,18 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
+# ── Role-gated state transitions ──
+# Done: super_user only. Unneeded: super_user or manager. Others: any editor.
+
+def _state_change_allowed(user, new_state):
+    """Returns (allowed: bool, error_msg: str|None) for setting a cell to new_state."""
+    if new_state == "done" and not user["is_super_user"]:
+        return False, "只有管理員 (super user) 能將狀態改為 Done"
+    if new_state == "unneeded" and not (user["is_super_user"] or user["is_manager"]):
+        return False, "將狀態改為 Unneeded 需要管理員或 Manager 權限"
+    return True, None
+
+
 # ── Side Panel (HTMX partial) ──
 
 @bp.route("/issues/<int:issue_id>/cell/<int:node_id>")
@@ -155,11 +167,23 @@ def update_cell(issue_id, node_id):
     update_body = request.form.get("body", "").strip() or None
 
     # Detect changes
+    state_changed = new_state != old_state
     has_change = (
-        new_state != old_state or
+        state_changed or
         new_check_in != old_check_in or
         new_note != old_note
     )
+
+    # Role gate: restrict who can transition to Done / Unneeded
+    if state_changed:
+        allowed, reason = _state_change_allowed(g.current_user, new_state)
+        if not allowed:
+            flash(reason, "error")
+            return side_panel(issue_id, node_id)
+        # Mandatory note whenever the state actually changes
+        if not update_body:
+            flash("狀態變動必須填寫「更新說明」", "error")
+            return side_panel(issue_id, node_id)
 
     if has_change:
         # Update the cell
@@ -578,6 +602,29 @@ def row_update(issue_id):
     if not states_map:
         return jsonify({"ok": True, "updated": 0})
 
+    # Pre-flight: role gate for every target state before writing anything
+    for node_id_str, tgt_state in states_map.items():
+        tgt = tgt_state.strip() if tgt_state else None
+        allowed, reason = _state_change_allowed(g.current_user, tgt)
+        if not allowed:
+            return jsonify({"error": reason}), 403
+
+    # Determine whether any cell will actually change — if so, comment is required
+    any_real_change = False
+    for node_id_str, tgt_state in states_map.items():
+        try:
+            nid = int(node_id_str)
+        except (ValueError, TypeError):
+            continue
+        old_cell = state_model.get_state(issue_id, nid)
+        old_state = old_cell["state"] if old_cell else None
+        tgt = tgt_state.strip() if tgt_state else None
+        if tgt != old_state:
+            any_real_change = True
+            break
+    if any_real_change and not comment:
+        return jsonify({"error": "狀態變動必須填寫「更新說明」"}), 400
+
     updated = 0
     for node_id_str, new_state in states_map.items():
         node_id = int(node_id_str)
@@ -781,8 +828,7 @@ def reopen_issue(issue_id):
 # ── Quick Done (calendar) ──
 
 @bp.route("/issues/<int:issue_id>/cell/<int:node_id>/quick_done", methods=["POST"])
-@login_required
-@can_edit_node("node_id")
+@super_user_required
 def quick_done(issue_id, node_id):
     """快速標記完成 — 從行事曆快速將 cell 設為 done
     ---
@@ -912,6 +958,21 @@ def batch_update():
     node = node_model.get_by_id(node_id)
     if not node:
         return jsonify({"error": "Node 不存在"}), 404
+
+    # Role gate for target state
+    allowed, reason = _state_change_allowed(g.current_user, new_state)
+    if not allowed:
+        return jsonify({"error": reason}), 403
+
+    # Note required when state will actually change for at least one issue
+    any_real_change = False
+    for iid in issue_ids:
+        oc = state_model.get_state(iid, node_id)
+        if (oc["state"] if oc else None) != new_state:
+            any_real_change = True
+            break
+    if any_real_change and not note:
+        return jsonify({"error": "狀態變動必須填寫「更新說明」"}), 400
 
     # Check permission
     if not g.current_user["is_super_user"]:

@@ -144,6 +144,20 @@ body {
   text-overflow: ellipsis;
 }
 
+/* ── Required-highlight (note field when state changed) ── */
+.required-highlight {
+  background: #fff6d6;
+  border-left: 3px solid #e1a400;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: -8px;
+  margin-right: -8px;
+}
+[data-bs-theme="dark"] .required-highlight {
+  background: #3a2f16;
+  border-left-color: #e3b341;
+}
+
 /* ── Week group header ── */
 .week-header td {
   background: #f4f6fa;
@@ -688,4 +702,168 @@ body {
 }
 [data-bs-theme="dark"] .table > :not(caption) > * > * {
   border-color: #30363d;
+}
+
+
+/* ══════════════════════════════════════════
+   Grayscale Mode
+   Activated via data-bs-theme="gray" on <body>.
+   Everything page-wide is desaturated except UAT / TBD state-chips,
+   which retain a muted red so they remain visually salient.
+   UAT / TBD above the red line (inline bg=#c0392b) get a stronger red.
+   ══════════════════════════════════════════ */
+[data-bs-theme="gray"] {
+  --tblr-body-bg: #f3f3f5;
+  --tblr-body-color: #2f2f33;
+  color-scheme: light;
+}
+[data-bs-theme="gray"] body,
+[data-bs-theme="gray"] .page-wrapper,
+[data-bs-theme="gray"] .page-body {
+  background: #f3f3f5;
+  color: #2f2f33;
+}
+
+/* Containers and surfaces */
+[data-bs-theme="gray"] .card {
+  background: #ffffff;
+  border-color: #d9d9dd;
+  color: #2f2f33;
+}
+[data-bs-theme="gray"] .card-header {
+  background: #ececef;
+  border-color: #d9d9dd;
+}
+[data-bs-theme="gray"] .navbar {
+  background: #2a2a2d !important;
+}
+[data-bs-theme="gray"] .tracker-table th,
+[data-bs-theme="gray"] .floating-thead th {
+  background: #ececef !important;
+  color: #2f2f33;
+  border-color: #d9d9dd;
+}
+[data-bs-theme="gray"] .tracker-table tbody tr:hover {
+  background: #ebebee;
+}
+[data-bs-theme="gray"] .week-header td {
+  background: #e2e2e5 !important;
+  border-bottom: 2px solid #9a9aa0 !important;
+  color: #3a3a3e !important;
+  font-weight: 600;
+}
+
+/* Desaturate every accent-coloured element except explicitly exempt ones.
+   `filter: grayscale(1)` preserves shape/layout but kills hue — applied only
+   to elements where colour is decorative, so UAT/TBD chips (below) can opt
+   out. */
+[data-bs-theme="gray"] .badge,
+[data-bs-theme="gray"] .alert,
+[data-bs-theme="gray"] .btn-outline-primary,
+[data-bs-theme="gray"] .btn-outline-secondary,
+[data-bs-theme="gray"] .btn-outline-success,
+[data-bs-theme="gray"] .btn-outline-warning,
+[data-bs-theme="gray"] .btn-outline-danger,
+[data-bs-theme="gray"] .btn-outline-green,
+[data-bs-theme="gray"] .btn-primary,
+[data-bs-theme="gray"] .btn-success,
+[data-bs-theme="gray"] .btn-warning,
+[data-bs-theme="gray"] .btn-danger {
+  filter: grayscale(1);
+}
+
+/* State chips default to a quiet light gray (similar hue to Unneeded's
+   original #bdc3c7). Done / UAT done / Dev / Unneeded all look identical
+   here — only UAT / TBD (below) stay coloured to draw attention. */
+[data-bs-theme="gray"] .state-chip {
+  filter: none !important;
+  background: #c4c6ca !important;
+  color: #555 !important;
+  box-shadow: none;
+}
+
+/* UAT chip inline bg is #e67e22 (tracker + closed + calendar share the palette).
+   Convert to a muted red; not too saturated, per the "don't be harsh" guideline. */
+[data-bs-theme="gray"] .state-chip[style*="#e67e22"],
+[data-bs-theme="gray"] .state-chip[style*="background:#e67e22"],
+[data-bs-theme="gray"] .state-chip[style*="background: #e67e22"] {
+  background: #b85c5c !important;
+  color: #fff !important;
+}
+
+/* TBD chip inline bg is #8e44ad. Convert to a deeper muted red so TBD
+   remains visually distinct from UAT. */
+[data-bs-theme="gray"] .state-chip[style*="#8e44ad"],
+[data-bs-theme="gray"] .state-chip[style*="background:#8e44ad"],
+[data-bs-theme="gray"] .state-chip[style*="background: #8e44ad"] {
+  background: #923f3f !important;
+  color: #fff !important;
+}
+
+/* UAT/TBD above the red line use inline bg #c0392b (RED_ALERT_BG).
+   Stronger red plus a subtle ring so they stand out at a glance. */
+[data-bs-theme="gray"] .state-chip[style*="#c0392b"],
+[data-bs-theme="gray"] .state-chip[style*="background:#c0392b"],
+[data-bs-theme="gray"] .state-chip[style*="background: #c0392b"] {
+  background: #c94848 !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 1px rgba(255,120,120,0.6);
+}
+
+/* Text accents */
+[data-bs-theme="gray"] .text-primary,
+[data-bs-theme="gray"] .text-green,
+[data-bs-theme="gray"] .text-blue,
+[data-bs-theme="gray"] .text-warning,
+[data-bs-theme="gray"] .text-danger {
+  color: #4a4a4e !important;
+}
+[data-bs-theme="gray"] a {
+  color: #3a3a3e;
+  text-decoration: underline;
+}
+[data-bs-theme="gray"] a:hover { color: #1a1a1d; }
+
+/* Cell ornaments */
+[data-bs-theme="gray"] .cell-date {
+  color: #6a6a6e;
+}
+[data-bs-theme="gray"] .cell-note {
+  color: #7a6a4a;
+}
+
+/* Red line itself stays visible (it is the whole point of the row) */
+[data-bs-theme="gray"] .red-line {
+  background: #c94848 !important;
+}
+
+/* Forms & list-group parity with light mode */
+[data-bs-theme="gray"] .form-control,
+[data-bs-theme="gray"] .form-select {
+  background: #fff;
+  border-color: #cfcfd3;
+  color: #2f2f33;
+}
+[data-bs-theme="gray"] .list-group-item {
+  background: #fff;
+  border-color: #d9d9dd;
+  color: #2f2f33;
+}
+[data-bs-theme="gray"] .list-group-item.active {
+  background: #5a5a5e;
+  border-color: #5a5a5e;
+  color: #fff;
+}
+
+/* Inline light panels → mid-gray */
+[data-bs-theme="gray"] [style*="background:#f0f4ff"],
+[data-bs-theme="gray"] [style*="background: #f0f4ff"],
+[data-bs-theme="gray"] [style*="background:#f8f9fc"],
+[data-bs-theme="gray"] [style*="background: #f8f9fc"],
+[data-bs-theme="gray"] [style*="background:#fff5f5"],
+[data-bs-theme="gray"] [style*="background: #fff5f5"],
+[data-bs-theme="gray"] [style*="background:#fffde7"],
+[data-bs-theme="gray"] [style*="background: #fffde7"] {
+  background: #ebebee !important;
+  border-color: #d9d9dd !important;
 }

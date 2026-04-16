@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'pending',  -- pending/active/disabled
     is_super_user   INTEGER NOT NULL DEFAULT 0,
+    is_manager      INTEGER NOT NULL DEFAULT 0,
     last_viewed_at  TEXT,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL

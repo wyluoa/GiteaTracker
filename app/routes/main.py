@@ -450,6 +450,31 @@ def export_excel():
 
 # ── Calendar ──
 
+def _parse_check_in_date(raw, today):
+    """Parse a stored check_in_date to a date object.
+
+    DB stores two formats: ISO "YYYY-MM-DD" (from UI date pickers) and
+    short "MM-DD" (from Excel import, no year). For the short form we
+    assume today's year, unless the resulting date is more than 180 days
+    in the future — in that case it probably came from last year.
+    Returns None if parsing fails.
+    """
+    if not raw:
+        return None
+    s = str(raw).strip()
+    try:
+        if len(s) == 10 and s[4] == '-' and s[7] == '-':
+            return datetime.strptime(s, "%Y-%m-%d").date()
+        if len(s) == 5 and s[2] == '-':
+            d = datetime.strptime(f"{today.year}-{s}", "%Y-%m-%d").date()
+            if (d - today).days > 180:
+                d = d.replace(year=today.year - 1)
+            return d
+    except ValueError:
+        return None
+    return None
+
+
 @bp.route("/calendar")
 @login_required
 def calendar_view():
@@ -514,6 +539,41 @@ def calendar_view():
 
     nodes = node_model.get_all_active()
 
+    # ── Overdue-to-launch list (super user only) ──
+    # Nodes whose check_in_date has arrived or passed but the state isn't
+    # done/unneeded. Helps developers spot items that *should* have gone live
+    # but haven't. Handles both DB formats: YYYY-MM-DD (UI) and MM-DD (Excel).
+    overdue = []
+    if g.current_user and g.current_user["is_super_user"]:
+        overdue_rows = db.execute(
+            """SELECT s.issue_id, s.node_id, s.state, s.check_in_date, s.short_note,
+                      i.display_number, i.topic, i.requestor_name,
+                      n.display_name as node_name
+               FROM issue_node_states s
+               JOIN issues i ON s.issue_id = i.id
+               JOIN nodes n ON s.node_id = n.id
+               WHERE s.check_in_date IS NOT NULL AND s.check_in_date != ''
+                 AND (s.state IS NULL OR s.state NOT IN ('done', 'unneeded'))
+                 AND i.status = 'ongoing' AND i.is_deleted = 0"""
+        ).fetchall()
+
+        for r in overdue_rows:
+            parsed = _parse_check_in_date(r["check_in_date"], today)
+            if parsed and parsed <= today:
+                overdue.append({
+                    "issue_id": r["issue_id"],
+                    "node_id": r["node_id"],
+                    "display_number": r["display_number"],
+                    "topic": r["topic"],
+                    "requestor_name": r["requestor_name"],
+                    "node_name": r["node_name"],
+                    "state": r["state"],
+                    "short_note": r["short_note"],
+                    "check_in_date": parsed.isoformat(),
+                    "days_overdue": (today - parsed).days,
+                })
+        overdue.sort(key=lambda x: (-x["days_overdue"], x["display_number"]))
+
     return render_template(
         "calendar.html",
         year=year, month=month,
@@ -523,6 +583,7 @@ def calendar_view():
         prev_year=prev_year, prev_month=prev_month,
         next_year=next_year, next_month=next_month,
         nodes=nodes,
+        overdue=overdue,
         user=g.current_user,
     )
 

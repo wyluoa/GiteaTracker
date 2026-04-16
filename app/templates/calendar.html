@@ -10,6 +10,10 @@
   'tbd':        '#8e44ad',
   'unneeded':   '#bdc3c7',
 } %}
+{% set STATE_LABELS = {
+  'done':'Done','uat_done':'UAT done','uat':'UAT',
+  'developing':'Dev','tbd':'TBD','unneeded':'Unneeded'
+} %}
 
 {% block content %}
 <div class="page-header d-print-none mb-3">
@@ -30,6 +34,69 @@
     </div>
   </div>
 </div>
+
+{# ── 可上線清單 (overdue-to-launch) — super user only ── #}
+{% if user and user.is_super_user %}
+<div class="card mb-3" x-data="{ open: true }">
+  <div class="card-header py-2" @click="open = !open" style="cursor:pointer;">
+    <h3 class="card-title mb-0" style="font-size:14px;">
+      <span x-text="open ? '\u25BC' : '\u25B6'"></span>
+      可上線清單
+      <span class="badge {{ 'bg-red' if overdue else 'bg-green' }} ms-2">{{ overdue|length }}</span>
+      <span class="text-muted ms-2" style="font-size:12px;font-weight:normal;">
+        check-in date 到期/逾期但尚未 Done — 開發者可檢視哪些題目可以上線
+      </span>
+    </h3>
+  </div>
+  <div class="card-body py-2" x-show="open" x-cloak>
+    {% if not overdue %}
+      <div class="text-muted" style="font-size:13px;">目前沒有逾期未上線的項目 &#128077;</div>
+    {% else %}
+      <div class="table-responsive">
+        <table class="table table-sm table-vcenter mb-0" style="font-size:12px;">
+          <thead>
+            <tr>
+              <th style="width:70px;">#</th>
+              <th style="width:60px;">Node</th>
+              <th>Topic</th>
+              <th style="width:70px;">Owner</th>
+              <th style="width:70px;">狀態</th>
+              <th style="width:90px;">到期日</th>
+              <th style="width:70px;">逾期</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in overdue %}
+            <tr>
+              <td class="fw-bold">{{ o.display_number }}</td>
+              <td><span class="badge bg-blue-lt">{{ o.node_name }}</span></td>
+              <td style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                  title="{{ o.topic }}">{{ o.topic }}</td>
+              <td>{{ o.requestor_name or '—' }}</td>
+              <td>
+                {% set info = STATE_COLORS.get(o.state, '#ccc') %}
+                <span class="state-chip" style="background:{{ info }};color:white;">
+                  {{ STATE_LABELS.get(o.state, '(空)') }}
+                </span>
+              </td>
+              <td>{{ o.check_in_date }}</td>
+              <td>
+                <span class="badge {{ 'bg-red' if o.days_overdue > 0 else 'bg-yellow' }}">
+                  {% if o.days_overdue == 0 %}今日{% else %}{{ o.days_overdue }} 天{% endif %}
+                </span>
+              </td>
+              <td class="text-muted" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                  title="{{ o.short_note or '' }}">{{ o.short_note or '' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}{# /super user overdue card #}
 
 <div class="card">
   <div class="table-responsive">
@@ -65,12 +132,14 @@
                       <span class="cal-event-text">
                         #{{ ev.display_number }} {{ ev.node_name }}
                       </span>
+                      {% if user and user.is_super_user %}
                       <button class="cal-event-done"
                               x-show="!done"
-                              title="Quick Done"
+                              title="Quick Done (僅管理員)"
                               @click.stop="fetch(window.__BASE__+'/issues/{{ ev.issue_id }}/cell/{{ ev.node_id }}/quick_done',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'}}).then(r=>{if(r.ok) done=true})">
                         &#10003;
                       </button>
+                      {% endif %}
                       <span class="text-green" x-show="done" style="font-size:11px;">&#10003;</span>
                     </div>
                   {% endfor %}

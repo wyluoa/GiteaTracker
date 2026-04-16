@@ -129,10 +129,12 @@
           <option value="tbd">TBD</option>
           <option value="unneeded">Unneeded</option>
         </select>
-        <input type="text" x-model="comment" class="form-control form-control-sm" placeholder="備註 (選填)"
-               style="width:200px; font-size:12px;">
+        <input type="text" x-model="comment" class="form-control form-control-sm"
+               :placeholder="applyState ? '更新說明 * 必填' : '更新說明 (選填)'"
+               :class="applyState && !comment.trim() ? 'is-invalid' : ''"
+               style="width:220px; font-size:12px;">
         <button class="btn btn-sm btn-primary" @click="applySelected()"
-                :disabled="saving || !applyState || selectedNodes.length === 0">
+                :disabled="saving || !applyState || selectedNodes.length === 0 || !comment.trim()">
           <span x-show="!saving">Apply</span><span x-show="saving">...</span>
         </button>
         <button class="btn btn-sm btn-ghost-secondary" @click="editing=false">&#10005;</button>
@@ -283,12 +285,12 @@
       <div class="col-auto">
         <select x-model="batchState" class="form-select form-select-sm" style="width:120px;">
           <option value="">選狀態</option>
-          <option value="done">Done</option>
+          {% if user.get('is_super_user') %}<option value="done">Done</option>{% endif %}
           <option value="uat_done">UAT done</option>
           <option value="uat">UAT</option>
           <option value="developing">Dev</option>
           <option value="tbd">TBD</option>
-          <option value="unneeded">Unneeded</option>
+          {% if user.get('is_super_user') or user.get('is_manager') %}<option value="unneeded">Unneeded</option>{% endif %}
         </select>
       </div>
       <div class="col-auto">
