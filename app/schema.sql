@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS issues (
     closed_at             TEXT,
     closed_by_user_id     INTEGER REFERENCES users(id),
     closed_note           TEXT,
+    pending_close         INTEGER NOT NULL DEFAULT 0,       -- Excel import suggested close; admin confirms manually
     is_deleted            INTEGER NOT NULL DEFAULT 0,
     latest_update_at      TEXT,
     all_nodes_done        INTEGER NOT NULL DEFAULT 0,

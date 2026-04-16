@@ -1,0 +1,23 @@
+{# Shared Jinja macros (imported by tracker.html, closed.html, etc.) #}
+
+{# Resolve an issue display_number to its Gitea Issue URL.
+   - Prefix match wins (e.g. "CN177" with prefix "CN")
+   - Falls back to the default (prefix="") mapping for pure-numeric ids
+   - Returns "" when no mapping applies #}
+{% macro gitea_url_for(display_number) %}
+  {%- set ns = namespace(url='') -%}
+  {%- for m in gitea_url_mappings -%}
+    {%- if m.prefix and display_number.upper().startswith(m.prefix.upper()) -%}
+      {%- set num_part = display_number[m.prefix|length:] -%}
+      {%- set ns.url = m.url_template|replace('{number}', num_part) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- if not ns.url -%}
+    {%- for m in gitea_url_mappings -%}
+      {%- if not m.prefix and display_number.isdigit() -%}
+        {%- set ns.url = m.url_template|replace('{number}', display_number) -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {{- ns.url -}}
+{% endmacro %}

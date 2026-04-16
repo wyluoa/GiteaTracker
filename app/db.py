@@ -27,6 +27,24 @@ def close_db(e=None):
         db.close()
 
 
+def _run_migrations(app):
+    """Lightweight column-add migrations for existing DBs.
+
+    Keep idempotent. New installs run schema.sql and already have these columns.
+    """
+    conn = sqlite3.connect(app.config["DB_PATH"])
+    try:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(issues)").fetchall()}
+        if "pending_close" not in cols:
+            conn.execute(
+                "ALTER TABLE issues ADD COLUMN pending_close INTEGER NOT NULL DEFAULT 0"
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
 def init_app(app):
     """Register close_db as a teardown handler on the Flask app."""
     app.teardown_appcontext(close_db)
+    _run_migrations(app)

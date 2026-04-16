@@ -436,7 +436,7 @@ body {
   color: rgba(201,209,217,0.8) !important;
 }
 [data-bs-theme="dark"] .gt-nav-link:hover {
-  color: #e6edf3 !important;
+  color: #d5dce3 !important;
   background: rgba(255,255,255,0.08);
 }
 [data-bs-theme="dark"] .gt-navbar-user {
@@ -461,16 +461,16 @@ body {
    Activated via data-bs-theme="dark" on <body>
    ══════════════════════════════════════════ */
 [data-bs-theme="dark"] {
-  --tblr-body-bg: #1a1d23;
-  --tblr-body-color: #c9d1d9;
+  --tblr-body-bg: #1e2228;
+  --tblr-body-color: #c0c7d0;
   color-scheme: dark;
 }
 
 [data-bs-theme="dark"] body,
 [data-bs-theme="dark"] .page-wrapper,
 [data-bs-theme="dark"] .page-body {
-  background: #1a1d23;
-  color: #c9d1d9;
+  background: #1e2228;
+  color: #c0c7d0;
 }
 
 /* Navbar */
@@ -480,22 +480,22 @@ body {
 
 /* Cards */
 [data-bs-theme="dark"] .card {
-  background: #21262d;
+  background: #262c35;
   border-color: #30363d;
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 [data-bs-theme="dark"] .card-header {
-  background: #21262d;
+  background: #262c35;
   border-color: #30363d;
 }
 
 /* Tracker table */
 [data-bs-theme="dark"] .tracker-table {
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 [data-bs-theme="dark"] .tracker-table th {
-  color: #e6edf3;
-  background: #21262d;
+  color: #d5dce3;
+  background: #262c35;
   border-color: #30363d;
 }
 [data-bs-theme="dark"] .tracker-table td {
@@ -507,24 +507,43 @@ body {
 
 /* Floating header */
 [data-bs-theme="dark"] .floating-thead {
-  background: #21262d;
+  background: #262c35;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 [data-bs-theme="dark"] .floating-thead th {
-  background: #21262d !important;
-  color: #e6edf3;
+  background: #262c35 !important;
+  color: #d5dce3;
 }
 
-/* Week group header */
+/* Week group header — blue accent so it clearly separates sections */
 [data-bs-theme="dark"] .week-header td {
-  background: #272c35 !important;
-  border-color: #30363d;
-  color: #c9d1d9;
+  background: linear-gradient(90deg, #1c3250 0%, #1f2937 100%) !important;
+  border-top: 1px solid #30363d;
+  border-bottom: 2px solid #388bfd !important;
+  color: #7fb2ef !important;
+  font-weight: 600;
+}
+
+/* State chips (Done/UAT/TBD/Dev/Unneeded) — dim saturation on dark bg to reduce
+   eye strain. Uses filter instead of per-chip overrides so it applies uniformly
+   regardless of inline colors set in templates. */
+[data-bs-theme="dark"] .state-chip {
+  filter: brightness(0.85) saturate(0.82);
+}
+
+/* Tabler badges (bg-red/blue/green/yellow) — dim slightly in dark mode */
+[data-bs-theme="dark"] .badge {
+  filter: brightness(0.88) saturate(0.88);
+}
+
+/* Red line marker — slightly softer red */
+[data-bs-theme="dark"] .red-line-row td {
+  filter: brightness(0.88);
 }
 
 /* Cell colors */
 [data-bs-theme="dark"] .cell-topic {
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 [data-bs-theme="dark"] .cell-path {
   color: #8b949e;
@@ -547,19 +566,19 @@ body {
 
 /* Side panel */
 [data-bs-theme="dark"] .side-panel {
-  background: #21262d;
+  background: #262c35;
   border-color: #30363d;
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 [data-bs-theme="dark"] .side-panel-backdrop {
   background: rgba(0,0,0,0.4);
 }
 [data-bs-theme="dark"] .sp-header h3 {
-  color: #e6edf3;
+  color: #d5dce3;
 }
 [data-bs-theme="dark"] .sp-edit h4,
 [data-bs-theme="dark"] .sp-timeline h4 {
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 
 /* Timeline */
@@ -578,20 +597,20 @@ body {
 [data-bs-theme="dark"] .form-select {
   background: #161b22;
   border-color: #30363d;
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 [data-bs-theme="dark"] .form-control:focus,
 [data-bs-theme="dark"] .form-select:focus {
   background: #1a1f28;
   border-color: #58a6ff;
-  color: #e6edf3;
+  color: #d5dce3;
 }
 
 /* Modals / Dialogs */
 [data-bs-theme="dark"] .modal-dialog-custom {
-  background: #21262d;
+  background: #262c35;
   border-color: #30363d;
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 
 /* Red line */
@@ -599,9 +618,10 @@ body {
   border-color: #f85149;
 }
 
-/* Alerts */
+/* Alerts (flash messages) — tone down saturation */
 [data-bs-theme="dark"] .alert {
   border: none;
+  filter: brightness(0.92) saturate(0.88);
 }
 
 /* Subheader / muted text */
@@ -612,12 +632,29 @@ body {
   color: #8b949e;
 }
 
-/* Label groups */
-[data-bs-theme="dark"] .card-header[style*="f0f4ff"] {
-  background: #1f2937 !important;
+/* Inline light-background panels → dark equivalents.
+   Covers hard-coded `style="background:#XXX"` used in tracker, admin, side panel, etc.
+   Keep these attribute-selectors in sync with the hex codes used in templates. */
+[data-bs-theme="dark"] [style*="background:#f0f4ff"],
+[data-bs-theme="dark"] [style*="background: #f0f4ff"] {
+  background: #1f2a3e !important;
+  color: #c0c7d0;
+  border-color: #30363d !important;
 }
-[data-bs-theme="dark"] .card-header[style*="fff5f5"] {
+[data-bs-theme="dark"] [style*="background:#f8f9fc"],
+[data-bs-theme="dark"] [style*="background: #f8f9fc"] {
+  background: #1f232a !important;
+  border-color: #30363d !important;
+}
+[data-bs-theme="dark"] [style*="background:#fff5f5"],
+[data-bs-theme="dark"] [style*="background: #fff5f5"] {
   background: #2d1f1f !important;
+  border-color: #30363d !important;
+}
+[data-bs-theme="dark"] [style*="background:#fffde7"],
+[data-bs-theme="dark"] [style*="background: #fffde7"] {
+  background: #2d2a1a !important;
+  border-color: #30363d !important;
 }
 
 /* Calendar */
@@ -631,9 +668,9 @@ body {
 
 /* Admin sidebar */
 [data-bs-theme="dark"] .list-group-item {
-  background: #21262d;
+  background: #262c35;
   border-color: #30363d;
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 [data-bs-theme="dark"] .list-group-item:hover {
   background: #292e36;
@@ -647,7 +684,7 @@ body {
 [data-bs-theme="dark"] .table {
   --tblr-table-bg: transparent;
   --tblr-table-striped-bg: #272c35;
-  color: #c9d1d9;
+  color: #c0c7d0;
 }
 [data-bs-theme="dark"] .table > :not(caption) > * > * {
   border-color: #30363d;

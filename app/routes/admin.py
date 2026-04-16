@@ -961,6 +961,7 @@ def _build_diff(excel_issues, db):
         ("icv", "ICV"),
         ("uat_path", "UAT Path"),
         ("status", "Status"),
+        ("pending_close", "建議關題"),
         ("week_year", "Week Year"),
         ("week_number", "Week Number"),
         ("group_label", "Group"),
@@ -1227,12 +1228,13 @@ def excel_update_apply():
             """INSERT INTO issues
                (display_number, topic, requestor_name, owner_user_id,
                 week_year, week_number, jira_ticket, icv, uat_path,
-                status, group_label, created_at, updated_at, latest_update_at,
-                created_by_user_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                status, pending_close, group_label, created_at, updated_at,
+                latest_update_at, created_by_user_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (dn, ei["topic"], ei["requestor_name"], None,
              ei["week_year"], ei["week_number"], ei["jira_ticket"],
-             ei["icv"], ei["uat_path"], ei["status"], ei.get("group_label"),
+             ei["icv"], ei["uat_path"], ei["status"],
+             ei.get("pending_close", 0), ei.get("group_label"),
              now_str, now_str, now_str, user_id),
         )
         issue_id = cur.lastrowid

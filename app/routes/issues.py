@@ -664,6 +664,7 @@ def close_issue(issue_id):
         closed_at=_now(),
         closed_by_user_id=g.current_user["id"],
         closed_note=closed_note,
+        pending_close=0,
     )
 
     timeline_model.create_entry(
@@ -752,6 +753,7 @@ def reopen_issue(issue_id):
         closed_at=None,
         closed_by_user_id=None,
         closed_note=None,
+        pending_close=0,
     )
 
     timeline_model.create_entry(

@@ -222,12 +222,22 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
             current_group_label = None  # reset group on new week
             continue
 
-        try:
-            display_number = str(int(float(first_str)))
-        except (ValueError, TypeError):
-            # Non-numeric, non-wk row → treat as group label
+        # Determine if this is an issue row or a pure group-label row.
+        # A group label sits on its own (e.g. "強身健體系列") — no other cells populated.
+        # An issue row has other data filled (Status/Owner/Topic/node states).
+        has_other_content = any(
+            cell.value not in (None, "") for cell in row[1:]
+        )
+        if not has_other_content:
             current_group_label = first_str
             continue
+
+        # Issue row. Accept both numeric (156, 156.0) and alphanumeric ("CN177") ids.
+        try:
+            f = float(first_str)
+            display_number = str(int(f)) if f.is_integer() else first_str
+        except (ValueError, TypeError):
+            display_number = first_str
 
         if current_week_year is None:
             current_week_year = 2025
@@ -240,12 +250,14 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
 
         status_val = str(cell_val(status_col) or "ongoing").strip().lower()
         issue_status = "ongoing"
+        pending_close = 0
         if is_closed_sheet:
             issue_status = "closed"
         elif status_val in ("on hold", "on_hold"):
             issue_status = "on_hold"
-        # Note: status_val == "closed" on non-closed sheets is intentionally
-        # kept as "ongoing" — the user handles closing via the web UI.
+        elif status_val == "closed":
+            # Ongoing sheet marked Closed — keep ongoing, flag for admin review.
+            pending_close = 1
 
         owner_name = str(cell_val(owner_col) or "").strip() or None
         jira = str(cell_val(jira_col) or "").strip() or None
@@ -274,6 +286,7 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
             "icv": icv,
             "uat_path": uat_path,
             "status": issue_status,
+            "pending_close": pending_close,
             "group_label": current_group_label,
             "nodes": nodes,
         })

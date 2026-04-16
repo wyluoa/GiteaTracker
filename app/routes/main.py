@@ -164,6 +164,7 @@ def tracker():
     # ── Search & filter params ──
     q = request.args.get("q", "").strip()
     filter_owner = request.args.get("owner", "").strip()
+    filter_node = request.args.get("node", "").strip()
     filter_state = request.args.get("state", "").strip()
     filter_week_from = request.args.get("week_from", "").strip()
     filter_week_to = request.args.get("week_to", "").strip()
@@ -179,7 +180,8 @@ def tracker():
     ongoing_issues = issue_model.get_ongoing()
     on_hold_issues = issue_model.get_on_hold()
 
-    has_basic_filter = q or filter_owner or filter_state or filter_week_from or filter_week_to
+    has_basic_filter = (q or filter_owner or filter_node or filter_state
+                        or filter_week_from or filter_week_to)
 
     # Apply basic filters (text, owner, week range)
     if has_basic_filter:
@@ -192,18 +194,34 @@ def tracker():
     all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
     all_states = state_model.get_all_states_for_issues(all_issue_ids)
 
-    # For basic state filter (no specific node): any node matches
-    if filter_state and all_states:
+    # Basic Node + State filter (one-row equivalent of advanced filter).
+    #   node only  → that node has any state set
+    #   state only → any node matches the state
+    #   both       → that specific node's state equals filter
+    basic_node_id = int(filter_node) if filter_node.isdigit() else None
+    if (basic_node_id or filter_state) and all_states:
         filtered_ids = set()
         for issue_id, node_states in all_states.items():
-            for nid, cell in node_states.items():
+            if basic_node_id and filter_state:
+                cell = node_states.get(basic_node_id)
                 if filter_state == "__blank__":
-                    if not cell["state"]:
+                    if not cell or not cell["state"]:
+                        filtered_ids.add(issue_id)
+                elif cell and cell["state"] == filter_state:
+                    filtered_ids.add(issue_id)
+            elif basic_node_id:
+                cell = node_states.get(basic_node_id)
+                if cell and cell["state"]:
+                    filtered_ids.add(issue_id)
+            elif filter_state:
+                for nid, cell in node_states.items():
+                    if filter_state == "__blank__":
+                        if not cell["state"]:
+                            filtered_ids.add(issue_id)
+                            break
+                    elif cell["state"] == filter_state:
                         filtered_ids.add(issue_id)
                         break
-                elif cell["state"] == filter_state:
-                    filtered_ids.add(issue_id)
-                    break
         ongoing_issues = [i for i in ongoing_issues if i["id"] in filtered_ids]
         on_hold_issues = [i for i in on_hold_issues if i["id"] in filtered_ids]
         all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
@@ -300,7 +318,8 @@ def tracker():
         last_viewed=last_viewed,
         user=dict(g.current_user) if g.current_user else {},
         # Filter state
-        q=q, filter_owner=filter_owner, filter_state=filter_state,
+        q=q, filter_owner=filter_owner, filter_node=filter_node,
+        filter_state=filter_state,
         filter_week_from=filter_week_from, filter_week_to=filter_week_to,
         owners=[r["requestor_name"] for r in owners],
         adv_filters=adv_filters,
@@ -563,17 +582,35 @@ def closed():
             (per_page, (page - 1) * per_page),
         ).fetchall()
 
-    # Group by week (same as tracker)
+    # Split week-based issues from labeled (group_label) issues
+    week_rows = [i for i in rows if not i["group_label"]]
+    labeled_rows = sorted(
+        (i for i in rows if i["group_label"]),
+        key=lambda i: (i["group_label"], i["week_year"] or 0, i["week_number"] or 0),
+    )
+
+    # Group week-based by (week_year, week_number)
     week_groups = []
     current_key = None
     current_group = None
-    for issue in rows:
+    for issue in week_rows:
         key = (issue["week_year"], issue["week_number"])
         if key != current_key:
             current_key = key
             current_group = {"week_year": key[0], "week_number": key[1], "issues": []}
             week_groups.append(current_group)
         current_group["issues"].append(issue)
+
+    # Group labeled issues by group_label
+    label_groups = []
+    current_label = None
+    current_lgroup = None
+    for issue in labeled_rows:
+        if issue["group_label"] != current_label:
+            current_label = issue["group_label"]
+            current_lgroup = {"label": current_label, "issues": []}
+            label_groups.append(current_lgroup)
+        current_lgroup["issues"].append(issue)
 
     nodes = node_model.get_all_active()
     all_ids = [i["id"] for i in rows]
@@ -583,6 +620,7 @@ def closed():
     return render_template(
         "closed.html",
         week_groups=week_groups,
+        label_groups=label_groups,
         nodes=nodes,
         all_states=all_states,
         page=page,

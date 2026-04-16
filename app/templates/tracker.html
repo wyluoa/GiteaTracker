@@ -4,25 +4,7 @@
 {% block container_class %}container-fluid{% endblock %}
 
 {% block content %}
-
-{# ── Gitea URL helper macro ── #}
-{% macro gitea_url_for(display_number) %}
-  {%- set ns = namespace(url='') -%}
-  {%- for m in gitea_url_mappings -%}
-    {%- if m.prefix and display_number.upper().startswith(m.prefix.upper()) -%}
-      {%- set num_part = display_number[m.prefix|length:] -%}
-      {%- set ns.url = m.url_template|replace('{number}', num_part) -%}
-    {%- endif -%}
-  {%- endfor -%}
-  {%- if not ns.url -%}
-    {%- for m in gitea_url_mappings -%}
-      {%- if not m.prefix and display_number.isdigit() -%}
-        {%- set ns.url = m.url_template|replace('{number}', display_number) -%}
-      {%- endif -%}
-    {%- endfor -%}
-  {%- endif -%}
-  {{- ns.url -}}
-{% endmacro %}
+{% from "_macros.html" import gitea_url_for with context %}
 
 {# ── Helpers ── #}
 {% set STATE_COLORS = {
@@ -100,11 +82,11 @@
       {% else %}
         {{ issue.display_number }}
       {% endif %}
-      {% if user.get('id') and issue.all_nodes_done %}
-        <button class="btn btn-sm btn-outline-green py-0 px-1 ms-1 close-issue-btn"
-                title="關單"
+      {% if user.get('id') and (issue.all_nodes_done or issue.pending_close) %}
+        <button class="btn btn-sm py-0 px-1 ms-1 close-issue-btn {{ 'btn-warning' if issue.pending_close else 'btn-outline-green' }}"
+                title="{{ '匯入建議關題' if issue.pending_close else '關單' }}"
                 x-on:click.stop="closeIssueId={{ issue.id }}; closeIssueNum='{{ issue.display_number }}'; $refs.closeModal.showModal()">
-          &#10003; 關
+          &#10003; 關{% if issue.pending_close %}?{% endif %}
         </button>
       {% endif %}
       {% if user.get('is_super_user') %}
@@ -166,7 +148,7 @@
 <div class="tracker-main">
 {# ── Toolbar ── #}
 {% set has_adv = adv_filters|length > 0 %}
-{% set has_any_filter = q or filter_owner or filter_state or filter_week_from or filter_week_to or has_adv %}
+{% set has_any_filter = q or filter_owner or filter_node or filter_state or filter_week_from or filter_week_to or has_adv %}
 <div class="card mb-2">
   <div class="card-body py-2">
     <form method="GET" action="{{ url_for('main.tracker') }}" id="trackerFilterForm"
@@ -180,6 +162,14 @@
           <option value="">Owner</option>
           {% for o in owners %}
             <option value="{{ o }}" {{ 'selected' if o == filter_owner }}>{{ o }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="node" class="form-select form-select-sm" style="width:100px;">
+          <option value="">Node</option>
+          {% for n in nodes %}
+            <option value="{{ n.id }}" {{ 'selected' if filter_node == n.id|string }}>{{ n.display_name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -213,9 +203,9 @@
       </div>
       <div class="col-auto">
         <button type="submit" class="btn btn-sm btn-primary">搜尋</button>
-        {% if has_any_filter %}
-          <a href="{{ url_for('main.tracker') }}" class="btn btn-sm">清除</a>
-        {% endif %}
+        <a href="{{ url_for('main.tracker') }}"
+           class="btn btn-sm {{ 'btn-outline-secondary' if has_any_filter else 'btn-ghost-secondary' }}"
+           title="清除所有搜尋條件（含進階篩選）">&times; 清除</a>
       </div>
       <div class="col-auto ms-auto d-flex gap-1">
         {% if user.get('id') %}

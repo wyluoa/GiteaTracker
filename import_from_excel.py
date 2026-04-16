@@ -188,6 +188,7 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
     errors = []
     current_week_year = None
     current_week_number = None
+    current_group_label = None
 
     for row in ws.iter_rows(min_row=2, values_only=False):
         first_val = row[0].value
@@ -218,13 +219,24 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
             else:
                 current_week_year = current_week_year or 2025
                 current_week_number = raw_week
+            current_group_label = None  # reset group on new week
             continue
 
-        # Try to parse as issue number
-        try:
-            display_number = str(int(float(first_str)))
-        except (ValueError, TypeError):
+        # Determine if this is an issue row or a pure group-label row.
+        # Group labels sit on their own (e.g. "強身健體系列") — nothing else filled.
+        has_other_content = any(
+            cell.value not in (None, "") for cell in row[1:]
+        )
+        if not has_other_content:
+            current_group_label = first_str
             continue
+
+        # Issue row. Accept both numeric (156, 156.0) and alphanumeric ("CN177") ids.
+        try:
+            f = float(first_str)
+            display_number = str(int(f)) if f.is_integer() else first_str
+        except (ValueError, TypeError):
+            display_number = first_str
 
         if current_week_year is None:
             current_week_year = 2025
@@ -238,10 +250,14 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
 
         status_val = str(cell_val(status_col) or "ongoing").strip().lower()
         issue_status = "ongoing"
-        if is_closed_sheet or status_val == "closed":
+        pending_close = 0
+        if is_closed_sheet:
             issue_status = "closed"
-        elif status_val == "on hold" or status_val == "on_hold":
+        elif status_val in ("on hold", "on_hold"):
             issue_status = "on_hold"
+        elif status_val == "closed":
+            # Ongoing sheet marked Closed — keep ongoing, flag for admin review.
+            pending_close = 1
 
         owner_name = str(cell_val(owner_col) or "").strip() or None
         jira = str(cell_val(jira_col) or "").strip() or None
@@ -264,21 +280,24 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
             db.execute(
                 """UPDATE issues SET topic=?, requestor_name=?, week_year=?,
                    week_number=?, jira_ticket=?, icv=?, uat_path=?, status=?,
-                   updated_at=?
+                   pending_close=?, group_label=?, updated_at=?
                    WHERE id=?""",
                 (topic, owner_name, current_week_year, current_week_number,
-                 jira, icv, uat_path, issue_status, now_str, issue_id),
+                 jira, icv, uat_path, issue_status, pending_close,
+                 current_group_label, now_str, issue_id),
             )
         else:
             cur = db.execute(
                 """INSERT INTO issues
                    (display_number, topic, requestor_name, owner_user_id,
                     week_year, week_number, jira_ticket, icv, uat_path,
-                    status, created_at, updated_at, latest_update_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    status, pending_close, group_label,
+                    created_at, updated_at, latest_update_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (display_number, topic, owner_name, None,
                  current_week_year, current_week_number, jira, icv, uat_path,
-                 issue_status, now_str, now_str, now_str),
+                 issue_status, pending_close, current_group_label,
+                 now_str, now_str, now_str),
             )
             issue_id = cur.lastrowid
 
