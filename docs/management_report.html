@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gitea Tracker — 專案報告</title>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-light: #3d5a80;
+    --accent: #e29578;
+    --gold: #d4a574;
+    --green: #52796f;
+    --dark: #2b2d42;
+    --bg: #f7f7f2;
+    --border: #e0e0d4;
+    --muted: #6c757d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    color: #2b2d42; background: #fff;
+    line-height: 1.8; font-size: 16px;
+  }
+  .container { max-width: 920px; margin: 0 auto; padding: 0 28px 80px; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #1e3a5f 0%, #3d5a80 100%);
+    color: #fff; padding: 60px 28px 50px;
+    text-align: center; position: relative;
+  }
+  .hero-tag {
+    display: inline-block; background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    padding: 4px 14px; border-radius: 20px;
+    font-size: 12px; letter-spacing: 1.2px;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 38px; font-weight: 700;
+    letter-spacing: -0.5px; margin-bottom: 12px;
+  }
+  .hero .subtitle {
+    font-size: 18px; opacity: 0.88;
+    max-width: 640px; margin: 0 auto;
+  }
+  .hero .meta {
+    margin-top: 24px; font-size: 13px;
+    opacity: 0.7; letter-spacing: 0.5px;
+  }
+
+  /* Section heading */
+  h2 {
+    font-size: 26px; color: var(--primary);
+    margin: 56px 0 18px; font-weight: 700;
+    position: relative; padding-left: 16px;
+  }
+  h2::before {
+    content: ""; position: absolute; left: 0; top: 8px;
+    width: 5px; height: 26px; background: var(--accent);
+    border-radius: 3px;
+  }
+  h3 {
+    font-size: 19px; color: var(--primary-light);
+    margin: 28px 0 10px; font-weight: 600;
+  }
+  h4 { font-size: 16px; color: #444; margin: 16px 0 6px; font-weight: 600; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 10px 0 10px 24px; }
+  li { margin: 4px 0; }
+
+  /* Lead paragraph */
+  .lead {
+    font-size: 18px; color: #444; font-weight: 400;
+    border-left: 3px solid var(--accent);
+    padding: 12px 0 12px 20px; margin: 20px 0;
+  }
+
+  /* Stat blocks */
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; margin: 28px 0;
+  }
+  .stat {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px 16px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 32px; font-weight: 700; color: var(--primary);
+    line-height: 1.1;
+  }
+  .stat-unit { font-size: 14px; color: var(--muted); margin-left: 3px; }
+  .stat-label {
+    font-size: 12px; color: var(--muted);
+    margin-top: 8px; letter-spacing: 0.5px;
+  }
+
+  /* Comparison table */
+  .compare {
+    width: 100%; border-collapse: separate;
+    border-spacing: 0; margin: 20px 0;
+    font-size: 15px;
+  }
+  .compare th {
+    background: var(--primary); color: #fff;
+    padding: 12px 16px; text-align: left; font-weight: 600;
+  }
+  .compare th:first-child { border-top-left-radius: 6px; }
+  .compare th:last-child  { border-top-right-radius: 6px; }
+  .compare td {
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px; vertical-align: top;
+  }
+  .compare tr:last-child td { border-bottom: none; }
+  .compare tr:nth-child(even) { background: #fafaf5; }
+  .compare .x { color: #c04545; }
+  .compare .v { color: var(--green); font-weight: 600; }
+
+  /* Feature grid */
+  .features {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 16px; margin: 20px 0;
+  }
+  .feature {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 18px 20px; background: #fff;
+  }
+  .feature-icon {
+    display: inline-block; width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 100%);
+    color: #fff; text-align: center; line-height: 36px;
+    border-radius: 8px; font-size: 18px; font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .feature h4 { margin: 6px 0 4px; color: var(--primary); }
+  .feature p { font-size: 14px; color: #555; margin: 0; }
+
+  /* Callout */
+  .callout {
+    background: #fff8f0;
+    border-left: 4px solid var(--accent);
+    padding: 16px 20px; margin: 20px 0;
+    border-radius: 4px;
+  }
+  .callout-green {
+    background: #f0f6f2;
+    border-left-color: var(--green);
+  }
+  .callout-gold {
+    background: #fdf8ef;
+    border-left-color: var(--gold);
+  }
+  .callout strong { color: var(--primary); display: block; margin-bottom: 4px; }
+
+  /* Timeline */
+  .timeline {
+    border-left: 2px solid var(--accent);
+    padding-left: 20px; margin: 20px 0;
+  }
+  .timeline-entry { margin-bottom: 18px; position: relative; }
+  .timeline-entry::before {
+    content: ""; position: absolute; left: -28px; top: 6px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 3px solid #fff;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .timeline-entry .date {
+    font-size: 12px; color: var(--muted);
+    font-weight: 600; letter-spacing: 0.5px;
+  }
+  .timeline-entry .title {
+    font-size: 16px; color: var(--primary);
+    font-weight: 600; margin: 4px 0;
+  }
+  .timeline-entry .desc { font-size: 14px; color: #555; }
+
+  /* Pull quote */
+  .quote {
+    background: var(--primary); color: #fff;
+    padding: 28px 32px; border-radius: 8px;
+    margin: 32px 0; position: relative;
+    font-size: 18px; font-style: italic; line-height: 1.6;
+  }
+  .quote::before {
+    content: "“"; font-size: 64px; font-weight: 700;
+    color: rgba(255,255,255,0.2); position: absolute;
+    left: 16px; top: 0; line-height: 1;
+  }
+  .quote-attr {
+    margin-top: 14px; font-size: 13px; font-style: normal;
+    opacity: 0.7; text-align: right;
+  }
+
+  /* Code */
+  code {
+    background: #eceae0; padding: 1px 6px;
+    border-radius: 3px; font-size: 14px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+  }
+
+  /* Divider */
+  .divider {
+    text-align: center; margin: 40px 0;
+    color: var(--accent); letter-spacing: 8px;
+  }
+
+  /* Footer */
+  .doc-footer {
+    text-align: center; color: var(--muted); font-size: 13px;
+    margin-top: 60px; padding: 24px 0;
+    border-top: 1px solid var(--border);
+  }
+  .doc-footer-brand {
+    font-weight: 700; color: var(--primary);
+  }
+
+  @media print {
+    .hero { padding: 30px 20px; }
+    .stats { break-inside: avoid; }
+    .features { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    .quote { break-inside: avoid; }
+  }
+  @media (max-width: 700px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .features { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ Hero ═══ -->
+<div class="hero">
+  <span class="hero-tag">INTERNAL PROJECT REPORT</span>
+  <h1>Gitea Tracker</h1>
+  <p class="subtitle">
+    以 AI 輔助開發打造的內部 QC Script 追蹤系統 —
+    把會議管理從 Excel 升級到可審計、可協作、可視化的 Web 平台
+  </p>
+  <div class="meta">Report Version 2026-04 &nbsp;&middot;&nbsp; Prepared for Management Review</div>
+</div>
+
+<div class="container">
+
+<!-- ═══ Executive Summary ═══ -->
+<h2>執行摘要</h2>
+
+<p class="lead">
+  Gitea Tracker 是一套<strong>取代原本 Excel 控管流程</strong>的內部網頁系統，
+  用於追蹤約 300 筆 QC Script Request 跨 10 個工作階段（Node）的進度。
+  由<strong>單一開發者</strong>以 AI 輔助開發模式打造，
+  在約一週內交付完整可上線的 Phase 0 ~ Phase 6 功能，
+  並已歷經兩輪公司內部 UAT 反饋迭代。
+</p>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-value">~10,000<span class="stat-unit">行</span></div>
+    <div class="stat-label">程式碼（Python / HTML / CSS / SQL）</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">68<span class="stat-unit">條</span></div>
+    <div class="stat-label">API Routes（含 Swagger 自動文件）</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">27<span class="stat-unit">個</span></div>
+    <div class="stat-label">Git Commits（含完整 audit trail）</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">0<span class="stat-unit"></span></div>
+    <div class="stat-label">需額外採購的軟體或授權</div>
+  </div>
+</div>
+
+<div class="callout callout-gold">
+  <strong>核心訴求</strong>
+  這份報告的重點不只是「我們做了什麼功能」，更是——在 AI 協作成為工程主流趨勢的時代，
+  團隊如何用極小的人力成本交付原本需要小型開發團隊的產品。
+</div>
+
+<!-- ═══ Problem ═══ -->
+<h2>1. 為什麼需要這套系統</h2>
+
+<h3>1.1 原本的痛點：Excel 控管的結構性限制</h3>
+
+<table class="compare">
+  <tr><th style="width:30%;">議題</th><th>Excel 控管</th><th>Gitea Tracker</th></tr>
+  <tr>
+    <td><strong>同時編輯</strong></td>
+    <td class="x">檔案被鎖死、同仁互搶編輯權、改動常覆蓋彼此</td>
+    <td class="v">多人即時編輯，每格獨立鎖、變更不衝突</td>
+  </tr>
+  <tr>
+    <td><strong>變更追溯</strong></td>
+    <td class="x">無法得知誰 / 何時 / 改了什麼</td>
+    <td class="v">所有狀態改動、留言、附件全存進 timeline + audit log</td>
+  </tr>
+  <tr>
+    <td><strong>權限控管</strong></td>
+    <td class="x">打開即可改，無法限制單人只能改自己的 Node</td>
+    <td class="v">Group 制分工權限；Done 僅 super user、Unneeded 限 manager 以上</td>
+  </tr>
+  <tr>
+    <td><strong>搜尋與篩選</strong></td>
+    <td class="x">Ctrl+F 僅能單檔搜尋，無法跨條件組合</td>
+    <td class="v">跨題號 / Topic / JIRA 多欄位搜尋，支援 AND / OR 進階篩選</td>
+  </tr>
+  <tr>
+    <td><strong>儀表板與趨勢</strong></td>
+    <td class="x">每週人工整理 pivot、每季人工算關單率</td>
+    <td class="v">Dashboard 即時卡片 + 趨勢圖，可切 YTD / 30 週 / 50 週</td>
+  </tr>
+  <tr>
+    <td><strong>通知機制</strong></td>
+    <td class="x">改動不通知，同仁要主動問</td>
+    <td class="v">Email 通知新帳號申請、狀態異動、忘記密碼</td>
+  </tr>
+  <tr>
+    <td><strong>行事曆視角</strong></td>
+    <td class="x">無，需要另外維護</td>
+    <td class="v">月曆呈現 Check-in 日期，附「可上線清單」主動揪出逾期項目</td>
+  </tr>
+  <tr>
+    <td><strong>資料備份</strong></td>
+    <td class="x">一份 .xlsx 壞了或誤刪就沒了</td>
+    <td class="v">單檔 SQLite + 附件目錄，每日自動打包</td>
+  </tr>
+</table>
+
+<p>
+  核心問題不在 Excel 本身，而是<strong>追蹤與協作的本質已超過試算表能承載的複雜度</strong>。
+  每週 QC Meeting 需要整合 10 個 Node 的進度、回溯歷史決策、提醒 Red Line 逾期項，
+  在 Excel 上每項都要額外人工作業，容易漏、容易錯、也難交接。
+</p>
+
+<h3>1.2 不直接用現成 Gitea Issue / Jira 的原因</h3>
+<p>
+  公司既有 Gitea 是 issue tracker、適合<strong>單線程開發追蹤</strong>；
+  而這裡的場景是<strong>同一題跨多個 node 的並行進度矩陣</strong>——
+  每題要同時顯示 10 個 node 的狀態、以週為分組、以 Red Line 為時間錨點。
+  這是 spreadsheet-like 的二維結構，現成 issue tracker 不擅長。
+  Gitea Tracker 填補這個空白，同時保留與 Gitea 的連動（題號可 hyperlink 直達 Gitea issue）。
+</p>
+
+<!-- ═══ Solution ═══ -->
+<h2>2. 系統功能亮點</h2>
+
+<div class="features">
+  <div class="feature">
+    <div class="feature-icon">◆</div>
+    <h4>多狀態矩陣追蹤</h4>
+    <p>每題跨 10 個 Node 的狀態（Done / UAT / TBD / Dev / Unneeded），
+       以色塊 chip 呈現、Red Line 逾期自動變紅警示。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">☵</div>
+    <h4>三主題 UI</h4>
+    <p>Light / Dark / Gray 三鍵循環。Gray mode 全頁灰階，
+       只保留 UAT / TBD 紅色，特別適合會議投影與列印。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">▣</div>
+    <h4>Dashboard 即時統計</h4>
+    <p>Ongoing / Ready to Close / 匯入建議關題 / Closing Rate
+       等卡片即時計算；Closing Rate 支援 MtM 含與不含兩種定義。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">◎</div>
+    <h4>洞察分析</h4>
+    <p>Almost Done（剩 1-2 node）、Stale Topics（90 天未動）、
+       Bottleneck（各 node 卡關數）、Per-Node Stats，輔助週會決策。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">≡</div>
+    <h4>進階 AND / OR 篩選</h4>
+    <p>一般篩選 + 最多 3 組「Node + 狀態」條件，可切換 AND / OR
+       邏輯。例如「A10 Done 且 A12 UAT」或「任一 node 卡在 TBD」。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">⇅</div>
+    <h4>Excel 雙向互通</h4>
+    <p>支援舊 Excel 格式上傳（帶 diff preview 人工確認），
+       也能匯出為同格式 Excel。過渡期同仁可隨時回退。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">⧉</div>
+    <h4>完整 timeline</h4>
+    <p>每一格改動、comment、meeting note、附件皆入 timeline；
+       超級使用者有 audit log 可跨帳號追查任何異動。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">✉</div>
+    <h4>通知與行事曆</h4>
+    <p>SMTP email 通知新帳號申請 / 密碼重設；Calendar 月曆提供
+       Check-in 時間軸與「可上線清單」主動提醒逾期。</p>
+  </div>
+</div>
+
+<!-- ═══ AI Section ═══ -->
+<h2>3. AI 輔助開發方法論</h2>
+
+<p class="lead">
+  這套系統最值得分享的不只是功能本身，更在於<strong>開發過程採用 AI 輔助模式</strong>——
+  由團隊成員主導需求與決策，Claude（Anthropic 的 Claude Code CLI + Claude Opus 4.7 模型）
+  承擔程式碼撰寫、重構、測試規劃等執行層面工作。
+</p>
+
+<h3>3.1 為什麼這是「好的 AI 嘗試」</h3>
+
+<h4>① 人類主導、AI 執行</h4>
+<p>
+  所有功能範圍、UX 決策、驗收標準皆由開發者（Meeting Owner）定義。
+  AI 不替開發者做架構決定、也不自動上版；
+  每個 commit 都經過開發者 review 才推上版庫。這確保<strong>系統行為是業務需求驅動</strong>，
+  而非 AI 臆測。
+</p>
+
+<h4>② 可驗證的產出</h4>
+<p>
+  所有程式碼公開於內部 Git、每個 commit 都有完整訊息與對應的功能說明，
+  後續同仁可以 <code>git log</code> 逐條追溯每一個變更的動機與實作。
+  Git 歷史本身就是 AI 協作透明度的佐證。
+</p>
+
+<h4>③ 快速迭代 + 高品質</h4>
+<p>
+  公司內部 UAT 提出回饋後，從反饋到部署的週期從「週」縮短到「小時」。
+  Tracker 標題凍結、Dashboard 題號展開、進階篩選 AND / OR、
+  多行 UAT Path、公司 Chrome 快取問題——這些都是 UAT 回饋當日或隔日即交付。
+</p>
+
+<h4>④ 零外部授權成本</h4>
+<p>
+  整個技術堆疊（Python / Flask / HTMX / Alpine / SQLite / Tabler）皆為開源免費，
+  不需任何軟體授權支出；在公司內部伺服器 user-space 執行，也不需 sudo 或新開機器。
+</p>
+
+<div class="quote">
+  AI 輔助開發的真正價值，不在於取代工程師的判斷，
+  而在於把一位有產品 sense 的同仁的產出能力，放大到接近小型產品團隊的規模。
+  <div class="quote-attr">— 專案實際觀察</div>
+</div>
+
+<h3>3.2 AI 具體參與的環節</h3>
+<table class="compare">
+  <tr><th style="width:30%;">環節</th><th>人類主導</th><th>AI 執行</th></tr>
+  <tr>
+    <td>需求定義 & UAT</td>
+    <td class="v">全程：開發者 + 同仁</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>架構與技術選型</td>
+    <td class="v">開發者決定（鎖定 Flask + SQLite + HTMX）</td>
+    <td>AI 提供既定框架下的最佳實作建議</td>
+  </tr>
+  <tr>
+    <td>資料庫 schema</td>
+    <td class="v">開發者定義 entity 與欄位</td>
+    <td>AI 生成 DDL + runtime migration code</td>
+  </tr>
+  <tr>
+    <td>routes / models</td>
+    <td>開發者審閱每個 PR</td>
+    <td class="v">AI 撰寫 CRUD、bulk operations、edge cases</td>
+  </tr>
+  <tr>
+    <td>UI / CSS</td>
+    <td>開發者指定風格與互動</td>
+    <td class="v">AI 套 Tabler + 實作 HTMX / Alpine</td>
+  </tr>
+  <tr>
+    <td>Bug 排查</td>
+    <td class="v">開發者定位回報</td>
+    <td class="v">AI 診斷根因並提出修正（例如 CSS flex 撐寬的排版問題）</td>
+  </tr>
+  <tr>
+    <td>文件撰寫</td>
+    <td>開發者定大綱</td>
+    <td class="v">AI 生成具體內容</td>
+  </tr>
+  <tr>
+    <td>部署與測試</td>
+    <td class="v">開發者執行</td>
+    <td>—</td>
+  </tr>
+</table>
+
+<!-- ═══ Timeline ═══ -->
+<h2>4. 交付時程</h2>
+
+<p>
+  從 Phase 0 專案起步到目前的 Phase 6 + 兩輪 UAT 迭代，
+  是一段高密度的交付歷程。以下為主要里程碑：
+</p>
+
+<div class="timeline">
+  <div class="timeline-entry">
+    <div class="date">Phase 0 &mdash; 起步</div>
+    <div class="title">Repo 骨架與開發環境</div>
+    <div class="desc">
+      決定技術棧、建立 Flask app factory、virtualenv、.env 設定樣板。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">Phase 1 &mdash; 資料核心</div>
+    <div class="title">Models + Excel 匯入 + Read-only Tracker</div>
+    <div class="desc">
+      SQLite schema、ISSUE / NODE / STATE 三主表、Excel 解析 pipeline、
+      public 讀取畫面。此階段即可先讓使用者瀏覽。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">Phase 2 &mdash; 編輯能力</div>
+    <div class="title">Cell Edit + Side Panel + Timeline</div>
+    <div class="desc">
+      任一 cell 點選開 side panel 編輯、timeline 留存所有變更、
+      會議模式 (Meeting Mode) 支援週會快速填寫。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">Phase 3 &mdash; 帳號與後台</div>
+    <div class="title">Account / Permission / Admin</div>
+    <div class="desc">
+      登入、註冊、忘記密碼、Group 制權限、Admin 後台十個管理區塊、
+      audit log、soft delete。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">Phase 4 &mdash; 分析與協作</div>
+    <div class="title">Attachments / Version Diff / Export</div>
+    <div class="desc">
+      Timeline 附件、版本變化黃色高亮、搜尋 / 篩選、Excel 匯出、
+      Phase 4.5 加入進階篩選與 live cell sync。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">Phase 5 &mdash; 全貌視角</div>
+    <div class="title">Dashboard / Calendar / Close Flow / Batch</div>
+    <div class="desc">
+      Dashboard 卡片 + 圖表 + 洞察表、Calendar 月曆、關單 / reopen 流程、
+      批次更新多題。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">Phase 6 &mdash; 強化與部署</div>
+    <div class="title">Error handling / Deploy / UX Polish</div>
+    <div class="desc">
+      錯誤頁、deploy config（支援公司無 sudo 環境）、csh 啟動 script、
+      反向代理前綴支援。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">UAT Round 1 &mdash; 公司內部試用</div>
+    <div class="title">13 項改善 + 企業 mail 整合 + Dark Mode</div>
+    <div class="desc">
+      公司 ddi_api mail 整合、Gitea URL mapping、Topic/Path 欄寬可調、
+      Dark Mode、唯讀公開存取、Sticky Header 等。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">UAT Round 2 &mdash; 跨環境相容</div>
+    <div class="title">Gray Mode / Manager 角色 / 狀態守衛</div>
+    <div class="desc">
+      三主題循環、Manager 角色、狀態轉換權限、Calendar 可上線清單、
+      Excel 匯入邊界處理、pending_close flag。
+    </div>
+  </div>
+  <div class="timeline-entry">
+    <div class="date">UAT Round 3 &mdash; 公司瀏覽器環境</div>
+    <div class="title">多項 UX 改善與跨環境相容</div>
+    <div class="desc">
+      主表凍結欄位改 CSS sticky、label groups 對齊修正、
+      多行 UAT Path、Dashboard 計算邏輯透明化、AND / OR 進階篩選、
+      靜態資源 cache-bust 解決企業代理快取老舊 CSS 的問題。
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Tech Choices ═══ -->
+<h2>5. 技術決策與可維護性</h2>
+
+<h3>5.1 為何選擇這個技術堆疊</h3>
+<table class="compare">
+  <tr><th style="width:26%;">層</th><th>選擇</th><th>對管理上的意義</th></tr>
+  <tr>
+    <td>後端：Python + Flask</td>
+    <td>公司標配、人人能改</td>
+    <td>未來接手不需額外訓練，招募 / 交接門檻低。</td>
+  </tr>
+  <tr>
+    <td>資料庫：SQLite</td>
+    <td>單一 <code>.db</code> 檔</td>
+    <td>不需要額外 DB server，備份就是複製檔案，<strong>零運維成本</strong>。</td>
+  </tr>
+  <tr>
+    <td>前端：HTMX + Alpine</td>
+    <td>沒有 build step</td>
+    <td>不需要 webpack / Node.js 生態；改一個檔直接生效，上手快。</td>
+  </tr>
+  <tr>
+    <td>CSS：Tabler (CDN)</td>
+    <td>免費、內建 UI 元件</td>
+    <td>視覺專業感即時達成，不需要 UI 設計師。</td>
+  </tr>
+  <tr>
+    <td>部署：純 Python + nohup</td>
+    <td>無需 sudo</td>
+    <td>任一 Linux 帳號都能起服務，不需 IT 開 ticket 裝 service。</td>
+  </tr>
+</table>
+
+<h3>5.2 維護性設計</h3>
+<ul>
+  <li><strong>自動 schema migration</strong>：新增欄位會在啟動時自動 ALTER TABLE，無需手寫 migration。</li>
+  <li><strong>完整 audit log</strong>：任何 admin 動作都留紀錄，責任可追溯。</li>
+  <li><strong>Swagger API 文件</strong>：每個 route 有 docstring 自動生成 API 說明頁，
+      後續接手者看 <code>/apidocs</code> 即可理解系統。</li>
+  <li><strong>Cache-bust 機制</strong>：CSS 以 file mtime 作為 fingerprint 加在 URL，
+      避免企業代理快取讓新功能無法生效，<strong>部署即刻生效無需提醒同仁清快取</strong>。</li>
+  <li><strong>Soft delete + Reopen</strong>：誤刪可救、誤關可重開，降低人為失誤成本。</li>
+  <li><strong>Excel 雙向互通</strong>：過渡期若需切回 Excel 亦可匯出，風險可控。</li>
+</ul>
+
+<h3>5.3 安全與合規</h3>
+<ul>
+  <li>密碼以 bcrypt 雜湊存放，不可還原。</li>
+  <li>Session 以 Flask 簽名 cookie 保護，SECRET_KEY 寫在 <code>.env</code> 不入版控。</li>
+  <li>所有 DB 查詢以 parameterized query，免 SQL injection。</li>
+  <li>檔案上傳限制格式（PNG / JPG / PDF）與大小（5 MB × 最多 3 個）。</li>
+  <li>Admin 動作進 audit log，需要時可追溯。</li>
+</ul>
+
+<!-- ═══ Benefits ═══ -->
+<h2>6. 對團隊與管理層的具體效益</h2>
+
+<div class="callout callout-green">
+  <strong>對會議主持人（Meeting Owner）</strong>
+  週會前不需再手動整理 Excel pivot；Dashboard 打開即看到 Red Line 逾期、Ready to Close、
+  Almost Done、Stale Topics 四張清單，直接依此訂會議重點。
+  原本需要<strong>半天準備週會</strong>的時間壓縮到幾分鐘。
+</div>
+
+<div class="callout callout-green">
+  <strong>對 Node Owner（實際 UAT 執行者）</strong>
+  不再需要搶編 Excel；登入後只看自己 group 負責的 node，所有改動被即時 timeline 記錄。
+  Calendar 的「可上線清單」會主動提醒有哪些 check-in date 到期未完成。
+</div>
+
+<div class="callout callout-green">
+  <strong>對管理層</strong>
+  隨時從 Dashboard 取得客觀數字：Ongoing / Closed 比、Closing Rate 趨勢、
+  Per-Node Bottleneck。彙報不再依賴「Meeting Owner 週會報告」這個單一管道。
+  資料可信度高、可溯源（每個數字都可以點進去看明細題目）。
+</div>
+
+<div class="callout callout-green">
+  <strong>對 IT / 資訊安全</strong>
+  完整 audit trail、soft delete、bcrypt 密碼、email 忘記密碼流程，符合基本資安要求。
+  系統跑在使用者自己的 Linux 帳號下，不需額外開機器、不動公司網路設定。
+</div>
+
+<!-- ═══ Broader Impact ═══ -->
+<h2>7. 對部門 / 公司的戰略意義</h2>
+
+<h3>7.1 AI 實戰經驗累積</h3>
+<p>
+  這個專案是部門第一個完整導入 AI 輔助開發的產出，沉澱下來的價值包括：
+</p>
+<ul>
+  <li><strong>團隊可複製的 AI 使用模式</strong>：從「人類定義需求 → AI 實作 → 人類 review 並測試」
+      的三段式流程，後續其他同仁要做類似的工具時，有具體參考。</li>
+  <li><strong>對 AI 能力邊界的第一手認識</strong>：團隊親身體驗 AI 可做什麼（寫 CRUD、
+      debug CSS、排版建議、文件撰寫）、不可做什麼（做產品決策、選技術堆疊、決定驗收標準）。</li>
+  <li><strong>工具鏈建立</strong>：Claude Code CLI 的使用流程、prompt 寫法、
+      Git commit 習慣、透過 memory 檔把專案上下文保留下來等。</li>
+</ul>
+
+<h3>7.2 為部門建立「內部工具自製」的文化</h3>
+<p>
+  長期來看，由團隊成員自己打造所需工具，而非依賴外購軟體或外部委託：
+</p>
+<ul>
+  <li><strong>更貼近實際流程</strong>：工具是為了「這次會議」「這群人」設計的，不需妥協。</li>
+  <li><strong>快速迭代</strong>：需求變就改，小時級交付而非月級。</li>
+  <li><strong>知識留在公司</strong>：程式碼、設計決策、使用經驗全部內部累積。</li>
+</ul>
+
+<h3>7.3 可擴展的模式</h3>
+<p>
+  相同的開發模式可延伸到其他內部需求：
+</p>
+<ul>
+  <li>其他部門的流程管理工具（如設備借還、採購簽核追蹤）</li>
+  <li>自動化報表平台</li>
+  <li>內部知識庫 / FAQ 系統</li>
+</ul>
+<p>
+  每個新工具都能重用 Gitea Tracker 已驗證的架構（Flask + SQLite + HTMX），
+  加速後續產出。
+</p>
+
+<!-- ═══ Next ═══ -->
+<h2>8. 持續演進與風險管控</h2>
+
+<h3>8.1 已規劃的下一階段</h3>
+<ul>
+  <li>更細的權限：Node owner 可設代理人、休假不延誤進度。</li>
+  <li>與 Gitea issue 雙向同步：關單動作同步標註 Gitea issue。</li>
+  <li>API 對外：允許其他內部系統查詢 tracker 狀態（例如報表服務、ChatOps）。</li>
+  <li>更深的 AI 整合：依歷史資料預測 node 延誤風險、自動生成 weekly summary。</li>
+</ul>
+
+<h3>8.2 潛在風險與緩解措施</h3>
+<table class="compare">
+  <tr><th style="width:30%;">風險</th><th>緩解措施</th></tr>
+  <tr>
+    <td>單一開發者依賴</td>
+    <td>程式碼與文件完整公開於內部 Git；開發者指南（Developer Guide）
+        將系統所有決策記錄下來，任何 Python 基礎的同仁可接手。</td>
+  </tr>
+  <tr>
+    <td>SQLite 擴充性</td>
+    <td>目前 300 題、10 人使用遠低於 SQLite 瓶頸；若未來規模成長，
+        可遷移至 PostgreSQL（Flask SQL layer 已抽象化）。</td>
+  </tr>
+  <tr>
+    <td>瀏覽器環境差異</td>
+    <td>已處理公司代理 CSS 快取問題；持續以公司 Chrome 為首要 QA 環境。</td>
+  </tr>
+  <tr>
+    <td>同仁抗拒改用</td>
+    <td>保留 Excel 雙向互通作為後路；漸進式移轉（先 read-only 開放、
+        再逐步開放編輯）；User Guide 有繁中詳細說明。</td>
+  </tr>
+</table>
+
+<!-- ═══ Conclusion ═══ -->
+<h2>9. 結語</h2>
+
+<p class="lead">
+  Gitea Tracker 證明了一件事：在 AI 輔助開發成熟的現在，
+  <strong>一位有產品 sense 的同仁</strong>可以在極短的時間內交付原本需要小型團隊才能完成的內部系統。
+  這不只是一個取代 Excel 的工具，更是部門對「如何聰明使用 AI」的一次完整實踐。
+</p>
+
+<p>
+  系統目前已穩定運行，涵蓋 Phase 0 - Phase 6 完整功能，
+  並通過內部 UAT。程式碼、文件、部署腳本、備份機制皆就緒，
+  <strong>可交接、可擴充、可信任</strong>。
+</p>
+
+<div class="divider">◆ ◆ ◆</div>
+
+<h3>附錄：推薦後續閱讀</h3>
+<ul>
+  <li><code>docs/user_guide.html</code> — 一般使用者操作手冊。</li>
+  <li><code>docs/developer_guide.html</code> — 開發者 / super user 技術手冊，
+      含部署、資料模型、admin 後台、troubleshooting。</li>
+  <li><code>docs/handoff/</code> — 早期設計文件（需求、schema、UI wireframe、設計決策 Q&amp;A）。</li>
+  <li><code>/apidocs</code> — 系統上線後的 Swagger API 說明頁。</li>
+</ul>
+
+<div class="doc-footer">
+  <div class="doc-footer-brand">Gitea Tracker</div>
+  Internal Project Report &middot; 2026-04-18<br>
+  Prepared with AI-Assisted Development
+</div>
+
+</div><!-- /container -->
+</body>
+</html>

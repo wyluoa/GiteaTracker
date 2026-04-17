@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gitea Tracker — User Guide</title>
+<title>Gitea Tracker — 使用者指南</title>
 <style>
   :root {
     --primary: #2c3e50;
@@ -13,6 +13,7 @@
     --purple: #8e44ad;
     --red: #c0392b;
     --gray: #95a5a6;
+    --yellow: #f59f00;
     --bg: #f8f9fa;
     --border: #dee2e6;
   }
@@ -22,7 +23,7 @@
     color: #333; background: #fff;
     line-height: 1.7; font-size: 15px;
   }
-  .container { max-width: 860px; margin: 0 auto; padding: 20px 24px 60px; }
+  .container { max-width: 880px; margin: 0 auto; padding: 20px 24px 60px; }
 
   /* Header */
   .doc-header {
@@ -37,7 +38,7 @@
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 8px; padding: 16px 24px; margin: 24px 0;
   }
-  .toc h2 { font-size: 16px; margin-bottom: 10px; color: var(--primary); }
+  .toc h2 { font-size: 16px; margin-bottom: 10px; color: var(--primary); border: none; padding: 0; }
   .toc ol { padding-left: 20px; }
   .toc li { margin: 4px 0; }
   .toc a { color: var(--accent); text-decoration: none; }
@@ -50,7 +51,10 @@
     padding-bottom: 6px; margin: 36px 0 16px;
   }
   h3 { font-size: 17px; color: #444; margin: 24px 0 10px; }
+  h4 { font-size: 15px; color: #555; margin: 16px 0 8px; }
   p { margin: 8px 0; }
+  ul, ol { margin: 8px 0 8px 22px; }
+  li { margin: 3px 0; }
 
   /* Info boxes */
   .box {
@@ -61,6 +65,7 @@
   .box-tip    { background: #e8f8ef; border-left: 4px solid var(--green); }
   .box-warn   { background: #fdf3e7; border-left: 4px solid var(--orange); }
   .box-danger { background: #fde8e8; border-left: 4px solid var(--red); }
+  .box-new    { background: #fff6d6; border-left: 4px solid var(--yellow); }
   .box strong { display: block; margin-bottom: 2px; }
 
   /* State chips (inline) */
@@ -75,6 +80,8 @@
   .chip-tbd     { background: #8e44ad; }
   .chip-unneeded{ background: #bdc3c7; color: #555; }
   .chip-red     { background: #c0392b; }
+  .chip-empty   { background: #ecf0f1; color: #aaa; }
+  .chip-yellow  { background: #f59f00; }
 
   /* Tables */
   table {
@@ -82,7 +89,8 @@
     font-size: 14px;
   }
   th, td {
-    border: 1px solid var(--border); padding: 8px 10px; text-align: left;
+    border: 1px solid var(--border); padding: 8px 10px;
+    text-align: left; vertical-align: top;
   }
   th { background: var(--bg); font-weight: 600; }
 
@@ -113,6 +121,27 @@
     display: flex; align-items: center; justify-content: center;
   }
 
+  /* Mock UI (visual illustrations without screenshots) */
+  .mock {
+    border: 1px solid #bbb; border-radius: 6px;
+    background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    margin: 14px 0; font-size: 12px; overflow: hidden;
+  }
+  .mock-header {
+    background: #2c3e50; color: #fff; padding: 6px 12px;
+    font-size: 12px; font-weight: 600;
+  }
+  .mock-body { padding: 8px 12px; }
+  .mock-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .mock-table th, .mock-table td {
+    border: 1px solid #e0e0e0; padding: 3px 6px;
+    text-align: left;
+  }
+  .mock-table th { background: #f4f6fa; font-weight: 700; font-size: 11px; }
+  .mock-table td.c { text-align: center; }
+  .mock-wk td { background: #f4f6fa !important; font-weight: 600; color: #2c3e50; }
+  .mock-label { color: var(--accent); font-weight: 600; }
+
   /* Footer */
   .doc-footer {
     text-align: center; color: #999; font-size: 13px;
@@ -120,369 +149,527 @@
     border-top: 1px solid var(--border);
   }
 
-  /* Print */
+  /* Badges for "NEW" markers */
+  .new-badge {
+    display: inline-block; background: var(--yellow); color: #fff;
+    font-size: 10px; font-weight: 700; padding: 1px 6px;
+    border-radius: 8px; margin-left: 6px; vertical-align: middle;
+  }
+
   @media print {
     .doc-header { background: #fff; color: #333; border-bottom: 2px solid #333; }
     .toc { break-after: page; }
+    h2 { break-after: avoid; }
   }
 </style>
 </head>
 <body>
 
 <div class="doc-header">
-  <h1>Gitea Tracker User Guide</h1>
-  <p>Version 2026-04 &mdash; for general users</p>
+  <h1>Gitea Tracker 使用者指南</h1>
+  <p>Version 2026-04 &mdash; 一般使用者版</p>
 </div>
 
 <div class="container">
 
 <!-- ═══ TOC ═══ -->
 <div class="toc">
-  <h2>Table of Contents</h2>
+  <h2>目錄</h2>
   <ol>
-    <li><a href="#overview">Overview</a></li>
-    <li><a href="#access">How to Access</a></li>
-    <li><a href="#tracker">Tracker Page</a></li>
-    <li><a href="#states">State Definitions</a></li>
-    <li><a href="#sidepanel">Side Panel &amp; Cell Editing</a></li>
-    <li><a href="#closed">Closed Page</a></li>
-    <li><a href="#dashboard">Dashboard</a></li>
-    <li><a href="#calendar">Calendar</a></li>
-    <li><a href="#darkmode">Dark Mode</a></li>
-    <li><a href="#superuser">Super User Features</a></li>
-    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#overview">系統概觀</a></li>
+    <li><a href="#access">登入與帳號</a></li>
+    <li><a href="#navbar">導覽列與主題切換</a></li>
+    <li><a href="#tracker">Tracker 主表</a></li>
+    <li><a href="#states">狀態定義</a></li>
+    <li><a href="#sidepanel">Side Panel 與格子編輯</a></li>
+    <li><a href="#close">關單流程</a></li>
+    <li><a href="#closed">Closed 頁面</a></li>
+    <li><a href="#dashboard">Dashboard 儀表板</a></li>
+    <li><a href="#calendar">Calendar 行事曆</a></li>
+    <li><a href="#uatpath">UAT Path 多行輸入</a></li>
+    <li><a href="#faq">FAQ 常見問題</a></li>
   </ol>
 </div>
 
 <!-- ═══ 1. Overview ═══ -->
-<h2 id="overview">1. Overview</h2>
+<h2 id="overview">1. 系統概觀</h2>
 <p>
-  Gitea Tracker is a web application that helps the team track QC script requests across multiple workflow stages (Nodes). Each issue is assigned a unique number, organized by week, and tracked through a series of states until completion.
+  Gitea Tracker 是內部網頁工具，取代原本用 Excel 管理 QC Script Request 的流程。每個題目（Issue）依 ISO 週次分組，跨多個 Node（工作階段）以狀態追蹤到結案。
 </p>
-<p>Key concepts:</p>
+
+<h3>1.1 基本名詞</h3>
 <table>
-  <tr><th style="width:120px;">Term</th><th>Description</th></tr>
-  <tr><td><strong>Issue / Topic</strong></td><td>A work item (QC request) with a display number (e.g., <code>301</code>, <code>P260</code>, <code>CN49</code>).</td></tr>
-  <tr><td><strong>Node</strong></td><td>A workflow stage (e.g., A10, A12, N2, MtM). Each issue goes through multiple nodes.</td></tr>
-  <tr><td><strong>Cell</strong></td><td>The intersection of an issue and a node. A cell has a state, optional check-in date, and short note.</td></tr>
-  <tr><td><strong>Week</strong></td><td>Issues are grouped by the ISO week they were raised (e.g., wk612 = 2026 week 12).</td></tr>
-  <tr><td><strong>Red Line</strong></td><td>A deadline set by admin. Issues above the red line that are still in UAT/TBD are highlighted in red.</td></tr>
+  <tr><th style="width:140px;">名詞</th><th>說明</th></tr>
+  <tr><td><strong>Issue / Topic</strong></td>
+      <td>一筆 QC 請求。每題有獨特的題號，例如 <code>301</code>、<code>P260</code>、<code>CN49</code>、<code>SNPS61</code>。</td></tr>
+  <tr><td><strong>Node</strong></td>
+      <td>工作階段（A10、A12、A14、N2、A16、N3、N4/N5、N6/N7、000、MtM 等）。同一題會跨多個 Node。</td></tr>
+  <tr><td><strong>Cell</strong></td>
+      <td>「題目 × Node」的交集格子。每格有狀態（State）、Check-in 日期、備註。</td></tr>
+  <tr><td><strong>Week（週）</strong></td>
+      <td>題目依建立當週的 ISO week 分組。格式如 <code>wk612</code> = 2026 年第 12 週。</td></tr>
+  <tr><td><strong>Red Line</strong></td>
+      <td>Admin 設定的死線週。Red Line 之前的題目若仍為
+           <span class="chip chip-uat">UAT</span> 或 <span class="chip chip-tbd">TBD</span>
+           會變紅警示。</td></tr>
+  <tr><td><strong>Group Label</strong></td>
+      <td>非週次分組的特殊標籤（例如「強身健體系列」）— 整組題目以獨立 card 顯示，不依週次分組。</td></tr>
+  <tr><td><strong>On Hold</strong></td>
+      <td>暫緩中的題目，顯示在 Tracker 下方可折疊區塊。</td></tr>
+</table>
+
+<h3>1.2 角色</h3>
+<table>
+  <tr><th style="width:140px;">角色</th><th>權限</th></tr>
+  <tr><td>未登入訪客</td><td>可瀏覽 Tracker 和 Closed（read-only）。</td></tr>
+  <tr><td>一般使用者</td><td>登入後可編輯自己被分配到的 Node 的 cells，新增 comment / meeting note，上傳附件。</td></tr>
+  <tr><td>Manager
+      <span class="new-badge">2026-04</span></td>
+      <td>額外可把任一 cell 改為 <span class="chip chip-unneeded">Unneeded</span>。</td></tr>
+  <tr><td>Super User（admin）</td>
+      <td>所有編輯權限。可改狀態為 <span class="chip chip-done">Done</span>、建立題目、關單 / 重開、管理使用者、Excel 匯入等。</td></tr>
 </table>
 
 <!-- ═══ 2. Access ═══ -->
-<h2 id="access">2. How to Access</h2>
+<h2 id="access">2. 登入與帳號</h2>
 
-<h3>2.1 Without Login (Read-Only)</h3>
+<h3>2.1 不登入也能看</h3>
 <p>
-  The <strong>Tracker</strong> and <strong>Closed</strong> pages are publicly accessible. You can view all issue data without logging in. The URL typically looks like:
+  Tracker 和 Closed 頁面是公開的（read-only）。直接瀏覽：
 </p>
-<p><code>http://&lt;server&gt;:&lt;port&gt;/GiteaTracker/tracker</code></p>
-
+<p><code>http://&lt;server&gt;/GiteaTracker/tracker</code></p>
 <div class="box box-info">
-  <strong>Read-only mode</strong>
-  Without login, you can browse all data but cannot edit cells, add comments, or perform any write operations. A "Login" button appears in the toolbar and navbar.
+  <strong>Read-only 模式</strong>
+  未登入時可瀏覽所有資料，但無法編輯、留言或關單。右上角會有「登入」按鈕。
 </div>
 
-<h3>2.2 Register &amp; Login</h3>
+<h3>2.2 註冊與啟用</h3>
 <ol class="steps">
-  <li>Click <strong>Login</strong> in the navbar, then click <strong>Register</strong>.</li>
-  <li>Fill in username, email, display name, and password (at least 6 characters).</li>
-  <li>After registration, your account is in <strong>pending</strong> status. An admin must approve it.</li>
-  <li>Once approved, you can log in and start editing.</li>
+  <li>導覽列點 <strong>登入</strong> → <strong>Register</strong>。</li>
+  <li>填帳號、Email、顯示名稱、密碼（至少 6 字元）。</li>
+  <li>送出後帳號為 <strong>pending</strong>，需 admin 審核啟用才能登入。</li>
+  <li>啟用後用相同帳密登入即可。</li>
 </ol>
 
-<h3>2.3 Change Password</h3>
-<p>Click the <strong>Change Password</strong> link in the navbar (next to your username).</p>
+<h3>2.3 忘記密碼</h3>
+<ol class="steps">
+  <li>登入頁點 <strong>忘記密碼</strong>。</li>
+  <li>輸入註冊時的 Email，系統會寄送重設連結（Admin 需先設好 SMTP）。</li>
+  <li>開信點連結、輸入新密碼，完成重設。</li>
+</ol>
 
-<!-- ═══ 3. Tracker ═══ -->
-<h2 id="tracker">3. Tracker Page</h2>
-<p>
-  This is the main working page. All <strong>ongoing</strong> and <strong>on hold</strong> issues are displayed in a table, grouped by week.
-</p>
+<h3>2.4 修改密碼</h3>
+<p>登入後點導覽列顯示名稱旁的 <strong>改密碼</strong>。</p>
 
-<h3>3.1 Table Layout</h3>
+<!-- ═══ 3. Navbar ═══ -->
+<h2 id="navbar">3. 導覽列與主題切換</h2>
+
+<div class="mock">
+  <div class="mock-header">導覽列示意</div>
+  <div class="mock-body" style="background:#2c3e50;color:#fff;padding:10px 16px;">
+    <strong>Gitea Tracker</strong>
+    &nbsp;&nbsp;Dashboard &nbsp; Tracker &nbsp; Calendar &nbsp; Closed
+    <span style="float:right;">
+      <span style="background:rgba(255,255,255,0.12);padding:2px 8px;border-radius:4px;">&#9790;</span>
+      &nbsp; Admin &nbsp;
+      <span style="color:#f0c040;">WY</span> &nbsp;
+      改密碼 &nbsp; 登出
+    </span>
+  </div>
+</div>
+
 <table>
-  <tr><th>Column</th><th>Description</th></tr>
-  <tr><td><strong>#</strong></td><td>Issue number. If Gitea URL mapping is configured, this is a clickable hyperlink to the Gitea issue.</td></tr>
-  <tr><td><strong>Topic</strong></td><td>Description of the issue.</td></tr>
-  <tr><td><strong>Owner</strong></td><td>Person responsible.</td></tr>
-  <tr><td><strong>Node columns</strong></td><td>One column per active node. Shows a colored state chip + optional check-in date + note.</td></tr>
-  <tr><td><strong>JIRA</strong></td><td>JIRA ticket reference.</td></tr>
-  <tr><td><strong>Path</strong></td><td>UAT file path. Click to copy to clipboard.</td></tr>
+  <tr><th style="width:140px;">連結</th><th>說明</th></tr>
+  <tr><td>Dashboard</td><td>儀表板（需登入）。卡片 + 圖表 + 洞察表。</td></tr>
+  <tr><td>Tracker</td><td>主表。Ongoing + On Hold。</td></tr>
+  <tr><td>Calendar</td><td>行事曆（需登入）。Check-in 日期集中檢視。</td></tr>
+  <tr><td>Closed</td><td>已關單題目。</td></tr>
+  <tr><td>Admin</td><td>僅 super user 看得到。</td></tr>
 </table>
 
-<h3>3.2 Sticky Header</h3>
+<h3>3.1 主題切換 <span class="new-badge">2026-04</span></h3>
 <p>
-  When you scroll down, the column header row stays fixed at the top of the screen so you can always see which column you're looking at.
+  導覽列右側的 <strong>&#9790; / &#9728; / &#9680;</strong> 按鈕會三段循環：
+</p>
+<table>
+  <tr><th>圖示</th><th>主題</th><th>用途</th></tr>
+  <tr><td>&#9790;</td><td>Light（預設）</td><td>日間使用。</td></tr>
+  <tr><td>&#9728;</td><td>Dark</td><td>夜間 / 低光環境；GitHub-dark 色調，State chip 自動降飽和度護眼。</td></tr>
+  <tr><td>&#9680;</td><td>Gray</td><td>全頁灰階，<strong>只保留 UAT / TBD 的紅色</strong>警示。適合會議截圖或列印。</td></tr>
+</table>
+<p>選擇會記在瀏覽器 localStorage，重新整理後保持。</p>
+
+<div class="box box-warn">
+  <strong>看起來沒變色？</strong>
+  若切 Dark / Gray 後畫面沒反應，按 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> 強制重新整理一次。
+  （這是企業代理快取舊 CSS 的常見狀況；系統已加上版號自動破快取，但第一次切換可能需要一次硬刷。）
+</div>
+
+<!-- ═══ 4. Tracker ═══ -->
+<h2 id="tracker">4. Tracker 主表</h2>
+
+<h3>4.1 表格結構</h3>
+<div class="mock">
+  <div class="mock-header">Tracker 示意（部分欄位）</div>
+  <div class="mock-body">
+    <table class="mock-table">
+      <tr>
+        <th style="width:40px;">#</th>
+        <th>Topic</th>
+        <th style="width:45px;">Owner</th>
+        <th style="width:45px;" class="c">A10</th>
+        <th style="width:45px;" class="c">A12</th>
+        <th style="width:45px;" class="c">N2</th>
+        <th style="width:45px;" class="c">MtM</th>
+        <th style="width:70px;">JIRA</th>
+        <th>Path</th>
+      </tr>
+      <tr class="mock-wk"><td colspan="9">▼ wk612 (3 題)</td></tr>
+      <tr>
+        <td><strong>301</strong></td>
+        <td>新增 pad density 檢查</td>
+        <td>WY</td>
+        <td class="c"><span class="chip chip-done">Done</span></td>
+        <td class="c"><span class="chip chip-uatdone">UAT✓</span></td>
+        <td class="c"><span class="chip chip-uat">UAT</span></td>
+        <td class="c"><span class="chip chip-tbd">TBD</span></td>
+        <td>JIRA-123</td>
+        <td style="color:#666;">/proj/foo/</td>
+      </tr>
+      <tr>
+        <td><strong>P260</strong></td>
+        <td>優化 trace layer 執行時間</td>
+        <td>LC</td>
+        <td class="c"><span class="chip chip-dev">Dev</span></td>
+        <td class="c"><span class="chip chip-empty">·</span></td>
+        <td class="c"><span class="chip chip-unneeded">Unneeded</span></td>
+        <td class="c"><span class="chip chip-red">TBD</span></td>
+        <td>JIRA-456</td>
+        <td style="color:#666;">/proj/bar/</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<table>
+  <tr><th style="width:100px;">欄位</th><th>說明</th></tr>
+  <tr><td><strong>#</strong></td>
+      <td>題號。若 admin 有設 Gitea URL mapping，會是 hyperlink，點了開 Gitea Issue。</td></tr>
+  <tr><td><strong>Topic</strong></td><td>題目描述。</td></tr>
+  <tr><td><strong>Owner</strong></td><td>發起人。</td></tr>
+  <tr><td><strong>Node 欄位</strong></td>
+      <td>每個啟用中的 Node 一欄。格子內放 state chip、Check-in 日期（↦MM-DD）、短備註。</td></tr>
+  <tr><td><strong>JIRA</strong></td><td>JIRA ticket。支援多行（\n 會變換行）。</td></tr>
+  <tr><td><strong>Path</strong></td>
+      <td>UAT Path。<strong>可多行顯示多條路徑</strong>
+          <span class="new-badge">2026-04</span>。點一下整段（含換行）會複製到剪貼簿，右下角顯示「✓ 已複製」。</td></tr>
+</table>
+
+<h3>4.2 凍結欄位標題 <span class="new-badge">2026-04</span></h3>
+<p>
+  題目多的時候，主表 / 強身健體 / On Hold / Closed 各自的欄位標題（Topic、Owner、A10、A12…）會黏在頁面頂端。捲到下方也不會迷失對應到哪個 Node。
 </p>
 
-<h3>3.3 Search &amp; Filter</h3>
-<p>The toolbar at the top provides:</p>
+<h3>4.3 格子 hover tooltip <span class="new-badge">2026-04</span></h3>
+<p>
+  滑鼠停在任一格約 1 秒會顯示 <code>A10: Dev</code> 這種 node + 狀態 tooltip，Th 上則顯示完整 node 名。
+</p>
+
+<h3>4.4 搜尋與篩選</h3>
+<p>工具列提供：</p>
 <ul>
-  <li><strong>Text search</strong> &mdash; matches #, Topic, JIRA, or Path.</li>
-  <li><strong>Owner dropdown</strong> &mdash; filter by a specific owner.</li>
-  <li><strong>State dropdown</strong> &mdash; filter issues that have any cell in a given state.</li>
-  <li><strong>Week range</strong> &mdash; filter by week (e.g., <code>202610</code> to <code>202615</code>).</li>
-  <li><strong>Advanced filter</strong> &mdash; up to 3 conditions combining a specific Node + State (AND logic).</li>
+  <li><strong>文字搜尋</strong> — 對題號 / Topic / JIRA / Path 做包含比對。</li>
+  <li><strong>Owner 下拉</strong> — 僅顯示某位 Owner 的題目。</li>
+  <li><strong>Node 下拉</strong> — 限定某 Node。</li>
+  <li><strong>狀態下拉</strong> — 限定某狀態（含「空白」）。</li>
+  <li><strong>週次範圍</strong> — 例：<code>202610</code> 到 <code>202615</code>（格式 YYYYWW）。</li>
 </ul>
 
-<h3>3.4 Week Groups &amp; Red Line</h3>
+<h3>4.5 進階篩選（AND / OR 可切換） <span class="new-badge">2026-04</span></h3>
 <p>
-  Issues are grouped under collapsible week headers (e.g., <strong>wk612</strong>). Click a week header to expand or collapse that group.
+  點工具列「進階篩選」展開面板，最多 3 組「Node + 狀態」條件。新增的 <strong>條件之間</strong> 下拉可切：
 </p>
+<table>
+  <tr><th style="width:160px;">模式</th><th>行為</th></tr>
+  <tr><td><strong>全部符合 (AND)</strong></td>
+      <td>所有條件都命中的題目才保留。較嚴格。</td></tr>
+  <tr><td><strong>任一符合 (OR)</strong></td>
+      <td>只要命中任一條件就保留。較寬鬆，常用於「A10 Done 或 A12 Done 都算」。</td></tr>
+</table>
+<div class="box box-tip">
+  <strong>小技巧</strong>
+  單一條件時 AND 和 OR 結果一樣；條件之間的 AND/OR 差異要兩條以上才有感覺。
+</div>
+
+<h3>4.6 週分組 + Red Line</h3>
 <p>
-  If a <strong>Red Line</strong> is set, a dashed red line appears between weeks. Issues above the red line with
-  <span class="chip chip-uat">UAT</span> or <span class="chip chip-tbd">TBD</span> states are displayed in
-  <span class="chip chip-red">red</span> to highlight urgency.
+  題目依 ISO 週分組，標頭例如「▼ wk612 (3 題)」，點標頭可折疊整組。
+  Admin 設定 Red Line 後，不同週之間會畫紅色虛線。Red Line 之前還在
+  <span class="chip chip-uat">UAT</span> 或 <span class="chip chip-tbd">TBD</span>
+  的 cell 會變 <span class="chip chip-red">紅色</span>警示逾期。
 </p>
 
-<h3>3.5 Batch Update</h3>
+<h3>4.7 強身健體系列 / 特殊分組</h3>
+<p>
+  帶 <code>group_label</code> 的題目會獨立成一張 card（例如「強身健體系列」），不依週分組。
+  點 card 標頭可折疊。欄位對齊主表，凍結標題也獨立運作。
+</p>
+
+<h3>4.8 On Hold</h3>
+<p>
+  頁面底部紅色 card「⏸ On Hold (N)」，放暫緩中的題目。預設折疊，點標頭展開。
+</p>
+
+<h3>4.9 批次更新</h3>
 <ol class="steps">
-  <li>Check the checkboxes next to the issues you want to update.</li>
-  <li>A batch action bar appears. Select a <strong>Node</strong> and a <strong>State</strong>.</li>
-  <li>Click <strong>Batch Apply</strong>, enter a reason, and confirm.</li>
+  <li>勾選題號前的 checkbox，可勾多題。</li>
+  <li>畫面上方出現批次列，選 <strong>Node</strong> 和 <strong>狀態</strong>。</li>
+  <li>點「批次套用」→ 跳出確認視窗。</li>
+  <li>必填 <strong>備註</strong>（說明為何批次改）→ 確認即完成。</li>
 </ol>
 
-<h3>3.6 Mark All Read</h3>
-<p>
-  Cells updated since your last visit are highlighted in <span style="background:#fff9c4;padding:2px 6px;border-radius:3px;">yellow</span>. Click <strong>Mark All Read</strong> to clear these highlights.
-</p>
+<h3>4.10 標記已讀 / 匯出 Excel</h3>
+<ul>
+  <li><strong>標記已讀</strong>：上次瀏覽後被改過的格子會有淡黃底色，點這個鈕一次清掉。</li>
+  <li><strong>匯出 Excel</strong>：下載目前所有 ongoing + on hold 題目（含所有 node 狀態）到 <code>.xlsx</code>。</li>
+</ul>
 
-<!-- ═══ 4. States ═══ -->
-<h2 id="states">4. State Definitions</h2>
+<!-- ═══ 5. States ═══ -->
+<h2 id="states">5. 狀態定義</h2>
 <table>
-  <tr><th style="width:100px;">Chip</th><th style="width:110px;">State</th><th>Meaning</th></tr>
-  <tr>
-    <td><span class="chip chip-done">Done</span></td>
-    <td>Done</td>
-    <td>This node is complete.</td>
-  </tr>
-  <tr>
-    <td><span class="chip chip-uatdone">UAT&#10003;</span></td>
-    <td>UAT Done</td>
-    <td>UAT verification is complete for this node.</td>
-  </tr>
-  <tr>
-    <td><span class="chip chip-uat">UAT</span></td>
-    <td>UAT</td>
-    <td>Waiting for or currently in UAT verification.</td>
-  </tr>
-  <tr>
-    <td><span class="chip chip-dev">Dev</span></td>
-    <td>Developing</td>
-    <td>Currently being developed.</td>
-  </tr>
-  <tr>
-    <td><span class="chip chip-tbd">TBD</span></td>
-    <td>TBD</td>
-    <td>To be determined / not yet started.</td>
-  </tr>
-  <tr>
-    <td><span class="chip chip-unneeded">Unneeded</span></td>
-    <td>Unneeded</td>
-    <td>This node is not applicable to this issue.</td>
-  </tr>
-  <tr>
-    <td><span style="display:inline-block;padding:1px 8px;border-radius:3px;font-size:12px;font-weight:600;background:#ecf0f1;color:#aaa;">&middot;</span></td>
-    <td>(Empty)</td>
-    <td>No state assigned yet.</td>
-  </tr>
+  <tr><th style="width:120px;">Chip</th><th style="width:120px;">狀態</th><th>意義</th></tr>
+  <tr><td><span class="chip chip-done">Done</span></td>
+      <td>Done</td>
+      <td>此 Node 已完成。<strong>僅 super user 可設為 Done</strong>
+          <span class="new-badge">2026-04</span>。</td></tr>
+  <tr><td><span class="chip chip-uatdone">UAT✓</span></td>
+      <td>UAT Done</td><td>UAT 驗證已完成。</td></tr>
+  <tr><td><span class="chip chip-uat">UAT</span></td>
+      <td>UAT</td><td>等待或正在做 UAT 驗證。</td></tr>
+  <tr><td><span class="chip chip-dev">Dev</span></td>
+      <td>Developing</td><td>開發中。</td></tr>
+  <tr><td><span class="chip chip-tbd">TBD</span></td>
+      <td>TBD</td><td>待定 / 尚未動工。</td></tr>
+  <tr><td><span class="chip chip-unneeded">Unneeded</span></td>
+      <td>Unneeded</td>
+      <td>此 Node 不適用。<strong>僅 super user 或 Manager 可設為 Unneeded</strong>
+          <span class="new-badge">2026-04</span>。</td></tr>
+  <tr><td><span class="chip chip-empty">·</span></td>
+      <td>（空白）</td><td>尚未設定任何狀態。</td></tr>
 </table>
 
 <div class="box box-warn">
   <strong>Red Alert</strong>
-  If an issue is above the Red Line and a cell is in UAT or TBD, the chip turns <span class="chip chip-red">red</span> to indicate it is overdue.
+  題目在 Red Line 之前、cell 為 UAT 或 TBD 時，chip 會變
+  <span class="chip chip-red">紅色</span>標示逾期。
 </div>
 
-<!-- ═══ 5. Side Panel ═══ -->
-<h2 id="sidepanel">5. Side Panel &amp; Cell Editing</h2>
-<p>Click any cell in the Tracker table to open the <strong>Side Panel</strong> on the right.</p>
-
-<h3>5.1 Cell Editing</h3>
-<p>If you have permission to edit this node, you will see:</p>
+<h3>5.1 狀態變更規則 <span class="new-badge">2026-04</span></h3>
 <ul>
-  <li><strong>State</strong> dropdown &mdash; select the new state.</li>
-  <li><strong>Check-in date</strong> &mdash; planned or actual check-in date.</li>
-  <li><strong>Short note</strong> &mdash; a brief note displayed inside the cell.</li>
-  <li><strong>Update description</strong> &mdash; optional text recorded in the timeline.</li>
-  <li><strong>Attachments</strong> &mdash; upload PNG/JPG/PDF files (max 5MB, up to 3 files).</li>
+  <li><strong>狀態真的有變</strong>時（例如 UAT → Done），<em>更新說明</em>欄位變為必填，會有黃底提示。</li>
+  <li>只改 Check-in 日期 / 短備註 / 留言而狀態不變時，更新說明仍為選填。</li>
+  <li>若某 cell 的 <em>目前狀態</em> 是你沒權限改到的（例如一般使用者看到 Done），側面板狀態下拉會標 <code>(僅管理員可改)</code>。</li>
 </ul>
-<p>Click <strong>Save Changes</strong> to apply. The cell in the main table updates immediately.</p>
+
+<!-- ═══ 6. Side Panel ═══ -->
+<h2 id="sidepanel">6. Side Panel 與格子編輯</h2>
+<p>點 Tracker 任一 cell 會從右邊開 Side Panel。</p>
+
+<h3>6.1 編輯區</h3>
+<p>若你有此 Node 的編輯權限，會看到：</p>
+<ul>
+  <li><strong>State</strong> 下拉 — 選新狀態；有些選項依角色隱藏。</li>
+  <li><strong>Check-in Date</strong> — 預定 / 實際 check-in 日期。</li>
+  <li><strong>Short Note</strong> — 顯示在 cell 內的短備註。</li>
+  <li><strong>更新說明</strong> — 留在 Timeline 的說明。狀態改變時必填。</li>
+  <li><strong>附件</strong> — 上傳 PNG / JPG / PDF，單檔上限 5 MB，最多 3 個。</li>
+</ul>
+<p>點 <strong>儲存</strong> 後，主表該格即時更新。</p>
 
 <div class="box box-info">
-  <strong>Permission</strong>
-  You can only edit nodes assigned to your group. If you see "Read-only mode", ask an admin to add you to the appropriate group.
+  <strong>權限</strong>
+  只能編輯被分配給你 group 的 Node。若 Side Panel 顯示「Read-only」，請找 admin 調整群組。
 </div>
 
-<h3>5.2 Timeline</h3>
+<h3>6.2 Timeline（歷史紀錄）</h3>
+<ul>
+  <li>預設只顯示 <strong>目前 Node</strong> 的狀態異動，加上 General Comment 和 Meeting Note。</li>
+  <li>點 <strong>View All</strong> 看整題跨所有 Node 的完整歷史。</li>
+  <li>上方型別下拉可過濾 <em>狀態異動</em> / <em>Comment</em> / <em>Meeting Note</em>。</li>
+</ul>
+
+<h3>6.3 Comment / Meeting Note</h3>
+<ul>
+  <li><strong>+ General Comment</strong>：一般留言，可加附件。</li>
+  <li><strong>+ Meeting Note</strong>：會議記錄，可指定所屬週次。</li>
+</ul>
+
+<h3>6.4 整行套用（Row Apply）</h3>
 <p>
-  Below the edit form is the <strong>Timeline</strong>, showing the history of changes for this issue.
+  題號旁邊的鉛筆 <strong>✎</strong> 圖示（super user）會展開一列勾選多個 Node
+  一次改到同一狀態，加上共用的更新說明。
 </p>
-<ul>
-  <li>By default, it shows entries <strong>for the current node</strong> only (plus general comments and meeting notes).</li>
-  <li>Click <strong>View All</strong> to see the entire issue's history across all nodes.</li>
-  <li>Use the type dropdown to filter by <em>State Changes</em>, <em>Comments</em>, or <em>Meeting Notes</em>.</li>
-</ul>
 
-<h3>5.3 Adding Comments &amp; Meeting Notes</h3>
-<ul>
-  <li>Click <strong>+ General Comment</strong> to add a general comment (with optional attachments).</li>
-  <li>Click <strong>+ Meeting Note</strong> to add a meeting note tagged with a specific week.</li>
-</ul>
+<!-- ═══ 7. Close flow ═══ -->
+<h2 id="close">7. 關單流程</h2>
 
-<!-- ═══ 6. Closed ═══ -->
-<h2 id="closed">6. Closed Page</h2>
+<h3>7.1 全部完成 → ✓關（綠）</h3>
 <p>
-  Displays all closed issues, grouped by week (same layout as Tracker). Accessible without login (read-only).
+  當題目的所有 Node 狀態都是 <span class="chip chip-done">Done</span> 或
+  <span class="chip chip-unneeded">Unneeded</span> 時，題號旁出現綠色
+  <strong>✓關</strong> 按鈕。點 → 可選填 Closed Note → 確認關單。
 </p>
+
+<h3>7.2 匯入建議關題 → ✓關?（黃） <span class="new-badge">2026-04</span></h3>
+<p>
+  Excel 匯入時若 Ongoing 分頁某題 Status 欄填了 <code>Closed</code>，系統不會自動關單，
+  而是標為「建議關題」：題號旁出現黃色 <strong>✓關?</strong> 按鈕。Admin 人工確認後再關。
+</p>
+<p>
+  Dashboard 也有獨立的「匯入建議關題」卡片，點 <em>看題號</em> 可展開所有待確認的題號。
+</p>
+
+<h3>7.3 Reopen</h3>
+<p>
+  Closed 頁面的 super user 可對已關題目按 <strong>Reopen</strong>，填原因後移回 Ongoing。
+</p>
+
+<!-- ═══ 8. Closed ═══ -->
+<h2 id="closed">8. Closed 頁面</h2>
+<p>所有已關題目，依週次分組（同 Tracker 排版）。免登入可看（read-only）。</p>
 <ul>
-  <li>Use the search bar to find specific closed issues.</li>
-  <li>Each cell shows the final state, check-in date, and note (same format as Tracker).</li>
-  <li>The <strong>Closed</strong> column shows the date the issue was closed.</li>
-  <li>The <strong>Note</strong> column shows the closing note.</li>
-  <li>Pagination is available at the bottom (50 per page).</li>
+  <li>搜尋條支援題號 / Topic / JIRA。</li>
+  <li>每列顯示最終狀態 + Check-in + 短備註 + Closed 日期 + Closed Note。</li>
+  <li>分頁下方分頁列（每頁 50 題）。</li>
+  <li>Super user 可點 <strong>Note</strong> 欄 inline 編輯 closed note。</li>
 </ul>
 
-<!-- ═══ 7. Dashboard ═══ -->
-<h2 id="dashboard">7. Dashboard</h2>
-<p>The dashboard provides an overview of the project status. Login required.</p>
+<!-- ═══ 9. Dashboard ═══ -->
+<h2 id="dashboard">9. Dashboard 儀表板</h2>
+<p>需登入。提供統計卡片 + 趨勢圖表 + 洞察表。</p>
 
-<h3>7.1 Summary Cards</h3>
+<h3>9.1 統計卡片</h3>
 <table>
-  <tr><th>Card</th><th>Description</th></tr>
-  <tr><td>Ongoing</td><td>Number of issues currently in progress.</td></tr>
-  <tr><td>Ready to Close</td><td>Issues where all nodes are Done or Unneeded.</td></tr>
-  <tr><td>On Hold</td><td>Issues temporarily paused.</td></tr>
-  <tr><td>Closed</td><td>Total closed issues.</td></tr>
-  <tr><td>Closing Rate (incl. MtM)</td><td>Percentage of closed issues out of all issues.</td></tr>
-  <tr><td>Closing Rate (excl. MtM)</td><td>Same calculation but treating the MtM node as optional.</td></tr>
+  <tr><th style="width:200px;">卡片</th><th>邏輯</th></tr>
+  <tr><td>Ongoing</td><td>進行中題目總數。</td></tr>
+  <tr><td>Ready to Close</td>
+      <td>所有 node 皆為 Done 或 Unneeded 的題目數。卡片有
+          <strong>?</strong> 提示完整計算邏輯，點「看題號」展開符合題號（連到 Gitea）
+          <span class="new-badge">2026-04</span>。</td></tr>
+  <tr><td>匯入建議關題
+      <span class="new-badge">2026-04</span></td>
+      <td>有 <code>pending_close</code> flag 的題目數。同樣有 tooltip 和「看題號」展開。</td></tr>
+  <tr><td>On Hold</td><td>暫緩題目數。</td></tr>
+  <tr><td>Closed</td><td>已關單總數。</td></tr>
+  <tr><td>Closing Rate（含 MtM）</td><td>Closed / (Ongoing + On Hold + Closed)。</td></tr>
+  <tr><td>Closing Rate（不含 MtM）</td>
+      <td>同上公式，但 MtM 為 Done / Unneeded 的題目視同「已結束 MtM」提前計入完成。</td></tr>
 </table>
 
-<h3>7.2 Charts</h3>
+<h3>9.2 圖表</h3>
 <ul>
-  <li><strong>Topic Cumulative Trend</strong> &mdash; stacked bar chart showing TBD/Dev/UAT/Close counts over weeks.</li>
-  <li><strong>Closing Rate Trend</strong> &mdash; line chart of closing rate over time. If admin has entered manual trend data, it uses that data. Use the dropdown to switch between <em>YTD</em>, <em>Last 30 weeks</em>, or <em>Last 50 weeks</em>.</li>
+  <li><strong>Topic Cumulative Trend</strong> — 每週 TBD / Dev / UAT / Close 的堆疊長條。
+      右上有時間範圍選單：<em>YTD</em> / <em>近 30 週</em> / <em>近 50 週</em> / <em>全部</em>
+      <span class="new-badge">2026-04</span>。</li>
+  <li><strong>Closing Rate Trend</strong> — 逐週關單率折線；若 admin 有輸入手動 trend data 優先用它。
+      同樣有時間範圍選單。</li>
 </ul>
 
-<h3>7.3 Insight Tables</h3>
+<h3>9.3 洞察表</h3>
 <ul>
-  <li><strong>Almost Done</strong> &mdash; issues with only 1-2 nodes remaining.</li>
-  <li><strong>Stale Topics</strong> &mdash; issues not updated in 90+ days.</li>
-  <li><strong>Per-Node Stats</strong> &mdash; red line, UAT, and TBD counts broken down by node.</li>
+  <li><strong>Almost Done</strong> — 只剩 1-2 個 Node 未完成的題目。</li>
+  <li><strong>Stale Topics</strong> — 90 天以上沒人動的題目。</li>
+  <li><strong>Per-Node Stats</strong> — 各 Node 的 UAT / TBD 題數（Red Line 之前單獨再算一次）。</li>
+  <li><strong>Bottleneck / Weekly Velocity</strong> — 瓶頸分析與每週進度。</li>
 </ul>
 
-<!-- ═══ 8. Calendar ═══ -->
-<h2 id="calendar">8. Calendar</h2>
+<!-- ═══ 10. Calendar ═══ -->
+<h2 id="calendar">10. Calendar 行事曆</h2>
 <p>
-  A monthly view showing check-in dates. Each cell in the calendar shows which issues/nodes have a check-in date on that day. Navigate between months using the arrows. Login required.
+  月曆格顯示每日哪些題目 × Node 有 Check-in Date。箭頭可切換月份。需登入。
 </p>
 
-<!-- ═══ 9. Dark Mode ═══ -->
-<h2 id="darkmode">9. Dark Mode</h2>
+<h3>10.1 可上線清單 <span class="new-badge">2026-04</span></h3>
 <p>
-  Click the <strong>&#9790;/&#9728;</strong> button in the navbar to toggle between Light and Dark mode. Your preference is saved in the browser and persists across sessions.
-</p>
-
-<div class="box box-tip">
-  <strong>Tip</strong>
-  Dark mode uses a low-contrast palette designed to reduce eye strain during extended use.
-</div>
-
-<!-- ═══ 10. Super User ═══ -->
-<h2 id="superuser">10. Super User Features</h2>
-<p>
-  Super users (admins) have additional capabilities. If you are a super user, an <strong>Admin</strong> link appears in the navbar.
-</p>
-
-<h3>10.1 Create Issue</h3>
-<p>
-  Click <strong>+ New Issue</strong> in the Tracker toolbar, or go to Admin &gt; New Issue. Fill in the required fields (#, Topic, Week) and submit.
-</p>
-
-<h3>10.2 Edit Issue (Topic / Path / Owner)</h3>
-<p>
-  Open the side panel by clicking any cell, then click <strong>Edit Owner / Topic / Path</strong> to expand the edit section. Each field has its own save button.
-</p>
-
-<h3>10.3 Delete Issue</h3>
-<p>
-  In the side panel, click the red <strong>Delete</strong> button. This is a soft delete &mdash; the issue is hidden but can be restored by an admin.
-</p>
-
-<h3>10.4 Close &amp; Reopen</h3>
-<ul>
-  <li>When all nodes are Done/Unneeded, a <strong>&#10003; Close</strong> button appears next to the issue number. Click it, optionally add a note, and confirm.</li>
-  <li>On the Closed page, super users can click <strong>Reopen</strong> to move an issue back to ongoing.</li>
-  <li>Super users can also <strong>edit the Closed Note</strong> inline by clicking the Note cell on the Closed page.</li>
-</ul>
-
-<h3>10.5 Row Apply</h3>
-<p>
-  Click the <strong>&#9998;</strong> (pencil) icon next to an issue number to enter row-edit mode. Select which nodes to update, choose a state, and click <strong>Apply</strong> to update all selected nodes at once.
-</p>
-
-<h3>10.6 Meeting Mode</h3>
-<p>
-  Click the <strong>wkXXXX Meeting Mode</strong> button in the Tracker toolbar. This opens a dedicated page for the current week where you can enter meeting notes for each issue in bulk.
-</p>
-
-<h3>10.7 Admin Panel</h3>
-<table>
-  <tr><th>Section</th><th>Description</th></tr>
-  <tr><td>Pending Users</td><td>Approve or reject new user registrations.</td></tr>
-  <tr><td>Users</td><td>Manage users: change status, reset passwords, assign groups.</td></tr>
-  <tr><td>Groups</td><td>Create groups and assign nodes to each group.</td></tr>
-  <tr><td>Nodes</td><td>Add, rename, reorder, or deactivate workflow nodes.</td></tr>
-  <tr><td>Red Line</td><td>Set the deadline week for red line highlighting.</td></tr>
-  <tr><td>Excel Update</td><td>Upload an Excel file to batch create/update issues.</td></tr>
-  <tr><td>Gitea URL Mapping</td><td>Configure prefix-to-URL rules so issue numbers become clickable hyperlinks.</td></tr>
-  <tr><td>Column Width</td><td>Adjust the Topic and Path column widths (in pixels).</td></tr>
-  <tr><td>Trend Data</td><td>Manually enter weekly UAT/TBD/Dev/Close counts for the dashboard trend chart.</td></tr>
-  <tr><td>SMTP</td><td>Configure the SMTP server (host, port, sender) for email notifications.</td></tr>
-  <tr><td>Audit Log</td><td>View a log of all administrative actions.</td></tr>
-</table>
-
-<!-- ═══ FAQ ═══ -->
-<h2 id="faq">11. FAQ</h2>
-
-<h3>Q: I can't edit any cells. Why?</h3>
-<p>
-  Your account must be <strong>active</strong> (approved by admin), and you must be assigned to a <strong>group</strong> that has permission for that node. Ask your admin to check your group assignments.
-</p>
-
-<h3>Q: How do I copy a Path?</h3>
-<p>
-  Click the Path cell in the Tracker table. The text is automatically copied to your clipboard and a green "&#10003; Copied" toast appears briefly.
-</p>
-
-<h3>Q: What does the yellow highlight on a cell mean?</h3>
-<p>
-  It means the cell was updated since your last visit. Click <strong>Mark All Read</strong> in the toolbar to clear the highlights.
-</p>
-
-<h3>Q: How does the Gitea issue link work?</h3>
-<p>
-  If your admin has configured URL mappings, the issue number (#) in the Tracker table becomes a clickable link that opens the corresponding Gitea issue in a new tab. The mapping rules are:
+  Super user 在 Calendar 會看到一張新 card「可上線清單」，列出
+  <strong>Check-in Date ≤ 今天但狀態還不是 Done / Unneeded</strong> 的 node，方便盯進度。
 </p>
 <ul>
-  <li><code>P260</code> &rarr; prefix <code>P</code>, opens the perl_scripts repo issue #260</li>
-  <li><code>CN49</code> &rarr; prefix <code>CN</code>, opens the CN_TEAM repo issue #49</li>
-  <li><code>SNPS61</code> &rarr; prefix <code>SNPS</code>, opens the Synopsys repo issue #61</li>
-  <li><code>301</code> &rarr; pure number, opens the QC_requests repo issue #301</li>
+  <li>超過今天的顯示「逾期 N 天」。</li>
+  <li>剛好今天 due 的顯示「今日」badge。</li>
+  <li>可直接按 <strong>✓ Done</strong> 按鈕快速標完成（僅 super user）。</li>
 </ul>
 
-<h3>Q: Can I export data?</h3>
+<!-- ═══ 11. UAT Path 多行 ═══ -->
+<h2 id="uatpath">11. UAT Path 多行輸入 <span class="new-badge">2026-04</span></h2>
+
+<h3>11.1 顯示</h3>
 <p>
-  Yes. Click <strong>Export Excel</strong> in the Tracker toolbar to download an <code>.xlsx</code> file with all ongoing and on-hold issues.
+  同一題可有多條測試路徑，資料庫用 <code>\n</code> 分隔，主表每條路徑一行顯示。
 </p>
 
-<h3>Q: The page looks different / broken after an update.</h3>
+<h3>11.2 編輯</h3>
 <p>
-  Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> to force-refresh and clear the browser cache.
+  Side Panel 和「+ 新增題目」的 Path 欄位都是 textarea，可直接多行輸入（等寬字體）。
+</p>
+
+<h3>11.3 複製</h3>
+<p>
+  點主表 Path cell，整段含換行一併進剪貼簿。貼到 vim / Excel / Notepad 都會是真正的多行。
+</p>
+
+<!-- ═══ 12. FAQ ═══ -->
+<h2 id="faq">12. FAQ 常見問題</h2>
+
+<h3>Q：我完全不能編輯任何 cell？</h3>
+<p>
+  帳號要是 <strong>active</strong>（admin 啟用）、且被分配到該 Node 所屬的 group。找 admin 幫忙檢查。
+</p>
+
+<h3>Q：Path 要複製怎麼做？</h3>
+<p>
+  直接點主表 Path cell 即可，右下角跳「✓ 已複製」toast。多行也會整段複製（含換行）。
+</p>
+
+<h3>Q：黃色底的 cell 是什麼？</h3>
+<p>
+  自你上次瀏覽後有被改過的 cell。工具列按 <strong>標記已讀</strong> 一次清掉。
+</p>
+
+<h3>Q：題號怎麼變成連到 Gitea？</h3>
+<p>
+  由 admin 在 <em>Admin &gt; Gitea URL Mapping</em> 設規則：
+</p>
+<ul>
+  <li><code>P260</code> → prefix <code>P</code>，開 perl_scripts repo issue #260</li>
+  <li><code>CN49</code> → prefix <code>CN</code>，開 CN_TEAM repo issue #49</li>
+  <li><code>SNPS61</code> → prefix <code>SNPS</code>，開 Synopsys repo issue #61</li>
+  <li><code>301</code> → 純數字，開 QC_requests repo issue #301</li>
+</ul>
+
+<h3>Q：切 dark / gray 後畫面沒改變？</h3>
+<p>
+  按 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> 硬刷一次，因為公司代理可能快取舊 CSS。
+  做一次即可，之後系統自動接管。
+</p>
+
+<h3>Q：我按了「關」但題目沒消失？</h3>
+<p>
+  關單會讓題目從 Tracker 消失、移到 Closed 頁。重新整理 Tracker 再確認一次。
+</p>
+
+<h3>Q：怎麼看我之前改了什麼？</h3>
+<p>
+  點該題任一 cell 開 Side Panel 的 Timeline；切 <strong>View All</strong> 可看整題跨所有 node 的完整紀錄（含誰 / 何時 / 改什麼 / 附件）。
+</p>
+
+<h3>Q：匯出 Excel 的欄位和原 Excel 一樣嗎？</h3>
+<p>
+  一樣。重新匯入也能 round-trip（系統會用題號對現有題目做 diff preview，避免重覆建立）。
 </p>
 
 <div class="doc-footer">
-  Gitea Tracker User Guide &mdash; Last updated: 2026-04-16
+  Gitea Tracker User Guide &mdash; Last updated: 2026-04-18
 </div>
 
 </div><!-- /container -->

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gitea Tracker — 開發者 / Super User 指南</title>
+<style>
+  :root {
+    --primary: #2c3e50;
+    --accent: #3498db;
+    --green: #27ae60;
+    --orange: #e67e22;
+    --purple: #8e44ad;
+    --red: #c0392b;
+    --gray: #95a5a6;
+    --yellow: #f59f00;
+    --bg: #f8f9fa;
+    --border: #dee2e6;
+    --code-bg: #272c35;
+    --code-fg: #e3e3e3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    color: #333; background: #fff;
+    line-height: 1.7; font-size: 15px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 20px 24px 60px; }
+
+  .doc-header {
+    background: var(--primary); color: #fff;
+    padding: 40px 24px; text-align: center;
+  }
+  .doc-header h1 { font-size: 28px; margin-bottom: 6px; }
+  .doc-header p { opacity: 0.85; font-size: 14px; }
+  .doc-subhead {
+    display: inline-block; background: rgba(255,255,255,0.12);
+    padding: 2px 10px; border-radius: 12px; font-size: 12px;
+    margin-top: 8px;
+  }
+
+  .toc {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 24px; margin: 24px 0;
+    columns: 2; column-gap: 24px;
+  }
+  .toc h2 { font-size: 16px; margin-bottom: 10px; color: var(--primary); border: none; padding: 0; column-span: all; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 4px 0; break-inside: avoid; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  h2 {
+    font-size: 22px; color: var(--primary);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 6px; margin: 40px 0 16px;
+  }
+  h3 { font-size: 17px; color: #444; margin: 24px 0 10px; }
+  h4 { font-size: 15px; color: #555; margin: 16px 0 8px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0 8px 22px; }
+  li { margin: 3px 0; }
+
+  .box {
+    border-radius: 6px; padding: 12px 16px; margin: 12px 0;
+    font-size: 14px; line-height: 1.6;
+  }
+  .box-info   { background: #e8f4fd; border-left: 4px solid var(--accent); }
+  .box-tip    { background: #e8f8ef; border-left: 4px solid var(--green); }
+  .box-warn   { background: #fdf3e7; border-left: 4px solid var(--orange); }
+  .box-danger { background: #fde8e8; border-left: 4px solid var(--red); }
+  .box strong { display: block; margin-bottom: 2px; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 12px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--border); padding: 8px 10px;
+    text-align: left; vertical-align: top;
+  }
+  th { background: var(--bg); font-weight: 600; }
+
+  /* Code blocks */
+  pre {
+    background: var(--code-bg); color: var(--code-fg);
+    padding: 12px 16px; border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 13px; line-height: 1.5; overflow-x: auto;
+    margin: 12px 0;
+  }
+  code {
+    background: #f0f0f0; padding: 1px 5px; border-radius: 3px;
+    font-size: 13px; font-family: ui-monospace, SFMono-Regular, monospace;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; font-size: inherit; }
+
+  kbd {
+    background: #eee; border: 1px solid #ccc; border-radius: 3px;
+    padding: 1px 6px; font-size: 13px; font-family: monospace;
+  }
+
+  .steps { counter-reset: step; padding-left: 0; list-style: none; margin-left: 0; }
+  .steps li {
+    counter-increment: step; position: relative;
+    padding-left: 36px; margin: 12px 0;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 0;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Role badges */
+  .role {
+    display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; color: #fff;
+  }
+  .role-super { background: #c0392b; }
+  .role-manager { background: #2980b9; }
+  .role-user { background: #7f8c8d; }
+  .role-guest { background: #bdc3c7; color: #555; }
+
+  /* Schema diagram */
+  .schema {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin: 16px 0;
+  }
+  .entity {
+    border: 2px solid var(--accent); border-radius: 6px;
+    padding: 8px 12px; font-size: 13px; background: #fff;
+  }
+  .entity strong {
+    display: block; color: var(--accent);
+    border-bottom: 1px solid var(--accent);
+    padding-bottom: 4px; margin-bottom: 6px; font-size: 14px;
+  }
+  .entity ul { list-style: none; margin: 0; padding: 0; }
+  .entity li { font-size: 12px; padding: 1px 0; }
+  .entity .pk { color: #c0392b; font-weight: 600; }
+  .entity .fk { color: #2980b9; }
+
+  .permission-matrix th, .permission-matrix td { text-align: center; font-size: 13px; }
+  .permission-matrix th:first-child, .permission-matrix td:first-child { text-align: left; }
+  .yes { color: #27ae60; font-weight: 700; }
+  .no { color: #c0392b; }
+  .partial { color: #e67e22; font-weight: 600; }
+
+  .doc-footer {
+    text-align: center; color: #999; font-size: 13px;
+    margin-top: 48px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  @media print {
+    .doc-header { background: #fff; color: #333; border-bottom: 2px solid #333; }
+    .toc { break-after: page; columns: 1; }
+    h2 { break-after: avoid; }
+    pre { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <h1>Gitea Tracker 開發者指南</h1>
+  <p>部署、管理、進階操作 &mdash; Version 2026-04</p>
+  <div class="doc-subhead">for Super Users &amp; System Maintainers</div>
+</div>
+
+<div class="container">
+
+<div class="toc">
+  <h2>目錄</h2>
+  <ol>
+    <li><a href="#scope">1. 適用對象</a></li>
+    <li><a href="#arch">2. 技術棧與架構</a></li>
+    <li><a href="#deploy">3. 首次部署</a></li>
+    <li><a href="#run">4. 啟動 / 停止 / 重啟</a></li>
+    <li><a href="#schema">5. 資料模型</a></li>
+    <li><a href="#admin">6. Admin 後台詳解</a></li>
+    <li><a href="#excel">7. Excel 匯入流程</a></li>
+    <li><a href="#permissions">8. 權限與狀態守衛</a></li>
+    <li><a href="#close">9. 關單 / Reopen / pending_close</a></li>
+    <li><a href="#email">10. 郵件通知</a></li>
+    <li><a href="#backup">11. 備份與還原</a></li>
+    <li><a href="#migration">12. 升級與 Migration</a></li>
+    <li><a href="#cache">13. 快取與部署更新</a></li>
+    <li><a href="#troubleshoot">14. 常見問題排除</a></li>
+    <li><a href="#extend">15. 延伸開發</a></li>
+  </ol>
+</div>
+
+<!-- ═══ 1. Scope ═══ -->
+<h2 id="scope">1. 適用對象</h2>
+<p>這份指南寫給需要<strong>部署、維運、進階操作</strong>系統的同仁，涵蓋：</p>
+<ul>
+  <li>Super user：後台管理、使用者審核、Excel 匯入、關單確認等日常操作。</li>
+  <li>Maintainer：負責在公司內部伺服器（f12titan）部署與升級。</li>
+  <li>接手的開發者：理解資料模型、狀態守衛規則、擴充 node 或重新部署。</li>
+</ul>
+<div class="box box-info">
+  <strong>一般使用者請看另一份</strong>
+  <code>docs/user_guide.html</code> 已涵蓋絕大多數日常操作，不需要這份的技術細節。
+</div>
+
+<!-- ═══ 2. Architecture ═══ -->
+<h2 id="arch">2. 技術棧與架構</h2>
+
+<h3>2.1 技術棧（鎖定）</h3>
+<table>
+  <tr><th style="width:160px;">層</th><th>選擇</th><th>理由</th></tr>
+  <tr><td>後端語言</td><td>Python 3.12</td><td>公司伺服器內建、熟悉度高。</td></tr>
+  <tr><td>Web framework</td><td>Flask 3</td><td>輕量、無綁定 ORM，routing + template 夠用。</td></tr>
+  <tr><td>Template</td><td>Jinja2</td><td>Flask 內建。</td></tr>
+  <tr><td>前端互動</td><td>HTMX + Alpine.js</td><td>不需 build step、sprinkled reactivity、沒有 Webpack 學習成本。</td></tr>
+  <tr><td>CSS framework</td><td>Tabler (CDN)</td><td>免費、整潔、自帶 card / form / badge 元件。</td></tr>
+  <tr><td>資料庫</td><td>SQLite</td><td>零設定、單檔備份、符合流量 (~300 題、10 人內) 需求。</td></tr>
+  <tr><td>API 文件</td><td>Flasgger (Swagger UI)</td><td>route docstring 自動生成 API 說明。</td></tr>
+  <tr><td>郵件</td><td>smtplib (SMTP)</td><td>可選接公司 mail API (<code>ddi_api.pl</code>) 或 SMTP server。</td></tr>
+</table>
+
+<h3>2.2 架構圖</h3>
+<pre><code>┌─────────────────┐    HTTP    ┌────────────────────────────────┐
+│ Browser         │ ◀────────▶ │ Flask app (app/__init__.py)    │
+│ (HTMX + Alpine) │            │  ├─ blueprints                │
+└─────────────────┘            │  │    auth, main, issues,    │
+                               │  │    admin, attachments     │
+                               │  ├─ templates/                │
+                               │  ├─ static/ (CSS/JS)          │
+                               │  ├─ after_request: no-cache   │
+                               │  ├─ context_processor:        │
+                               │  │    static_version (?v=)    │
+                               │  └─ models/  (SQLite wrappers) │
+                               └────────────────────────────────┘
+                                              │
+                                     ┌────────┴────────┐
+                                     │ data/tracker.db │
+                                     │ data/attach/    │
+                                     └─────────────────┘
+</code></pre>
+
+<h3>2.3 目錄結構</h3>
+<pre><code>GiteaTracker/
+├── app/
+│   ├── __init__.py        # Flask app factory
+│   ├── db.py              # SQLite connection + schema migration
+│   ├── schema.sql         # 建表語句（首次啟動時執行）
+│   ├── errors.py          # 錯誤處理
+│   ├── excel.py           # .xlsx 解析邏輯
+│   ├── mail.py            # SMTP / ddi_api 寄信
+│   ├── models/            # 各 entity 的 query helpers
+│   ├── routes/            # Flask blueprints
+│   ├── static/css/app.css # 所有客製 CSS（含 dark / gray mode）
+│   └── templates/         # Jinja2 templates
+├── config.py              # 環境變數載入
+├── init_db.py             # 首次建資料庫
+├── import_from_excel.py   # CLI 匯入工具
+├── main.py                # Flask 啟動入口
+├── deploy/                # 無 sudo 部署相關 scripts
+└── docs/                  # 本目錄（含這份指南）
+</code></pre>
+
+<!-- ═══ 3. Deploy ═══ -->
+<h2 id="deploy">3. 首次部署</h2>
+
+<h3>3.1 前置條件</h3>
+<ul>
+  <li>Linux 主機（公司 f12titan），<strong>不需要 sudo 權限</strong>。</li>
+  <li>Python 3.12 已安裝在 user-space 或公司 module 中。</li>
+  <li>可寫入家目錄下任一路徑（放 DB 和附件）。</li>
+</ul>
+
+<h3>3.2 建立 virtualenv 與安裝依賴</h3>
+<pre><code>cd ~/GiteaTracker
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt</code></pre>
+
+<h3>3.3 設定環境變數</h3>
+<p>
+  複製 <code>.env.example</code> 為 <code>.env</code>，填入：
+</p>
+<pre><code>FLASK_ENV=production
+SECRET_KEY=&lt;random 32+ chars&gt;
+DB_PATH=data/tracker.db
+ATTACH_DIR=data/attach
+SCRIPT_NAME=/GiteaTracker        # reverse proxy 路徑前綴
+SMTP_HOST=smtp.company.internal
+SMTP_PORT=25
+MAIL_SENDER=gitea-tracker@company.internal
+ADMIN_USERNAME=wy                # 首次 seed 的 super user
+ADMIN_EMAIL=wy@company.internal
+ADMIN_PASSWORD=&lt;強密碼&gt;</code></pre>
+<div class="box box-warn">
+  <strong>SECRET_KEY 請產生隨機字串</strong>
+  <code>python -c 'import secrets; print(secrets.token_urlsafe(48))'</code>
+  不要用範例值。
+</div>
+
+<h3>3.4 初始化資料庫</h3>
+<pre><code>python init_db.py</code></pre>
+<p>
+  這個 script 會：執行 <code>app/schema.sql</code> 建表、插入 10 個預設 node（A10…MtM）、建立
+  <code>ADMIN_USERNAME</code> 指定的 super user 帳號（狀態 active）。
+</p>
+
+<h3>3.5 (選) 匯入現有 Excel</h3>
+<pre><code>python import_from_excel.py path/to/control_table.xlsx</code></pre>
+<p>會把 Ongoing / Closed 兩個 sheet 都讀進來；每題建立對應 <code>issue_node_states</code> row。</p>
+
+<!-- ═══ 4. Run ═══ -->
+<h2 id="run">4. 啟動 / 停止 / 重啟</h2>
+
+<h3>4.1 啟動（foreground 測試）</h3>
+<pre><code>python main.py
+# 或
+flask --app app run --host 0.0.0.0 --port 5000</code></pre>
+
+<h3>4.2 背景執行（無 systemd 的環境）</h3>
+<pre><code># 用 nohup 掛背景
+nohup python main.py &gt; logs/app.log 2&gt;&amp;1 &amp;
+echo $! &gt; app.pid
+
+# 停止
+kill $(cat app.pid)
+
+# 重啟（deploy 新版後）
+kill $(cat app.pid) &amp;&amp; \
+  nohup python main.py &gt; logs/app.log 2&gt;&amp;1 &amp; echo $! &gt; app.pid</code></pre>
+
+<h3>4.3 用 csh 的環境</h3>
+<p>公司有些機器預設 csh。<code>deploy/</code> 下有 csh 版啟動 script：</p>
+<pre><code>source deploy/start.csh</code></pre>
+
+<h3>4.4 Reverse proxy 前綴</h3>
+<p>
+  若外層 Traefik / Nginx 會把 <code>/GiteaTracker/xxx</code> 剝掉 prefix 再 forward，
+  <code>.env</code> 的 <code>SCRIPT_NAME=/GiteaTracker</code> 會讓 Flask 的 <code>url_for()</code>
+  產生帶前綴的 URL。若沒有反向代理，設成空字串即可。
+</p>
+
+<!-- ═══ 5. Schema ═══ -->
+<h2 id="schema">5. 資料模型</h2>
+
+<div class="schema">
+  <div class="entity"><strong>users</strong><ul>
+    <li class="pk">id</li>
+    <li>username (unique)</li>
+    <li>email</li>
+    <li>display_name</li>
+    <li>password_hash (bcrypt)</li>
+    <li>status (pending/active/disabled)</li>
+    <li>is_super_user</li>
+    <li>is_manager</li>
+    <li>last_viewed_at</li>
+  </ul></div>
+
+  <div class="entity"><strong>groups</strong><ul>
+    <li class="pk">id</li>
+    <li>name</li>
+  </ul></div>
+
+  <div class="entity"><strong>user_groups</strong><ul>
+    <li class="fk">user_id</li>
+    <li class="fk">group_id</li>
+  </ul></div>
+
+  <div class="entity"><strong>group_nodes</strong><ul>
+    <li class="fk">group_id</li>
+    <li class="fk">node_id</li>
+  </ul></div>
+
+  <div class="entity"><strong>nodes</strong><ul>
+    <li class="pk">id</li>
+    <li>display_name</li>
+    <li>sort_order</li>
+    <li>is_active</li>
+  </ul></div>
+
+  <div class="entity"><strong>issues</strong><ul>
+    <li class="pk">id</li>
+    <li>display_number</li>
+    <li>topic</li>
+    <li>requestor_name</li>
+    <li>week_year, week_number</li>
+    <li>jira_ticket, uat_path</li>
+    <li>status (ongoing/on_hold/closed)</li>
+    <li>pending_close</li>
+    <li>group_label</li>
+    <li>all_nodes_done (cache)</li>
+    <li>latest_update_at (cache)</li>
+    <li>closed_at, closed_note</li>
+    <li>is_deleted</li>
+  </ul></div>
+
+  <div class="entity"><strong>issue_node_states</strong><ul>
+    <li class="pk">id</li>
+    <li class="fk">issue_id</li>
+    <li class="fk">node_id</li>
+    <li>state</li>
+    <li>check_in_date</li>
+    <li>short_note</li>
+    <li>updated_at</li>
+    <li>updated_by_user_id</li>
+    <li>updated_by_name_snapshot</li>
+  </ul></div>
+
+  <div class="entity"><strong>timeline_entries</strong><ul>
+    <li class="pk">id</li>
+    <li class="fk">issue_id</li>
+    <li class="fk">node_id (nullable)</li>
+    <li>entry_type (state_change/comment/meeting_note)</li>
+    <li>body</li>
+    <li>week_year, week_number (for meeting_note)</li>
+    <li>author_user_id, author_name_snapshot</li>
+    <li>created_at</li>
+  </ul></div>
+
+  <div class="entity"><strong>attachments</strong><ul>
+    <li class="pk">id</li>
+    <li class="fk">timeline_entry_id</li>
+    <li>filename, mime_type, size_bytes</li>
+    <li>storage_path</li>
+  </ul></div>
+
+  <div class="entity"><strong>settings</strong><ul>
+    <li class="pk">key</li>
+    <li>value</li>
+  </ul></div>
+
+  <div class="entity"><strong>weekly_trend_data</strong><ul>
+    <li class="pk">id</li>
+    <li>week_year, week_number</li>
+    <li>cnt_uat, cnt_tbd, cnt_dev, cnt_close</li>
+  </ul></div>
+
+  <div class="entity"><strong>audit_log</strong><ul>
+    <li class="pk">id</li>
+    <li>actor_user_id</li>
+    <li>action, target_type, target_id</li>
+    <li>payload (JSON)</li>
+    <li>created_at</li>
+  </ul></div>
+</div>
+
+<h3>5.1 關鍵 cache 欄位</h3>
+<table>
+  <tr><th style="width:180px;">欄位</th><th>意義 / 何時更新</th></tr>
+  <tr><td><code>issues.all_nodes_done</code></td>
+      <td>該題所有 node 都是 <code>done</code> 或 <code>unneeded</code> 時為 1。
+          每次 cell 編輯後 <code>issue.refresh_cache()</code> 重算。</td></tr>
+  <tr><td><code>issues.latest_update_at</code></td>
+      <td>最後一次任一 cell 被更新的時間。用於 Stale Topics 分析。</td></tr>
+  <tr><td><code>issues.pending_close</code></td>
+      <td>Excel 匯入時 Ongoing 分頁 Status=Closed 會被設為 1，等 admin 人工確認。</td></tr>
+  <tr><td><code>issues.is_deleted</code></td>
+      <td>Soft delete。所有 query 都會 filter 這個。Admin 有 restore 功能。</td></tr>
+</table>
+
+<!-- ═══ 6. Admin ═══ -->
+<h2 id="admin">6. Admin 後台詳解</h2>
+<p>導覽列右側點 <strong>Admin</strong> 進入（super user 限定）。左側側邊選單區分為十個區塊：</p>
+
+<h3>6.1 Pending Users</h3>
+<p>列出狀態為 <code>pending</code> 的註冊申請。兩個動作：</p>
+<ul>
+  <li><strong>啟用</strong>：改 status → active，使用者即可登入。</li>
+  <li><strong>拒絕</strong>：改 status → disabled，不可登入；日後可改回 active。</li>
+</ul>
+<p>啟用時可選勾「寄通知信」，前提是 SMTP 設好。</p>
+
+<h3>6.2 Users</h3>
+<p>管理所有使用者。欄位：</p>
+<table>
+  <tr><th>欄位</th><th>說明</th></tr>
+  <tr><td>username / email / display_name</td><td>基本資料。</td></tr>
+  <tr><td>Status</td><td>pending / active / disabled。可點下拉修改。</td></tr>
+  <tr><td>Super</td><td>勾起來 = super user，擁有所有權限。</td></tr>
+  <tr><td>Manager <span class="role role-manager">2026-04</span></td>
+      <td>勾起來 = manager。相對 super 更窄，僅可額外設 <em>Unneeded</em>；其他編輯權限依 group 綁。</td></tr>
+  <tr><td>Group</td><td>一人可屬多組。控制該使用者能編輯哪些 node 的 cell。</td></tr>
+  <tr><td>Reset Password</td><td>點了可直接改使用者密碼（不寄信）。</td></tr>
+</table>
+
+<h3>6.3 Groups</h3>
+<p>
+  Group 是「帳號 ↔ Node 編輯權限」的中介。UI 示意：
+</p>
+<pre><code>┌ Group: A10_team ─────────────────────────┐
+│  Members: WY, Alice, Bob                 │
+│  Nodes:   [A10] [A12]                    │
+│                                          │
+│  + Add Node   × Remove Node              │
+└──────────────────────────────────────────┘</code></pre>
+<p>建立步驟：</p>
+<ol class="steps">
+  <li>Admin → Groups → 新增群組，輸入名稱。</li>
+  <li>進入群組頁，勾選此群組負責的 node。</li>
+  <li>回 Users 頁，把人加入群組。</li>
+</ol>
+
+<h3>6.4 Nodes</h3>
+<ul>
+  <li>新增 / 重新命名 / 調整排序 / 停用 node。</li>
+  <li>停用的 node 不會出現在 Tracker 欄位，但已有的 <code>issue_node_states</code> row 仍保留，重新啟用後會恢復顯示。</li>
+  <li>排序用拖拉或改 <code>sort_order</code> 數字。</li>
+</ul>
+<div class="box box-danger">
+  <strong>不要刪除 node</strong>
+  刪除會破壞歷史 timeline 的 FK。一律用「停用」取代刪除。
+</div>
+
+<h3>6.5 Red Line</h3>
+<p>
+  設定 <em>red_line_year</em> + <em>red_line_week</em>。儲存後：
+</p>
+<ul>
+  <li>Tracker 在對應週次之間畫紅虛線。</li>
+  <li>Red Line 之前仍為 UAT / TBD 的 cell 變紅警示。</li>
+  <li>Dashboard 的 Per-Node Stats 會把「紅線前」和「全部」分開統計。</li>
+</ul>
+
+<h3>6.6 Gitea URL Mapping</h3>
+<p>
+  每筆規則有 <code>prefix</code> 和 <code>url_template</code>：
+</p>
+<pre><code>prefix       url_template
+─────        ──────────────────────────────────────
+(空)         http://gitea/QC_requests/issues/{number}
+P            http://gitea/perl_scripts/issues/{number}
+CN           http://gitea/CN_TEAM/issues/{number}
+SNPS         http://gitea/Synopsys/issues/{number}</code></pre>
+<p>
+  解析順序：先看 display_number 是否以某 prefix 開頭（取最長匹配）；
+  如果都沒中，且 display_number 是純數字，才套用 prefix 為空的預設規則。
+</p>
+
+<h3>6.7 Column Width</h3>
+<p>
+  CSS variables <code>--col-topic-min-width</code> 和 <code>--col-path-min-width</code> 由這裡設定（單位 px）。
+  建議：Topic 280、Path 220。Path 有多行路徑時可拉大到 400-500。
+</p>
+
+<h3>6.8 Trend Data</h3>
+<p>
+  若希望 Dashboard 的 Closing Rate Trend 用人工指定的數字（例如會議匯報過的歷史數據），
+  可逐週輸入 <code>UAT / TBD / Dev / Close</code> 題數。沒輸入時會 fallback 到自動算的趨勢。
+</p>
+
+<h3>6.9 SMTP</h3>
+<p>設定寄信所需：</p>
+<table>
+  <tr><th style="width:180px;">欄位</th><th>說明</th></tr>
+  <tr><td>SMTP Host / Port</td><td>公司 mail relay，通常 port 25 或 587。</td></tr>
+  <tr><td>Mail Sender</td><td>From address（要是公司核准的發信人）。</td></tr>
+  <tr><td>TLS / Auth</td><td>若 relay 要認證填帳密。</td></tr>
+  <tr><td>測試寄信</td><td>表單下方可寄測試信驗證。</td></tr>
+</table>
+<div class="box box-tip">
+  <strong>也可改回 ddi_api.pl</strong>
+  內部 perl API 可用時速度更快、不需 SMTP 認證。切換點在 <code>app/mail.py</code>。
+</div>
+
+<h3>6.10 Audit Log</h3>
+<p>
+  所有改動 users / groups / nodes / red line / settings / issues 的動作都會記在
+  <code>audit_log</code>。Admin 頁面可搜尋：actor、action、target_type、時間區間。
+  Payload 欄是 JSON，詳述前後值。
+</p>
+
+<!-- ═══ 7. Excel ═══ -->
+<h2 id="excel">7. Excel 匯入流程</h2>
+
+<h3>7.1 格式要求</h3>
+<ul>
+  <li>工作簿必須有 <strong>Ongoing</strong> 與 <strong>Closed</strong> 兩張 sheet（名字可再加副標，系統以開頭為準）。</li>
+  <li>首列是欄位標題，可容忍中英文：<code>#</code> / <code>題號</code> / <code>Topic</code> / <code>Owner</code>
+      / <code>JIRA No.</code> / <code>ICV</code> / <code>UAT Path</code> / <code>Status</code>。</li>
+  <li>Node 欄以 node display_name 為欄頭（A10, A12, N2…）。</li>
+  <li>每格的 state + check-in + note 可以各種形式書寫，<code>app/excel.py::parse_cell</code> 會 best-effort 解析。</li>
+</ul>
+
+<h3>7.2 邊界情況（已內建處理）</h3>
+<table>
+  <tr><th style="width:220px;">狀況</th><th>行為</th></tr>
+  <tr><td>同一 Excel 欄頭 <code>N2/A16</code> 被合在一起</td>
+      <td>拆成兩個 node 各自插一筆 state。</td></tr>
+  <tr><td>欄頭寫 <code>JIRA No.</code></td><td>視為 <code>jira_ticket</code>。</td></tr>
+  <tr><td>週次列（空 row、只有 wkXXX 字串）</td><td>作為該 group 的 current week，後續題目 inherit。</td></tr>
+  <tr><td>單獨 group label 列（例：<code>強身健體系列</code>）</td>
+      <td>作為後續題目的 <code>group_label</code> 直到下個 label 或週次切換。</td></tr>
+  <tr><td>Ongoing sheet Status = Closed</td>
+      <td>不自動關，設 <code>pending_close = 1</code> 等 admin 人工確認。</td></tr>
+  <tr><td>Closed sheet</td><td>直接進 status=closed，不走 pending_close。</td></tr>
+  <tr><td>題號重覆（相同 display_number 在不同列）</td><td>匯入時 warning，第一筆為準。</td></tr>
+  <tr><td>Owner / Path 空白</td><td>允許 null，不擋。</td></tr>
+</table>
+
+<h3>7.3 透過 Web UI 更新（Diff Preview）</h3>
+<ol class="steps">
+  <li>Admin &gt; Excel Update 上傳新版 .xlsx。</li>
+  <li>系統跑 dry-run，呈現：新增題目 / 現有題目欄位差異 / pending_close 建議關題清單。</li>
+  <li>逐項勾選要套用的變更（細到「題 #156 的 Topic 改成 …」這種 granularity）。</li>
+  <li>確認後一次套用，所有改動進 audit log，timeline 補一筆 <code>Imported via Excel upload</code>。</li>
+</ol>
+
+<h3>7.4 CLI 匯入</h3>
+<pre><code>python import_from_excel.py control_table.xlsx</code></pre>
+<p>適合首次 seed。不走 diff preview，直接全量寫入（若題號已存在會跳過並警告）。</p>
+
+<!-- ═══ 8. Permissions ═══ -->
+<h2 id="permissions">8. 權限與狀態守衛 <span class="role role-super">2026-04</span></h2>
+
+<h3>8.1 權限矩陣</h3>
+<table class="permission-matrix">
+  <tr>
+    <th>動作</th>
+    <th>Guest<br><span class="role role-guest">訪客</span></th>
+    <th>User<br><span class="role role-user">使用者</span></th>
+    <th>Manager<br><span class="role role-manager">Manager</span></th>
+    <th>Super<br><span class="role role-super">Super</span></th>
+  </tr>
+  <tr><td>看 Tracker / Closed</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  <tr><td>看 Dashboard / Calendar</td><td class="no">×</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  <tr><td>編輯自己 group 負責的 node</td><td class="no">×</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  <tr><td>設 cell 為 <span class="chip chip-uatdone" style="padding:1px 6px;border-radius:3px;color:#fff;background:#3498db;">UAT✓</span>
+          / <span style="background:#e67e22;color:#fff;padding:1px 6px;border-radius:3px;">UAT</span>
+          / <span style="background:#95a5a6;color:#fff;padding:1px 6px;border-radius:3px;">Dev</span>
+          / <span style="background:#8e44ad;color:#fff;padding:1px 6px;border-radius:3px;">TBD</span></td>
+      <td class="no">×</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  <tr><td>設 cell 為 <span style="background:#bdc3c7;color:#555;padding:1px 6px;border-radius:3px;">Unneeded</span></td>
+      <td class="no">×</td><td class="no">×</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  <tr><td>設 cell 為 <span style="background:#27ae60;color:#fff;padding:1px 6px;border-radius:3px;">Done</span></td>
+      <td class="no">×</td><td class="no">×</td><td class="no">×</td><td class="yes">✓</td></tr>
+  <tr><td>批次更新 / Row Apply</td>
+      <td class="no">×</td><td class="partial">僅自己可設的狀態</td><td class="partial">含 Unneeded</td><td class="yes">✓ 含 Done</td></tr>
+  <tr><td>關單 / Reopen</td>
+      <td class="no">×</td><td class="no">×</td><td class="no">×</td><td class="yes">✓</td></tr>
+  <tr><td>Calendar quick_done（可上線清單按 ✓ Done）</td>
+      <td class="no">×</td><td class="no">×</td><td class="no">×</td><td class="yes">✓</td></tr>
+  <tr><td>新增題目 / 編輯 Topic / Path / Owner</td>
+      <td class="no">×</td><td class="no">×</td><td class="no">×</td><td class="yes">✓</td></tr>
+  <tr><td>Excel 匯入 / 所有 admin 操作</td>
+      <td class="no">×</td><td class="no">×</td><td class="no">×</td><td class="yes">✓</td></tr>
+</table>
+
+<h3>8.2 「更新說明必填」規則</h3>
+<p>
+  當狀態<strong>確實改變</strong>（例 UAT → Done），更新說明欄位為必填（表單會擋住 submit）。
+  僅改 Check-in / Short Note / 留言而 state 不變時，更新說明仍是選填。
+</p>
+<p>實作在：</p>
+<ul>
+  <li>Side panel（<code>issues.update_cell</code>）</li>
+  <li>Row Apply（<code>issues.row_update</code>）</li>
+  <li>批次更新（<code>issues.batch_update</code>）</li>
+  <li>Calendar quick_done（強制加一條「Calendar 快捷完成」說明）</li>
+</ul>
+
+<h3>8.3 cell 上顯示「(僅管理員可改)」</h3>
+<p>
+  當某 cell 目前狀態是該使用者沒權限改到的（例如 general user 看到 <code>done</code>），
+  side panel 的 state 下拉會 disabled 並附註此標籤。避免使用者誤以為可改。
+</p>
+
+<!-- ═══ 9. Close ═══ -->
+<h2 id="close">9. 關單 / Reopen / pending_close</h2>
+
+<h3>9.1 三種關單路徑</h3>
+<table>
+  <tr><th style="width:220px;">情境</th><th>觸發</th><th>UI</th></tr>
+  <tr><td>正常完成</td>
+      <td>所有 node 為 Done / Unneeded → <code>all_nodes_done=1</code></td>
+      <td>題號旁綠色 <strong>✓關</strong> 按鈕。</td></tr>
+  <tr><td>Excel 匯入建議關題</td>
+      <td>Ongoing sheet Status=Closed → <code>pending_close=1</code></td>
+      <td>題號旁黃色 <strong>✓關?</strong> 按鈕；Dashboard 獨立卡片。</td></tr>
+  <tr><td>手動強制關單</td>
+      <td>Admin 無視 all_nodes_done，直接按 Close</td>
+      <td>即使有 node 還沒 Done 也可關（記 audit log）。</td></tr>
+</table>
+
+<h3>9.2 Reopen 行為</h3>
+<ul>
+  <li>從 Closed 頁面點 Reopen，狀態 → ongoing。</li>
+  <li><code>closed_at</code> / <code>closed_note</code> 清空。</li>
+  <li>Timeline 補一筆 reopen entry（含原因）。</li>
+  <li>所有原本的 node state 和 timeline 都保留。</li>
+</ul>
+
+<h3>9.3 soft delete vs close</h3>
+<div class="box box-info">
+  <strong>兩者不同</strong><br>
+  <strong>關單</strong>：題目已完成，狀態 closed，顯示在 Closed 頁，可 reopen。<br>
+  <strong>Soft delete</strong>：題目根本不該存在（誤建或重覆），<code>is_deleted=1</code>，Admin 才看得到並可 restore。
+</div>
+
+<!-- ═══ 10. Email ═══ -->
+<h2 id="email">10. 郵件通知</h2>
+<p>系統會在下列情況寄信（前提 SMTP 設定好）：</p>
+<table>
+  <tr><th style="width:220px;">事件</th><th>收件人</th></tr>
+  <tr><td>新使用者申請</td><td>所有 super user。</td></tr>
+  <tr><td>帳號啟用 / 拒絕通知</td><td>申請者。</td></tr>
+  <tr><td>忘記密碼 → 重設連結</td><td>申請者（連結 24 小時有效）。</td></tr>
+  <tr><td>題目 state change（選）</td><td>題目 owner 與 node group 成員。</td></tr>
+</table>
+<p><code>app/mail.py</code> 有 Jinja 模板，如需客製改 HTML 內容直接編輯該檔。</p>
+
+<!-- ═══ 11. Backup ═══ -->
+<h2 id="backup">11. 備份與還原</h2>
+
+<h3>11.1 備份</h3>
+<p>整個系統就三樣東西要備：</p>
+<ul>
+  <li><code>data/tracker.db</code>：所有資料。</li>
+  <li><code>data/attach/</code>：timeline 附件檔。</li>
+  <li><code>.env</code>：config（含 SECRET_KEY；遺失會讓舊 session 失效）。</li>
+</ul>
+<p>排程（可寫 cronjob）：</p>
+<pre><code># 每天 2am 打包一份到家目錄 backup/
+0 2 * * * cd ~/GiteaTracker && \
+  tar czf ~/backup/tracker-$(date +\%Y\%m\%d).tar.gz data/ .env</code></pre>
+<p>保留 7-14 份滾動覆蓋足夠（SQLite 壓縮後約 10-20 MB）。</p>
+
+<h3>11.2 還原</h3>
+<ol class="steps">
+  <li>停服務：<code>kill $(cat app.pid)</code>。</li>
+  <li>解壓到 <code>~/GiteaTracker/</code>：<code>tar xzf ~/backup/tracker-20260418.tar.gz</code>。</li>
+  <li>確認 <code>data/tracker.db</code> 大小合理。</li>
+  <li>啟服務：<code>nohup python main.py &amp;</code>。</li>
+</ol>
+
+<h3>11.3 「我想確認資料沒壞」</h3>
+<pre><code>sqlite3 data/tracker.db "PRAGMA integrity_check;"
+# 回傳 ok 即資料庫健康</code></pre>
+
+<!-- ═══ 12. Migration ═══ -->
+<h2 id="migration">12. 升級與 Migration</h2>
+
+<h3>12.1 升級流程</h3>
+<ol class="steps">
+  <li>備份（上一節）。</li>
+  <li><code>git pull</code>。</li>
+  <li><code>pip install -r requirements.txt</code>（如 requirements 有變）。</li>
+  <li>重啟。</li>
+</ol>
+
+<h3>12.2 Schema migration</h3>
+<p>
+  <code>app/db.py</code> 的 <code>init_app</code> 開檔時會自動檢查欄位是否存在，
+  不夠的 <strong>自動 ALTER TABLE ADD COLUMN</strong>（例如 <code>is_manager</code>、
+  <code>pending_close</code> 都是這樣加的，無需額外 migration script）。
+</p>
+<div class="box box-warn">
+  <strong>若新版引入重大改動</strong>
+  （例如 rename table、drop column），會在 <code>deploy/</code> 附上一次性
+  migration script；升級前會在 CHANGELOG 告知。
+</div>
+
+<!-- ═══ 13. Cache ═══ -->
+<h2 id="cache">13. 快取與部署更新 <span class="role role-super">2026-04</span></h2>
+
+<h3>13.1 行為概述</h3>
+<ul>
+  <li><strong>HTML</strong> 回應 header：<code>Cache-Control: no-cache, must-revalidate</code>。
+      每次 request 都會回 server 驗。</li>
+  <li><strong>靜態檔</strong>（CSS / image）：<code>Cache-Control: public, max-age=604800</code>（7 天）。</li>
+  <li><code>app.css</code> 以 <code>?v=&lt;mtime&gt;</code> fingerprint。
+      mtime 在 Flask 啟動時讀一次，注入到所有 template。</li>
+</ul>
+
+<h3>13.2 部署後要做的動作</h3>
+<ul>
+  <li>後端：<code>git pull</code>, 重啟 app。新 app.css 的 mtime 會讓 <code>?v=</code> 自動變。</li>
+  <li>使用者：<strong>一次</strong>硬刷（<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>）
+      清掉之前沒有版號的舊 HTML 快取。之後自動接管。</li>
+</ul>
+
+<h3>13.3 為何需要</h3>
+<p>
+  在 2026-04 之前，公司代理把 <code>app.css</code> 快取一週不重驗，
+  導致 dark / gray mode 新增的 CSS rule 公司 Chrome 看不到。加了 fingerprint 後這類問題不會再發生。
+</p>
+
+<!-- ═══ 14. Troubleshoot ═══ -->
+<h2 id="troubleshoot">14. 常見問題排除</h2>
+
+<h3>14.1 Dark / Gray mode 沒生效</h3>
+<p>→ 硬刷一次（Ctrl+Shift+R）。若還是無效，檢查瀏覽器是否有擴充套件注入 CSS filter（極少見）。</p>
+
+<h3>14.2 登入後一直被踢出</h3>
+<ul>
+  <li>檢查 <code>SECRET_KEY</code> 是否有改過 → 改過的話舊 session 失效，登出再登入即可。</li>
+  <li>檢查 <code>SESSION_HOURS</code>（預設 24）是否設太短。</li>
+</ul>
+
+<h3>14.3 Excel 匯入跳 warning「題號重覆」</h3>
+<p>表示同個 display_number 出現在不同列。建議修 Excel、去除重覆，再匯一次。</p>
+
+<h3>14.4 SMTP 測試寄信失敗</h3>
+<ul>
+  <li>TLS port 要 587、非 TLS 通常 25。</li>
+  <li>寄件人 (sender) 是否在公司白名單？</li>
+  <li>relay 是否允許此伺服器 IP？</li>
+</ul>
+
+<h3>14.5 凍結欄位標題不黏</h3>
+<p>
+  確認 <code>.tracker-table-wrap</code> 的 CSS 是 <code>overflow: clip</code>（非 hidden）。
+  overflow: hidden 會讓元素成為 scroll container 讓 position: sticky 失效。
+</p>
+
+<h3>14.6 題目一直顯示 Ready to Close 但 node 還沒全部 Done</h3>
+<p>
+  邊界狀況：新題目用「+ 新增題目」建立時不會預插 <code>issue_node_states</code>，
+  第一個 node 設 Done 後 MIN 聚合會誤判為全部完成。<strong>建議用 Excel 匯入或先把所有
+  node 都設個 state 再關單</strong>。修正中。
+</p>
+
+<!-- ═══ 15. Extend ═══ -->
+<h2 id="extend">15. 延伸開發</h2>
+
+<h3>15.1 新增 Node</h3>
+<ol class="steps">
+  <li>Admin &gt; Nodes &gt; 新增，填 display_name、sort_order。</li>
+  <li>（選）Admin &gt; Groups 勾選哪些群組負責此 node。</li>
+  <li>該 node 立即出現在 Tracker 欄位。舊題目的對應 cell 為空白。</li>
+</ol>
+
+<h3>15.2 加一欄 issue 屬性</h3>
+<ol class="steps">
+  <li>修 <code>app/schema.sql</code> 加欄位（首次部署才有用）。</li>
+  <li>修 <code>app/db.py</code> 的 <code>ensure_columns</code> 加 runtime ALTER TABLE（現有 db 升級用）。</li>
+  <li>修 <code>app/models/issue.py</code> 的 <code>create_issue</code> 和 <code>update_issue</code>。</li>
+  <li>修 Tracker 相關 template：<code>tracker.html</code>、<code>closed.html</code>、<code>admin/create_issue.html</code>、<code>partials/side_panel.html</code>。</li>
+  <li>修 <code>app/excel.py</code> 加 parser 支援（若也要 Excel round-trip）。</li>
+</ol>
+
+<h3>15.3 客製通知模板</h3>
+<p>
+  編輯 <code>app/mail.py</code> 的 HTML template 字串。變數透過 Jinja 插值。
+  測試：Admin &gt; SMTP 頁底部有測試寄信按鈕。
+</p>
+
+<h3>15.4 加 dashboard 卡片</h3>
+<ol class="steps">
+  <li>修 <code>app/models/issue.py</code> 加 query function（例 <code>list_something()</code>）。</li>
+  <li>修 <code>app/routes/main.py</code> 的 <code>dashboard()</code> 把資料塞進 context。</li>
+  <li>修 <code>app/templates/dashboard.html</code> 加卡片。可重用既有的
+      <code>issue_chip_list</code> macro 列出題號。</li>
+</ol>
+
+<h3>15.5 深入閱讀</h3>
+<ul>
+  <li><code>docs/handoff/03_database_schema.md</code>：完整 schema DDL 註解。</li>
+  <li><code>docs/handoff/07_design_decisions_qa.md</code>：歷次設計抉擇與 rationale。</li>
+  <li>Swagger UI：<code>http://&lt;server&gt;/GiteaTracker/apidocs</code>
+      — 所有 route 的 input / output 自動文件。</li>
+</ul>
+
+<div class="doc-footer">
+  Gitea Tracker Developer Guide &mdash; Last updated: 2026-04-18
+</div>
+
+</div><!-- /container -->
+</body>
+</html>
