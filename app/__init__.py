@@ -1,6 +1,8 @@
 """
 Flask app factory.
 """
+import os
+import time
 from datetime import timedelta
 
 from flask import Flask
@@ -95,6 +97,32 @@ def create_app():
     }
     Swagger(app, config=swagger_config, template=swagger_template)
 
+    # Make HTML responses uncacheable so any corporate proxy between the
+    # server and browser doesn't serve a stale template with an old
+    # static-asset URL (which would defeat the `?v=<mtime>` cache-bust
+    # below).  Static files still get the 1-week cache — they're
+    # fingerprinted.
+    @app.after_request
+    def _no_cache_html(response):
+        if response.mimetype == "text/html":
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+        return response
+
+    # Cache-bust static assets on each deploy.
+    #
+    # Flask serves /static/* with SEND_FILE_MAX_AGE_DEFAULT = 7d, and the
+    # reverse proxy / corporate cache happily honours that — which means
+    # when app.css picks up new rules (dark/gray mode overrides, etc.),
+    # users on the company network can be served a stale CSS file for up
+    # to a week.  Appending `?v=<mtime>` to the URL forces a fresh fetch
+    # whenever the file changes.  Computed once at startup.
+    _css_path = os.path.join(app.static_folder, "css", "app.css")
+    try:
+        _static_version = int(os.path.getmtime(_css_path))
+    except OSError:
+        _static_version = int(time.time())
+
     # Inject dynamic settings into template context
     @app.context_processor
     def inject_dynamic_settings():
@@ -109,6 +137,7 @@ def create_app():
             "col_topic_min_width": setting_model.get("col_topic_min_width", "280"),
             "col_path_min_width": setting_model.get("col_path_min_width", "220"),
             "gitea_url_mappings": _url_mappings,
+            "static_version": _static_version,
         }
 
     # Reverse proxy path prefix (e.g. /GiteaTracker)

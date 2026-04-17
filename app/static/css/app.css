@@ -97,31 +97,6 @@ body {
   100% { opacity: 0; }
 }
 
-/* ── Column hover highlight ──
-   JS tags the hovered column's <th> and each <td> with `.col-hover`,
-   so users can visually trace any cell up to its node name header. */
-.tracker-table td.col-hover {
-  background: rgba(13, 110, 253, 0.08);
-}
-.tracker-table th.col-hover {
-  background: rgba(13, 110, 253, 0.18) !important;
-  color: #0d6efd !important;
-}
-[data-bs-theme="dark"] .tracker-table td.col-hover {
-  background: rgba(88, 166, 255, 0.12);
-}
-[data-bs-theme="dark"] .tracker-table th.col-hover {
-  background: rgba(88, 166, 255, 0.22) !important;
-  color: #79b8ff !important;
-}
-[data-bs-theme="gray"] .tracker-table td.col-hover {
-  background: rgba(90, 90, 94, 0.10);
-}
-[data-bs-theme="gray"] .tracker-table th.col-hover {
-  background: rgba(90, 90, 94, 0.22) !important;
-  color: #1a1a1d !important;
-}
-
 /* ── State chip (color block inside cell) ── */
 .cell-node {
   text-align: center;
