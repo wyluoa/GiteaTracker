@@ -31,6 +31,12 @@
   {%- endif -%}
 {% endmacro %}
 
+{# State label map (used for tooltip text; '·' / EMPTY_COLOR.label is too terse for screen readers). #}
+{% set STATE_LABELS = {
+  'done':'Done', 'uat_done':'UAT done', 'uat':'UAT',
+  'developing':'Dev', 'tbd':'TBD', 'unneeded':'Unneeded',
+} %}
+
 {# Macro: render a state cell #}
 {% macro render_cell(issue, node) %}
   {% set states = all_states.get(issue.id, {}) %}
@@ -43,8 +49,11 @@
   {% set use_red = (above == 'true') and state in ('uat', 'tbd') %}
 
   {% set is_new = last_viewed and cell and cell['updated_at'] and cell['updated_at'] > last_viewed %}
+  {% set state_label = STATE_LABELS.get(state, '空白') %}
   <td class="cell-node{% if user.get('id') %} cell-clickable{% endif %}{% if is_new %} cell-new-change{% endif %}"
       id="cell-{{ issue.id }}-{{ node.id }}"
+      data-node-id="{{ node.id }}"
+      title="{{ node.display_name }}: {{ state_label }}"
       {% if user.get('id') %}
       hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
       hx-target="#side-panel-content"
@@ -448,7 +457,7 @@ function advFilter() {
           <th class="th-topic">Topic</th>
           <th class="th-owner">Owner</th>
           {% for node in nodes %}
-            <th class="th-node">{{ node.display_name }}</th>
+            <th class="th-node" data-node-id="{{ node.id }}" title="{{ node.display_name }}">{{ node.display_name }}</th>
           {% endfor %}
           <th class="th-jira">JIRA</th>
           <th class="th-path">Path</th>
@@ -520,7 +529,7 @@ function advFilter() {
           <th class="th-topic">Topic</th>
           <th class="th-owner">Owner</th>
           {% for node in nodes %}
-            <th class="th-node">{{ node.display_name }}</th>
+            <th class="th-node" data-node-id="{{ node.id }}" title="{{ node.display_name }}">{{ node.display_name }}</th>
           {% endfor %}
           <th class="th-jira">JIRA</th>
           <th class="th-path">Path</th>
@@ -554,7 +563,7 @@ function advFilter() {
           <th class="th-topic">Topic</th>
           <th class="th-owner">Owner</th>
           {% for node in nodes %}
-            <th class="th-node">{{ node.display_name }}</th>
+            <th class="th-node" data-node-id="{{ node.id }}" title="{{ node.display_name }}">{{ node.display_name }}</th>
           {% endfor %}
           <th class="th-jira">JIRA</th>
           <th class="th-path">Path</th>

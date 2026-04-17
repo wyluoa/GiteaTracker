@@ -12,6 +12,10 @@
   'unneeded':   {'bg': '#bdc3c7', 'text': '#555',  'label': 'Unneeded'},
 } %}
 {% set EMPTY_COLOR = {'bg': '#ecf0f1', 'text': '#aaa', 'label': '\u00b7'} %}
+{% set STATE_LABELS = {
+  'done':'Done', 'uat_done':'UAT done', 'uat':'UAT',
+  'developing':'Dev', 'tbd':'TBD', 'unneeded':'Unneeded',
+} %}
 
 {% block content %}
 {% from "_macros.html" import gitea_url_for with context %}
@@ -36,7 +40,10 @@
       {% set cell = states.get(node.id) %}
       {% set state = cell['state'] if cell and cell['state'] else None %}
       {% set info = STATE_COLORS.get(state, EMPTY_COLOR) %}
+      {% set state_label = STATE_LABELS.get(state, '空白') %}
       <td class="cell-node{% if user.get('id') %} cell-clickable{% endif %}"
+          data-node-id="{{ node.id }}"
+          title="{{ node.display_name }}: {{ state_label }}"
           {% if user.get('id') %}
           hx-get="{{ url_for('issues.side_panel', issue_id=issue.id, node_id=node.id) }}"
           hx-target="#side-panel-content"
@@ -147,7 +154,7 @@
           <th class="th-topic">Topic</th>
           <th class="th-owner">Owner</th>
           {% for node in nodes %}
-            <th class="th-node">{{ node.display_name }}</th>
+            <th class="th-node" data-node-id="{{ node.id }}" title="{{ node.display_name }}">{{ node.display_name }}</th>
           {% endfor %}
           <th style="width:100px;">Closed</th>
           <th style="width:80px;">Note</th>

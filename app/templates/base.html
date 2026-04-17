@@ -111,5 +111,36 @@
     }
     updateThemeIcon();
   </script>
+
+  <script>
+    // Column-hover highlight for tracker tables:
+    // when the mouse is over a cell/header with data-node-id, mark every
+    // element sharing that node-id with `.col-hover` so users can trace a
+    // cell up to its node name in the sticky header.
+    (function() {
+      var current = null;
+      function clear() {
+        if (!current) return;
+        document.querySelectorAll('[data-node-id="' + current + '"].col-hover')
+          .forEach(function(el) { el.classList.remove('col-hover'); });
+        current = null;
+      }
+      document.addEventListener('mouseover', function(e) {
+        var t = e.target;
+        var cell = t && t.closest ? t.closest('[data-node-id]') : null;
+        if (!cell || !cell.closest('.tracker-table')) { clear(); return; }
+        var nid = cell.getAttribute('data-node-id');
+        if (nid === current) return;
+        clear();
+        document.querySelectorAll('.tracker-table [data-node-id="' + nid + '"]')
+          .forEach(function(el) { el.classList.add('col-hover'); });
+        current = nid;
+      });
+      // Clear when the mouse leaves the tracker table entirely.
+      document.addEventListener('mouseleave', function(e) {
+        if (e.target && e.target.classList && e.target.classList.contains('tracker-table')) clear();
+      }, true);
+    })();
+  </script>
 </body>
 </html>
