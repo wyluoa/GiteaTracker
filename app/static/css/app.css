@@ -29,33 +29,21 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: #000;
-}
-
-/* ── Table wrapper ── */
-.tracker-table-wrap {
-  overflow: hidden;            /* no horizontal scroll */
-}
-
-/* ── Sticky header (JS-cloned floating header) ── */
-.floating-thead {
-  position: fixed;
+  background: #fff;           /* opaque — required for position: sticky */
+  position: sticky;
   top: 0;
-  z-index: 50;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  z-index: 10;
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.08);
+}
+
+/* ── Table wrapper ──
+   `overflow: clip` clips overflow without creating a scroll container, so
+   `position: sticky` on <th> can still resolve to the viewport.
+   Fallback to `overflow: hidden` for browsers without clip support. */
+.tracker-table-wrap {
   overflow: hidden;
-  pointer-events: none;     /* don't block clicks on underlying page */
-  display: none;             /* shown by JS */
-}
-.floating-thead table {
-  margin: 0;
-  table-layout: fixed;
-}
-.floating-thead th {
-  background: #fff !important;
-  font-size: 13px;
-  font-weight: 700;
-  color: #000;
+  overflow: clip;
+  min-width: 0;
 }
 
 /* Column widths for table-layout:fixed.
@@ -519,16 +507,6 @@ body {
   background: #292e36;
 }
 
-/* Floating header */
-[data-bs-theme="dark"] .floating-thead {
-  background: #262c35;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-}
-[data-bs-theme="dark"] .floating-thead th {
-  background: #262c35 !important;
-  color: #d5dce3;
-}
-
 /* Week group header — blue accent so it clearly separates sections */
 [data-bs-theme="dark"] .week-header td {
   background: linear-gradient(90deg, #1c3250 0%, #1f2937 100%) !important;
@@ -737,8 +715,7 @@ body {
 [data-bs-theme="gray"] .navbar {
   background: #2a2a2d !important;
 }
-[data-bs-theme="gray"] .tracker-table th,
-[data-bs-theme="gray"] .floating-thead th {
+[data-bs-theme="gray"] .tracker-table th {
   background: #ececef !important;
   color: #2f2f33;
   border-color: #d9d9dd;

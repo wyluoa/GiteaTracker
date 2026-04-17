@@ -3,6 +3,22 @@
 {% block title %}Dashboard — Gitea Tracker{% endblock %}
 
 {% block content %}
+{% from "_macros.html" import gitea_url_for with context %}
+
+{% macro issue_chip_list(issues) %}
+  {% for i in issues %}
+    {% set url = gitea_url_for(i.display_number)|trim %}
+    {% if url %}
+      <a href="{{ url }}" target="_blank" title="{{ i.topic }}"
+         class="badge bg-blue-lt text-blue me-1 mb-1"
+         style="text-decoration:none; font-size:11px;"
+         onclick="event.stopPropagation()">#{{ i.display_number }}</a>
+    {% else %}
+      <span class="badge bg-blue-lt text-blue me-1 mb-1"
+            title="{{ i.topic }}" style="font-size:11px;">#{{ i.display_number }}</span>
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
 <div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col-auto">
@@ -26,11 +42,49 @@
       </div>
     </div>
   </div>
-  <div class="col-6 col-lg">
+  <div class="col-6 col-lg" x-data="{ open: false }">
     <div class="card" style="border-left: 3px solid #2fb344;">
       <div class="card-body">
-        <div class="subheader">Ready to Close</div>
-        <div class="h1 mb-0 text-green">{{ ready_count }}</div>
+        <div class="subheader d-flex align-items-center gap-1">
+          Ready to Close
+          <span class="text-muted" style="cursor:help; font-size:12px;"
+                title="邏輯：status=ongoing 且所有 node state 皆為 done 或 unneeded。&#10;任何 node 空白 / UAT / TBD / Dev 都不算。&#10;Unneeded 視同完成。">?</span>
+        </div>
+        <div class="h1 mb-0 text-green d-flex align-items-baseline gap-2">
+          {{ ready_count }}
+          {% if ready_count > 0 %}
+          <button class="btn btn-sm btn-ghost-secondary py-0 px-1" style="font-size:11px;"
+                  @click="open = !open" x-text="open ? '隱藏題號' : '看題號'"></button>
+          {% endif %}
+        </div>
+        {% if ready_count > 0 %}
+        <div class="mt-2" x-show="open" x-cloak>
+          {{ issue_chip_list(ready_issues) }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg" x-data="{ open: false }">
+    <div class="card" style="border-left: 3px solid #f59f00;">
+      <div class="card-body">
+        <div class="subheader d-flex align-items-center gap-1">
+          匯入建議關題
+          <span class="text-muted" style="cursor:help; font-size:12px;"
+                title="邏輯：Excel 匯入時 Ongoing 分頁 Status 欄被填為 Closed 的題目。&#10;不會自動關單，等 admin 人工確認。&#10;Tracker 上顯示黃色「關?」按鈕。">?</span>
+        </div>
+        <div class="h1 mb-0 text-yellow d-flex align-items-baseline gap-2">
+          {{ pending_close_count }}
+          {% if pending_close_count > 0 %}
+          <button class="btn btn-sm btn-ghost-secondary py-0 px-1" style="font-size:11px;"
+                  @click="open = !open" x-text="open ? '隱藏題號' : '看題號'"></button>
+          {% endif %}
+        </div>
+        {% if pending_close_count > 0 %}
+        <div class="mt-2" x-show="open" x-cloak>
+          {{ issue_chip_list(pending_close_issues) }}
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -110,8 +164,14 @@
 <div class="row row-deck row-cards mb-3">
   <div class="col-lg-7">
     <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">Topic Cumulative Trend</h3>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0">Topic Cumulative Trend</h3>
+        <select id="cumRangeSelect" class="form-select form-select-sm" style="width:auto;">
+          <option value="ytd" selected>YTD</option>
+          <option value="30">近 30 週</option>
+          <option value="50">近 50 週</option>
+          <option value="all">全部</option>
+        </select>
       </div>
       <div class="card-body">
         <canvas id="chartCumulative" height="280"></canvas>
@@ -127,6 +187,7 @@
           <option value="ytd" selected>YTD</option>
           <option value="30">近 30 週</option>
           <option value="50">近 50 週</option>
+          <option value="all">全部</option>
         </select>
         {% endif %}
       </div>
@@ -297,50 +358,70 @@
   const cumData = {{ trends.cumulative | tojson }};
   const rates  = {{ trends.closing_rates | tojson }};
 
-  new Chart(document.getElementById('chartCumulative'), {
-    type: 'bar',
-    data: {
-      labels: weeks,
-      datasets: [
-        { label: 'Close', data: cumData.map(d => d.Close), backgroundColor: '#6c757d' },
-        { label: 'UAT',   data: cumData.map(d => d.UAT),   backgroundColor: '#e67e22' },
-        { label: 'Dev',   data: cumData.map(d => d.Dev),    backgroundColor: '#3498db' },
-        { label: 'TBD',   data: cumData.map(d => d.TBD),    backgroundColor: '#8e44ad' },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: { callbacks: {
-          afterBody: function(ctx) {
-            const d = cumData[ctx[0].dataIndex];
-            return 'Total: ' + (d.Close + d.UAT + d.Dev + d.TBD);
-          }
-        }}
-      },
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Topics' } },
-      },
-    },
-  });
-
   // Closing Rate Trend — prefer manual data if available
   const manualWeeks = {{ manual_trend.weeks | tojson }};
   const manualData  = {{ manual_trend.data | tojson }};
 
   function filterByRange(weeks, data, range) {
     if (!weeks.length) return { weeks: [], data: [] };
+    if (range === 'all') {
+      return { weeks: weeks.slice(), data: data.slice() };
+    }
     if (range === 'ytd') {
       const thisYear = new Date().getFullYear();
       const prefix = 'wk' + (thisYear - 2020);
       const filtered = weeks.map((w, i) => ({w, d: data[i]})).filter(x => x.w.startsWith(prefix));
+      // Fallback: if YTD produces zero points (e.g. no data this year yet), show all
+      if (!filtered.length) return { weeks: weeks.slice(), data: data.slice() };
       return { weeks: filtered.map(x => x.w), data: filtered.map(x => x.d) };
     }
     const n = parseInt(range) || 50;
     const sliced = weeks.map((w, i) => ({w, d: data[i]})).slice(-n);
     return { weeks: sliced.map(x => x.w), data: sliced.map(x => x.d) };
+  }
+
+  let cumulativeChart;
+  function renderCumulativeChart(range) {
+    const f = filterByRange(weeks, cumData, range);
+    const chartWeeks = f.weeks;
+    const chartData = f.data;
+    if (cumulativeChart) cumulativeChart.destroy();
+    cumulativeChart = new Chart(document.getElementById('chartCumulative'), {
+      type: 'bar',
+      data: {
+        labels: chartWeeks,
+        datasets: [
+          { label: 'Close', data: chartData.map(d => d.Close), backgroundColor: '#6c757d' },
+          { label: 'UAT',   data: chartData.map(d => d.UAT),   backgroundColor: '#e67e22' },
+          { label: 'Dev',   data: chartData.map(d => d.Dev),   backgroundColor: '#3498db' },
+          { label: 'TBD',   data: chartData.map(d => d.TBD),   backgroundColor: '#8e44ad' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: { callbacks: {
+            afterBody: function(ctx) {
+              const d = chartData[ctx[0].dataIndex];
+              return 'Total: ' + (d.Close + d.UAT + d.Dev + d.TBD);
+            }
+          }}
+        },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Topics' } },
+        },
+      },
+    });
+  }
+  renderCumulativeChart('ytd');
+
+  const cumRangeSelect = document.getElementById('cumRangeSelect');
+  if (cumRangeSelect) {
+    cumRangeSelect.addEventListener('change', function() {
+      renderCumulativeChart(this.value);
+    });
   }
 
   let closingRateChart;

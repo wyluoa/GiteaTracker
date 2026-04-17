@@ -42,9 +42,10 @@
       </div>
       <div class="row g-3 mt-1">
         <div class="col-md-8">
-          <label class="form-label">UAT Path</label>
-          <input type="text" name="uat_path" class="form-control form-control-sm"
-                 placeholder="/path/to/file">
+          <label class="form-label">UAT Path（可換行輸入多條路徑）</label>
+          <textarea name="uat_path" class="form-control form-control-sm" rows="2"
+                    style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px;"
+                    placeholder="/path/to/file_a&#10;/path/to/file_b"></textarea>
         </div>
         <div class="col-md-4">
           <label class="form-label">Group Label (選填)</label>

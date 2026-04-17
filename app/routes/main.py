@@ -50,7 +50,10 @@ def dashboard():
     red_line_year, red_line_week = setting_model.get_red_line()
 
     node_counts = issue_model.dashboard_node_counts(red_line_year, red_line_week)
-    ready_count = issue_model.count_ready_to_close()
+    ready_issues = issue_model.list_ready_to_close()
+    ready_count = len(ready_issues)
+    pending_close_issues = issue_model.list_pending_close()
+    pending_close_count = len(pending_close_issues)
     on_hold_count = issue_model.count_by_status("on_hold")
     ongoing_count = issue_model.count_by_status("ongoing")
     closed_count = issue_model.count_closed()
@@ -97,6 +100,9 @@ def dashboard():
         nodes=nodes,
         node_counts=node_counts,
         ready_count=ready_count,
+        ready_issues=ready_issues,
+        pending_close_count=pending_close_count,
+        pending_close_issues=pending_close_issues,
         on_hold_count=on_hold_count,
         ongoing_count=ongoing_count,
         closed_count=closed_count,
@@ -176,6 +182,10 @@ def tracker():
         astate = request.args.get(f"adv_state_{i}", "").strip()
         if anode or astate:
             adv_filters.append({"node": anode, "state": astate, "index": i})
+    # Match mode: 'all' = AND between conditions, 'any' = OR
+    adv_match = request.args.get("adv_match", "all").strip().lower()
+    if adv_match not in ("all", "any"):
+        adv_match = "all"
 
     ongoing_issues = issue_model.get_ongoing()
     on_hold_issues = issue_model.get_on_hold()
@@ -227,39 +237,47 @@ def tracker():
         all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
         all_states = state_model.get_all_states_for_issues(all_issue_ids)
 
-    # Apply advanced node+state filters (AND logic)
+    # Apply advanced node+state filters.
+    #   adv_match = 'all' → intersect (AND), 'any' → union (OR)
     if adv_filters:
         all_current_ids = set(i["id"] for i in ongoing_issues) | set(i["id"] for i in on_hold_issues)
+
+        def _matches(issue_id, af_node_id, af_state):
+            node_states = all_states.get(issue_id, {})
+            if af_node_id and af_state:
+                cell = node_states.get(af_node_id)
+                if af_state == "__blank__":
+                    return not cell or not cell["state"]
+                return bool(cell and cell["state"] == af_state)
+            if af_node_id and not af_state:
+                cell = node_states.get(af_node_id)
+                return bool(cell and cell["state"])
+            if not af_node_id and af_state:
+                for _, cell in node_states.items():
+                    if af_state == "__blank__":
+                        if not cell["state"]:
+                            return True
+                    elif cell["state"] == af_state:
+                        return True
+                return False
+            return False
+
+        per_condition_ids = []
         for af in adv_filters:
             af_node_id = int(af["node"]) if af["node"] else None
             af_state = af["state"]
-            filtered_ids = set()
-            for issue_id in all_current_ids:
-                node_states = all_states.get(issue_id, {})
-                if af_node_id and af_state:
-                    cell = node_states.get(af_node_id)
-                    if af_state == "__blank__":
-                        if not cell or not cell["state"]:
-                            filtered_ids.add(issue_id)
-                    elif cell and cell["state"] == af_state:
-                        filtered_ids.add(issue_id)
-                elif af_node_id and not af_state:
-                    cell = node_states.get(af_node_id)
-                    if cell and cell["state"]:
-                        filtered_ids.add(issue_id)
-                elif not af_node_id and af_state:
-                    for nid, cell in node_states.items():
-                        if af_state == "__blank__":
-                            if not cell["state"]:
-                                filtered_ids.add(issue_id)
-                                break
-                        elif cell["state"] == af_state:
-                            filtered_ids.add(issue_id)
-                            break
-            ongoing_issues = [i for i in ongoing_issues if i["id"] in filtered_ids]
-            on_hold_issues = [i for i in on_hold_issues if i["id"] in filtered_ids]
-            all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
-            all_states = state_model.get_all_states_for_issues(all_issue_ids)
+            matched = {iid for iid in all_current_ids if _matches(iid, af_node_id, af_state)}
+            per_condition_ids.append(matched)
+
+        if adv_match == "any":
+            kept = set().union(*per_condition_ids)
+        else:  # 'all'
+            kept = set.intersection(*per_condition_ids)
+
+        ongoing_issues = [i for i in ongoing_issues if i["id"] in kept]
+        on_hold_issues = [i for i in on_hold_issues if i["id"] in kept]
+        all_issue_ids = [i["id"] for i in ongoing_issues] + [i["id"] for i in on_hold_issues]
+        all_states = state_model.get_all_states_for_issues(all_issue_ids)
 
     # Separate issues with group_label from week-based issues
     week_issues = [i for i in ongoing_issues if not i["group_label"]]
@@ -323,6 +341,7 @@ def tracker():
         filter_week_from=filter_week_from, filter_week_to=filter_week_to,
         owners=[r["requestor_name"] for r in owners],
         adv_filters=adv_filters,
+        adv_match=adv_match,
     )
 
 

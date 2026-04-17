@@ -100,9 +100,11 @@
       {{ render_cell(issue, node) }}
     {% endfor %}
     <td class="cell-jira">{{ (issue.jira_ticket or '')|replace('\n', '<br>')|safe }}</td>
-    <td class="cell-path" title="點擊複製: {{ issue.uat_path or '' }}"
-        onclick="event.stopPropagation();copyText(this.getAttribute('data-copy'))"
-        data-copy="{{ issue.uat_path or '' }}">{{ issue.uat_path or '' }}</td>
+    <td class="cell-path" title="點擊複製路徑"
+        onclick="event.stopPropagation();copyText(this.querySelector('.path-raw').textContent)">
+      <span class="path-raw" hidden>{{ issue.uat_path or '' }}</span>
+      {{ (issue.uat_path or '')|replace('\n', '<br>')|safe }}
+    </td>
   </tr>
   <tr x-show="editing" x-cloak style="background:#f0f4ff;">
     <td colspan="{{ nodes|length + 5 }}" class="py-2 px-3">
@@ -229,15 +231,21 @@
       {# ── Advanced filter panel ── #}
       <div class="col-12 mt-2" x-show="showPanel" x-cloak>
         <div class="p-2 rounded" style="background:#f8f9fc; border:1px solid #e0e4ea;">
-          <div class="d-flex align-items-center mb-2">
-            <span class="fw-bold" style="font-size:13px;">進階篩選（Node + 狀態，條件之間為 AND）</span>
-            <button type="button" class="btn btn-sm btn-ghost-primary ms-2" @click="addRow()" x-show="rows.length < 3">
+          <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
+            <span class="fw-bold" style="font-size:13px;">進階篩選（Node + 狀態）</span>
+            <span class="text-muted" style="font-size:12px;">條件之間：</span>
+            <select name="adv_match" x-model="match" class="form-select form-select-sm" style="width:auto;">
+              <option value="all">全部符合 (AND)</option>
+              <option value="any">任一符合 (OR)</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-ghost-primary ms-1" @click="addRow()" x-show="rows.length < 3">
               + 新增條件
             </button>
           </div>
           <template x-for="(row, idx) in rows" :key="idx">
             <div class="d-flex gap-2 align-items-center mb-1">
-              <span class="text-muted" style="font-size:12px; min-width:50px;" x-text="'條件 ' + (idx+1)"></span>
+              <span class="text-muted" style="font-size:12px; min-width:50px;"
+                    x-text="idx === 0 ? '條件 1' : (match === 'any' ? 'OR' : 'AND') + ' 條件 ' + (idx+1)"></span>
               <select :name="'adv_node_' + (idx+1)" x-model="row.node" class="form-select form-select-sm" style="width:120px;">
                 <option value="">任意 Node</option>
                 {% for node in nodes %}
@@ -411,9 +419,11 @@ function advFilter() {
   }
   if (initial.length === 0) initial.push({ node: '', state: '' });
 
+  const savedMatch = params.get('adv_match');
   return {
     showPanel: initial.some(r => r.node || r.state),
     rows: initial,
+    match: (savedMatch === 'any') ? 'any' : 'all',
     togglePanel() { this.showPanel = !this.showPanel; },
     addRow() { if (this.rows.length < 3) this.rows.push({ node: '', state: '' }); },
     removeRow(idx) { this.rows.splice(idx, 1); if (this.rows.length === 0) this.rows.push({ node: '', state: '' }); },
@@ -487,7 +497,12 @@ function advFilter() {
   </div>
 </div>
 
-{# ── Label groups (special projects) ── #}
+{# ── Label groups (special projects) ──
+   `.tracker-table-wrap` is the direct flex child of `.card` (same as the
+   main table above). A wrapping div around it would default to
+   `min-width: auto` and get stretched to the table's min-content size,
+   making this card wider than the main one and knocking columns out of
+   alignment. #}
 {% if label_groups %}
 {% for lg in label_groups %}
 <div class="card mt-3" x-data="{ open: true }">
@@ -497,28 +512,26 @@ function advFilter() {
       {{ lg.label }} ({{ lg.issues|length }})
     </h3>
   </div>
-  <div x-show="open" x-cloak>
-    <div class="tracker-table-wrap">
-      <table class="table table-vcenter table-sm tracker-table">
-        <thead>
-          <tr>
-            <th class="th-number">#</th>
-            <th class="th-topic">Topic</th>
-            <th class="th-owner">Owner</th>
-            {% for node in nodes %}
-              <th class="th-node">{{ node.display_name }}</th>
-            {% endfor %}
-            <th class="th-jira">JIRA</th>
-            <th class="th-path">Path</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for issue in lg.issues %}
-            {{ render_issue_row(issue, nodes) }}
+  <div class="tracker-table-wrap" x-show="open" x-cloak>
+    <table class="table table-vcenter table-sm tracker-table">
+      <thead>
+        <tr>
+          <th class="th-number">#</th>
+          <th class="th-topic">Topic</th>
+          <th class="th-owner">Owner</th>
+          {% for node in nodes %}
+            <th class="th-node">{{ node.display_name }}</th>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
+          <th class="th-jira">JIRA</th>
+          <th class="th-path">Path</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for issue in lg.issues %}
+          {{ render_issue_row(issue, nodes) }}
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 {% endfor %}
@@ -532,32 +545,31 @@ function advFilter() {
       &#9208; On Hold ({{ on_hold_issues|length }})
     </h3>
   </div>
-  <div x-show="open" x-cloak>
-    {% if on_hold_issues %}
-    <div class="tracker-table-wrap">
-      <table class="table table-vcenter table-sm tracker-table">
-        <thead>
-          <tr>
-            <th class="th-number">#</th>
-            <th class="th-topic">Topic</th>
-            <th class="th-owner">Owner</th>
-            {% for node in nodes %}
-              <th class="th-node">{{ node.display_name }}</th>
-            {% endfor %}
-            <th class="th-path">Path</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for issue in on_hold_issues %}
-            {{ render_issue_row(issue, nodes) }}
+  {% if on_hold_issues %}
+  <div class="tracker-table-wrap" x-show="open" x-cloak>
+    <table class="table table-vcenter table-sm tracker-table">
+      <thead>
+        <tr>
+          <th class="th-number">#</th>
+          <th class="th-topic">Topic</th>
+          <th class="th-owner">Owner</th>
+          {% for node in nodes %}
+            <th class="th-node">{{ node.display_name }}</th>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-      <div class="card-body text-muted">目前沒有 On Hold 的題目</div>
-    {% endif %}
+          <th class="th-jira">JIRA</th>
+          <th class="th-path">Path</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for issue in on_hold_issues %}
+          {{ render_issue_row(issue, nodes) }}
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+  {% else %}
+  <div class="card-body text-muted" x-show="open" x-cloak>目前沒有 On Hold 的題目</div>
+  {% endif %}
 </div>
 
 </div>{# /tracker-main #}
@@ -652,87 +664,6 @@ function rowApply(issueId, nodeMap) {
     }
   };
 }
-</script>
-
-{# ── Floating sticky header (JS) ── #}
-<script>
-(function() {
-  var table = document.querySelector('.tracker-main .tracker-table');
-  if (!table) return;
-  var thead = table.querySelector('thead');
-  if (!thead) return;
-  var wrap = table.closest('.tracker-table-wrap');
-
-  // Find the real scroll container (Tabler may scroll inside .page-wrapper)
-  function getScrollParent(el) {
-    var node = el.parentElement;
-    while (node && node !== document.body) {
-      var style = getComputedStyle(node);
-      if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) return node;
-      node = node.parentElement;
-    }
-    return window;
-  }
-  var scrollParent = getScrollParent(table);
-
-  // Create floating clone
-  var float = document.createElement('div');
-  float.className = 'floating-thead';
-  var ct = document.createElement('table');
-  ct.className = table.className;
-  var ch = thead.cloneNode(true);
-  ct.appendChild(ch);
-  float.appendChild(ct);
-  document.body.appendChild(float);
-
-  // Navbar height (fixed reference point)
-  var navbar = document.querySelector('header.navbar');
-  function navH() { return navbar ? navbar.getBoundingClientRect().bottom : 0; }
-
-  function sync() {
-    var theadRect = thead.getBoundingClientRect();
-    var tableRect = table.getBoundingClientRect();
-    var nh = Math.max(navH(), 0);
-
-    // Hide when table is entirely above or the header is still visible
-    if (tableRect.bottom < nh + 10 || theadRect.top >= nh) {
-      float.style.display = 'none';
-      return;
-    }
-
-    float.style.display = 'block';
-    float.style.top = nh + 'px';
-
-    // Width & horizontal position: match the wrapper's visible area
-    // Match position and width to the real table
-    float.style.left = tableRect.left + 'px';
-    float.style.width = tableRect.width + 'px';
-    ct.style.width = tableRect.width + 'px';
-
-    // Sync column widths
-    var ths = thead.querySelectorAll('th');
-    var cths = ch.querySelectorAll('th');
-    for (var i = 0; i < ths.length && i < cths.length; i++) {
-      var w = ths[i].getBoundingClientRect().width + 'px';
-      cths[i].style.width = w;
-      cths[i].style.minWidth = w;
-      cths[i].style.maxWidth = w;
-    }
-  }
-
-  // Bind scroll on the correct container
-  if (scrollParent === window) {
-    window.addEventListener('scroll', sync, { passive: true });
-  } else {
-    scrollParent.addEventListener('scroll', sync, { passive: true });
-    window.addEventListener('scroll', sync, { passive: true });
-  }
-  window.addEventListener('resize', sync);
-
-  // Initial sync + delayed re-sync after fonts/images load
-  sync();
-  setTimeout(sync, 500);
-})();
 </script>
 
 {% endblock %}

@@ -72,9 +72,9 @@
                  value="{{ issue.topic }}">
         </div>
         <div class="mb-2">
-          <label class="form-label mb-1">UAT Path</label>
-          <input type="text" name="uat_path" class="form-control form-control-sm"
-                 value="{{ issue.uat_path or '' }}">
+          <label class="form-label mb-1">UAT Path（可換行輸入多條路徑）</label>
+          <textarea name="uat_path" class="form-control form-control-sm" rows="2"
+                    style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px;">{{ issue.uat_path or '' }}</textarea>
         </div>
         <button type="submit" class="btn btn-sm btn-primary">更新 Topic / Path</button>
       </form>

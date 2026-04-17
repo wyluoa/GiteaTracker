@@ -94,6 +94,29 @@ def count_ready_to_close():
     return row["cnt"]
 
 
+def list_ready_to_close():
+    return get_db().execute(
+        """SELECT id, display_number, topic FROM issues
+           WHERE status = 'ongoing' AND all_nodes_done = 1 AND is_deleted = 0
+           ORDER BY display_number"""
+    ).fetchall()
+
+
+def count_pending_close():
+    row = get_db().execute(
+        "SELECT COUNT(*) as cnt FROM issues WHERE status = 'ongoing' AND pending_close = 1 AND is_deleted = 0"
+    ).fetchone()
+    return row["cnt"]
+
+
+def list_pending_close():
+    return get_db().execute(
+        """SELECT id, display_number, topic FROM issues
+           WHERE status = 'ongoing' AND pending_close = 1 AND is_deleted = 0
+           ORDER BY display_number"""
+    ).fetchall()
+
+
 def dashboard_node_counts(red_line_year, red_line_week):
     """Per-node count of ongoing issues above red line that are NOT done/unneeded."""
     if not red_line_year or not red_line_week:
