@@ -42,9 +42,12 @@
       {# Brand link — 5 rapid clicks within ~2s trigger the /fun easter egg.
          Counter lives in localStorage so it survives the navigation that
          each click causes. We always preventDefault + manually navigate
-         so all clicks register before the page changes. #}
+         so all clicks register before the page changes.
+         NOTE: x-data="" is REQUIRED for Alpine to attach @click. Without
+         it the directive is silently ignored (this was the original bug). #}
       <h1 class="navbar-brand mb-0"
           {% if session.get('user_id') %}
+          x-data=""
           @click="
             $event.preventDefault();
             const now = Date.now();
@@ -53,7 +56,9 @@
             try { data = JSON.parse(localStorage.getItem(key)) || {}; } catch(e) {}
             const recent = data.last && (now - data.last < 2000);
             const count = (recent ? (data.count || 0) : 0) + 1;
-            const dest = $event.target.closest('a').getAttribute('href');
+            const anchor = $event.target.closest('a');
+            const fallback = '{{ url_for('main.dashboard') if _is_elevated else url_for('main.tracker') }}';
+            const dest = anchor ? anchor.getAttribute('href') : fallback;
             if (count >= 5) {
               localStorage.removeItem(key);
               window.location.href = '{{ url_for('main.fun') }}';
