@@ -96,7 +96,7 @@
       {% else %}
         {{ issue.display_number }}
       {% endif %}
-      {% if user.get('id') and (issue.all_nodes_done or issue.pending_close) %}
+      {% if user.get('is_super_user') and (issue.all_nodes_done or issue.pending_close) %}
         <button class="btn btn-sm py-0 px-1 ms-1 close-issue-btn {{ 'btn-warning' if issue.pending_close else 'btn-outline-green' }}"
                 title="{{ '匯入建議關題' if issue.pending_close else '關單' }}"
                 x-on:click.stop="closeIssueId={{ issue.id }}; closeIssueNum='{{ issue.display_number }}'; $refs.closeModal.showModal()">
