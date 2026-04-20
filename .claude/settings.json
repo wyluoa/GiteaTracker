@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv/bin/python migrate.py --list)",
+      "Bash(venv/bin/python migrate.py --dry-run)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/protect_attachments.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check_backup_before_migrate.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
