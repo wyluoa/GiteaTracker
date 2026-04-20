@@ -167,7 +167,7 @@
 
 <div class="doc-header">
   <h1>Gitea Tracker 使用者指南</h1>
-  <p>Version 2026-04 &mdash; 一般使用者版</p>
+  <p>Version 2026-04-21 &mdash; 一般使用者版</p>
 </div>
 
 <div class="container">
@@ -268,7 +268,7 @@
   <div class="mock-header">導覽列示意</div>
   <div class="mock-body" style="background:#2c3e50;color:#fff;padding:10px 16px;">
     <strong>Gitea Tracker</strong>
-    &nbsp;&nbsp;Dashboard &nbsp; Tracker &nbsp; Calendar &nbsp; Closed
+    &nbsp;&nbsp;Dashboard &nbsp; Tracker &nbsp; Calendar &nbsp; Closed &nbsp; 說明&#9662;
     <span style="float:right;">
       <span style="background:rgba(255,255,255,0.12);padding:2px 8px;border-radius:4px;">&#9790;</span>
       &nbsp; Admin &nbsp;
@@ -284,6 +284,9 @@
   <tr><td>Tracker</td><td>主表。Ongoing + On Hold。</td></tr>
   <tr><td>Calendar</td><td>行事曆（需登入）。Check-in 日期集中檢視。</td></tr>
   <tr><td>Closed</td><td>已關單題目。</td></tr>
+  <tr><td><strong>說明
+      <span class="new-badge">2026-04-21</span></strong></td>
+      <td>下拉選單直接在系統內打開 <strong>使用手冊</strong> / <strong>開發者指南</strong>（super user 另看得到<strong>管理報告</strong>）。不用另存檔或要 IT 幫忙找連結。</td></tr>
   <tr><td>Admin</td><td>僅 super user 看得到。</td></tr>
 </table>
 
@@ -430,7 +433,20 @@
 
 <h3>4.10 標記已讀 / 匯出 Excel</h3>
 <ul>
-  <li><strong>標記已讀</strong>：上次瀏覽後被改過的格子會有淡黃底色，點這個鈕一次清掉。</li>
+  <li><strong>標記已讀</strong>：上次瀏覽後被改過的資訊會有淡黃底色，點這個鈕一次清掉。
+    <br>
+    <span class="new-badge">2026-04-21</span>
+    黃底現在分兩類，彼此獨立：
+    <ul style="margin-top:4px;">
+      <li><strong>Cell 級</strong> — 某個 Node 格子的狀態 / check-in 日期 / 短備註被改過。</li>
+      <li><strong>欄位級</strong> — 整題的 Topic / Owner / JIRA / UAT Path 被改過；只亮被改的那一欄，不是整列。</li>
+    </ul>
+    例如只有 JIRA 改過 → 只有 JIRA 欄亮黃底，其他欄位照常。
+  </li>
+  <li><strong>新帳號第一次進頁面</strong>
+      <span class="new-badge">2026-04-21</span>：
+      不會看到滿螢幕黃底。系統在你帳號啟用時會自動把基準點設為「帳號開通的當下」，之後才發生的變動才算「新」。</li>
+  <li><strong>舊帳號</strong>：若從來沒按過「標記已讀」可能看不到任何黃底；按一次建立基準點就正常了。</li>
   <li><strong>匯出 Excel</strong>：下載目前所有 ongoing + on hold 題目（含所有 node 狀態）到 <code>.xlsx</code>。</li>
 </ul>
 
@@ -486,9 +502,36 @@
 </ul>
 <p>點 <strong>儲存</strong> 後，主表該格即時更新。</p>
 
+<div class="box box-tip">
+  <strong>只想補說明或圖片、不改狀態也可以存
+  <span class="new-badge">2026-04-21</span></strong>
+  以前若 cell 已經是
+  <span class="chip chip-unneeded">Unneeded</span>（或任何狀態沒有要動時），
+  你在「更新說明」寫字或上傳附件按儲存，會被靜默忽略 — 系統以為沒東西變。
+  現在這種情況會被存成該 Node 的 Timeline 留言（含附件），之後用 Side Panel 的 Timeline 就能回顧。
+</div>
+
+<h3>6.1.1 編輯 Owner / Topic / JIRA / UAT Path
+  <span class="new-badge">2026-04-21</span>
+  <span style="font-size:12px;color:#777;">（super user）</span></h3>
+<p>
+  Side Panel 上方「編輯 Owner / Topic / JIRA / Path」按鈕會展開一個小表單：
+</p>
+<ul>
+  <li><strong>Owner</strong> — 純文字，輸入後點更新。</li>
+  <li><strong>Topic</strong> — 題目標題。</li>
+  <li><strong>JIRA</strong>（新增）— 多行 textarea，可換行輸入多個 ticket，例如 <code>JIRA-123<br>JIRA-456</code>。</li>
+  <li><strong>UAT Path</strong> — 多行 textarea，每行一條路徑。</li>
+</ul>
+<p>
+  Topic / JIRA / Path 在同一個表單，按一次「更新 Topic / JIRA / Path」一起存。
+  存完主表的對應欄位會自己亮黃底提示有改動（per-column highlight）。
+</p>
+
 <div class="box box-info">
   <strong>權限</strong>
   只能編輯被分配給你 group 的 Node。若 Side Panel 顯示「Read-only」，請找 admin 調整群組。
+  Owner / Topic / JIRA / Path 這幾個 issue 層級欄位只有 super user 能改。
 </div>
 
 <h3>6.2 Timeline（歷史紀錄）</h3>
@@ -575,7 +618,40 @@
       同樣有時間範圍選單。</li>
 </ul>
 
-<h3>9.3 洞察表</h3>
+<h3>9.3 Per-Node 統計區塊
+  <span class="new-badge">2026-04-21</span></h3>
+<p>
+  Dashboard 下半會看到 <strong>UAT</strong> / <strong>TBD</strong> / <strong>Dev</strong> 三組 per-node 卡片，各自計算該 Node 目前被標記為該狀態的題數：
+</p>
+<ul>
+  <li><strong>UAT per-Node</strong> — cell 狀態為 <span class="chip chip-uat">UAT</span> 或 <span class="chip chip-uatdone">UAT✓</span> 的題數。</li>
+  <li><strong>TBD per-Node</strong> — cell 狀態明確標為 <span class="chip chip-tbd">TBD</span> 的題數。</li>
+  <li><strong>Dev per-Node</strong>（新）— cell 狀態為 <span class="chip chip-dev">Dev</span> 的題數。對稱 TBD 那塊，讓 node 負責人一眼看到自己手上還在開發階段有幾題。</li>
+</ul>
+
+<h3>9.4 TBD / Dev 統計的分類邏輯
+  <span class="new-badge">2026-04-21</span></h3>
+<p>
+  Dashboard 最上方的 Topic Cumulative Trend 堆疊長條，把每題歸到一個 phase：
+</p>
+<table>
+  <tr><th style="width:90px;">優先</th><th style="width:120px;">Phase</th><th>條件</th></tr>
+  <tr><td>1</td><td><strong>Close</strong></td><td>題目狀態 = closed。</td></tr>
+  <tr><td>2</td><td><span class="chip chip-uat">UAT</span></td>
+      <td>任一 node 為 UAT / UAT Done。</td></tr>
+  <tr><td>3</td><td><span class="chip chip-tbd">TBD</span></td>
+      <td>任一 node 明確標為 TBD。<br>
+          <span style="font-size:12px;color:#777;">
+          明確 tbd 是管理者刻意下的「尚未定案」記號，<strong>優先於 developing</strong>。
+          所以 1 個 cell tbd + 1 個 cell developing 也算 TBD。</span></td></tr>
+  <tr><td>4</td><td><span class="chip chip-dev">Dev</span></td>
+      <td>其他全部（預設 bucket）。<br>
+          <span style="font-size:12px;color:#777;">
+          包含：全空白題（還沒動工）、只有 developing 的題、全 done/unneeded 但還沒正式關單的題。
+          </span></td></tr>
+</table>
+
+<h3>9.5 洞察表</h3>
 <ul>
   <li><strong>Almost Done</strong> — 只剩 1-2 個 Node 未完成的題目。</li>
   <li><strong>Stale Topics</strong> — 90 天以上沒人動的題目。</li>
@@ -631,9 +707,18 @@
   直接點主表 Path cell 即可，右下角跳「✓ 已複製」toast。多行也會整段複製（含換行）。
 </p>
 
-<h3>Q：黃色底的 cell 是什麼？</h3>
+<h3>Q：黃色底的 cell / 欄位是什麼？</h3>
 <p>
-  自你上次瀏覽後有被改過的 cell。工具列按 <strong>標記已讀</strong> 一次清掉。
+  自你上次瀏覽後有被改過的資訊。工具列按 <strong>標記已讀</strong> 一次清掉。
+  2026-04-21 之後黃底分兩種，獨立判斷：
+</p>
+<ul>
+  <li><strong>Cell 級</strong>：某個 Node 格子（state / check-in / short note）被改過 → 該格亮。</li>
+  <li><strong>欄位級</strong>：該題的 Topic / Owner / JIRA / UAT Path 其中一欄被改過 → 只亮那一欄，不整列都亮。</li>
+</ul>
+<p>
+  若你從沒按過「標記已讀」（舊帳號），可能完全看不到黃底 — 按一次建立基準點就好。
+  新帳號系統在啟用當下已自動設好基準點，不需要你先按。
 </p>
 
 <h3>Q：題號怎麼變成連到 Gitea？</h3>
@@ -668,8 +753,21 @@
   一樣。重新匯入也能 round-trip（系統會用題號對現有題目做 diff preview，避免重覆建立）。
 </p>
 
+<h3>Q：JIRA 票號打錯了，要怎麼改？
+  <span class="new-badge">2026-04-21</span></h3>
+<p>
+  2026-04-21 之前只能等 Excel 重匯才改得到。現在 super user 可以直接在 Side Panel 上方點
+  <strong>編輯 Owner / Topic / JIRA / Path</strong> 展開表單修改。存完主表 JIRA 那欄會亮黃底提示有改動。
+</p>
+
+<h3>Q：一個 cell 我只想補說明或上傳附件、不想改狀態，為什麼都不見了？</h3>
+<p>
+  這是 2026-04-21 修好的 bug。之前若 cell 狀態沒變（例如已經是 Unneeded），單純打字 + 上傳附件按儲存會被系統忽略。
+  現在這種情況會自動存成該 Node 的一筆 Timeline 留言（含附件），Side Panel 的 Timeline 可以回顧。
+</p>
+
 <div class="doc-footer">
-  Gitea Tracker User Guide &mdash; Last updated: 2026-04-18
+  Gitea Tracker User Guide &mdash; Last updated: 2026-04-21
 </div>
 
 </div><!-- /container -->

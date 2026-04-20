@@ -240,7 +240,7 @@
     以 AI 輔助開發打造的內部 QC Script 追蹤系統 —
     把會議管理從 Excel 升級到可審計、可協作、可視化的 Web 平台
   </p>
-  <div class="meta">Report Version 2026-04 &nbsp;&middot;&nbsp; Prepared for Management Review</div>
+  <div class="meta">Report Version 2026-04-21 &nbsp;&middot;&nbsp; Prepared for Management Review</div>
 </div>
 
 <div class="container">
@@ -253,7 +253,7 @@
   用於追蹤約 300 筆 QC Script Request 跨 10 個工作階段（Node）的進度。
   由<strong>單一開發者</strong>以 AI 輔助開發模式打造，
   在約一週內交付完整可上線的 Phase 0 ~ Phase 6 功能，
-  並已歷經兩輪公司內部 UAT 反饋迭代。
+  至今歷經<strong>三輪公司內部 UAT 反饋迭代</strong>與一輪<strong>維運基礎建設強化</strong>（2026-04-21 引入正式的 DB migration 系統與 AI 協作安全機制）。
 </p>
 
 <div class="stats">
@@ -396,6 +396,18 @@
     <h4>通知與行事曆</h4>
     <p>SMTP email 通知新帳號申請 / 密碼重設；Calendar 月曆提供
        Check-in 時間軸與「可上線清單」主動提醒逾期。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">◐</div>
+    <h4>欄位級版本差異（2026-04-21）</h4>
+    <p>Topic / Owner / JIRA / UAT Path 各自獨立 timestamp，只亮真正被改的那欄。
+       讓使用者快速鎖定「這次改了什麼」而非「這列有東西改」。</p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon">⚙</div>
+    <h4>DB Migration 基礎建設（2026-04-21）</h4>
+    <p>引入正式的 schema version tracking 與一鍵升版流程，
+       含 backup / rollback SOP。系統長期維護的技術債自此有基礎。</p>
   </div>
 </div>
 
@@ -578,6 +590,26 @@
       靜態資源 cache-bust 解決企業代理快取老舊 CSS 的問題。
     </div>
   </div>
+  <div class="timeline-entry">
+    <div class="date">2026-04-21 &mdash; 維運基礎建設 + 細節打磨</div>
+    <div class="title">DB Migration 系統、欄位級 Highlight、TBD/Dev 邏輯精緻化、AI 協作安全機制</div>
+    <div class="desc">
+      <strong>維運面：</strong>導入 <code>migrate.py</code> 正式 migration runner 與
+      <code>schema_version</code> 追蹤，撰寫完整 SOP，一鍵升版腳本 <code>deploy/migrate.sh</code>。
+      未來 schema 改動有可靠的軌道，不再靠 ad-hoc ALTER TABLE。
+      <br><br>
+      <strong>使用體驗面：</strong>Topic / Owner / JIRA / UAT Path 個別獨立 highlight
+      timestamp（過去只有 row 級別，雜訊多）；JIRA 欄位從「只能 Excel 匯入改」變為
+      可 Side Panel 直接編輯；Dashboard TBD / Dev 分類邏輯釐清（TBD 限「明確標記」，
+      Dev 為預設 bucket，符合實際語意）；新增 Dev per-node 統計對稱 TBD 區塊。
+      同時修正原本「狀態已是 Unneeded 時無法補註解與圖片」的 edge case。
+      <br><br>
+      <strong>AI 協作治理面：</strong>新增 <code>CLAUDE.md</code> 專案記憶、
+      <code>.claude/skills/</code> 流程化 SOP、
+      <code>.claude/hooks/</code> PreToolUse 攔截器（保護附件檔不被 AI 改寫、
+      migrate 前強制檢查備份），讓後續 AI 協作有制度化的安全邊界。
+    </div>
+  </div>
 </div>
 
 <!-- ═══ Tech Choices ═══ -->
@@ -615,7 +647,11 @@
 
 <h3>5.2 維護性設計</h3>
 <ul>
-  <li><strong>自動 schema migration</strong>：新增欄位會在啟動時自動 ALTER TABLE，無需手寫 migration。</li>
+  <li><strong>正式 DB migration 系統（2026-04-21 導入）</strong>：
+      <code>migrate.py</code> runner + <code>schema_version</code> 追蹤 + 獨立 migration 檔案
+      + 完整 SOP（<code>deploy/MIGRATION_SOP.md</code>）。每個 migration 必須冪等，
+      同步更新 <code>schema.sql</code>；一鍵升版 <code>deploy/migrate.sh</code>
+      自動備份 → 停機 → <code>git pull</code> → migrate → 啟動。這補齊了系統長期維護的關鍵基礎設施。</li>
   <li><strong>完整 audit log</strong>：任何 admin 動作都留紀錄，責任可追溯。</li>
   <li><strong>Swagger API 文件</strong>：每個 route 有 docstring 自動生成 API 說明頁，
       後續接手者看 <code>/apidocs</code> 即可理解系統。</li>
@@ -623,6 +659,13 @@
       避免企業代理快取讓新功能無法生效，<strong>部署即刻生效無需提醒同仁清快取</strong>。</li>
   <li><strong>Soft delete + Reopen</strong>：誤刪可救、誤關可重開，降低人為失誤成本。</li>
   <li><strong>Excel 雙向互通</strong>：過渡期若需切回 Excel 亦可匯出，風險可控。</li>
+  <li><strong>AI 協作安全機制（2026-04-21 導入）</strong>：
+      <code>.claude/hooks/</code> PreToolUse 攔截器保護 <code>data/attachments/</code>
+      不被 AI 改寫、migrate.py 執行前強制檢查近 24h 備份；
+      <code>CLAUDE.md</code> 記錄架構要點、已決定事項、遵守規則，讓下一位 AI / 新同仁
+      有清晰的交接文件。</li>
+  <li><strong>in-app 文件頁（2026-04-21 導入）</strong>：
+      使用手冊 / 開發者指南 / 管理報告皆可直接從導覽列「說明」下拉存取，無需額外文件伺服器或共用雲端檔。</li>
 </ul>
 
 <h3>5.3 安全與合規</h3>
@@ -712,6 +755,7 @@
   <li>與 Gitea issue 雙向同步：關單動作同步標註 Gitea issue。</li>
   <li>API 對外：允許其他內部系統查詢 tracker 狀態（例如報表服務、ChatOps）。</li>
   <li>更深的 AI 整合：依歷史資料預測 node 延誤風險、自動生成 weekly summary。</li>
+  <li>自動化 weekly reminder email：Red Line 逾期項目 / Stale Topics 每週發信給相關 Owner。</li>
 </ul>
 
 <h3>8.2 潛在風險與緩解措施</h3>
@@ -720,12 +764,30 @@
   <tr>
     <td>單一開發者依賴</td>
     <td>程式碼與文件完整公開於內部 Git；開發者指南（Developer Guide）
-        將系統所有決策記錄下來，任何 Python 基礎的同仁可接手。</td>
+        將系統所有決策記錄下來，任何 Python 基礎的同仁可接手。
+        <strong>2026-04-21 新增 <code>CLAUDE.md</code></strong>，把「新人 / 新 AI 需要知道但從程式碼看不出來」的
+        慣例（例如 venv 路徑、port 實際值、已決定不要再討論的事項、Cache 欄位語意）集中記錄，
+        降低接手門檻。</td>
   </tr>
   <tr>
     <td>SQLite 擴充性</td>
     <td>目前 300 題、10 人使用遠低於 SQLite 瓶頸；若未來規模成長，
         可遷移至 PostgreSQL（Flask SQL layer 已抽象化）。</td>
+  </tr>
+  <tr>
+    <td>Schema 演進風險</td>
+    <td><strong>2026-04-21 導入正式 migration 系統</strong>解決此風險。
+        每次 schema 改動都是獨立檔案 + 冪等性檢查 + 追蹤歷史，
+        升版前有 <code>--dry-run</code> 預覽、失敗可 rollback 到前一個備份。
+        新增 migration 有 SOP 與 checklist，不靠 ad-hoc ALTER TABLE。</td>
+  </tr>
+  <tr>
+    <td>AI 誤動資料的風險</td>
+    <td><strong>2026-04-21 導入 <code>.claude/hooks/</code> PreToolUse 攔截器</strong>：
+        AI 欲寫入 <code>data/attachments/</code> 或執行 <code>migrate.py</code>（非 dry-run）
+        且 24h 內無備份時自動擋下並提示正確流程。
+        Skills 中對 DB 有破壞性的流程（<code>/run-migration</code>）標記為
+        「僅人類可觸發」（<code>disable-model-invocation: true</code>），AI 不會自作主張。</td>
   </tr>
   <tr>
     <td>瀏覽器環境差異</td>
@@ -734,7 +796,7 @@
   <tr>
     <td>同仁抗拒改用</td>
     <td>保留 Excel 雙向互通作為後路；漸進式移轉（先 read-only 開放、
-        再逐步開放編輯）；User Guide 有繁中詳細說明。</td>
+        再逐步開放編輯）；User Guide 有繁中詳細說明，且直接可從導覽列「說明」開啟，無需另外找連結。</td>
   </tr>
 </table>
 
@@ -748,25 +810,28 @@
 </p>
 
 <p>
-  系統目前已穩定運行，涵蓋 Phase 0 - Phase 6 完整功能，
-  並通過內部 UAT。程式碼、文件、部署腳本、備份機制皆就緒，
-  <strong>可交接、可擴充、可信任</strong>。
+  系統目前已穩定運行，涵蓋 Phase 0 - Phase 6 完整功能，通過三輪內部 UAT 反饋迭代，
+  並於 2026-04-21 完成「維運基礎建設」階段的升級（正式 DB migration 系統、
+  AI 協作安全邊界、in-app 文件頁）。程式碼、文件、部署腳本、備份機制皆就緒，
+  <strong>可交接、可擴充、可信任、可持續演進</strong>。
 </p>
 
 <div class="divider">◆ ◆ ◆</div>
 
 <h3>附錄：推薦後續閱讀</h3>
 <ul>
-  <li><code>docs/user_guide.html</code> — 一般使用者操作手冊。</li>
-  <li><code>docs/developer_guide.html</code> — 開發者 / super user 技術手冊，
-      含部署、資料模型、admin 後台、troubleshooting。</li>
+  <li><code>docs/user_guide.html</code>（或線上 <code>/guide/user</code>）— 一般使用者操作手冊。</li>
+  <li><code>docs/developer_guide.html</code>（或線上 <code>/guide/dev</code>）— 開發者 / super user 技術手冊，
+      含部署、資料模型、admin 後台、troubleshooting、migration 系統、Claude Code 設定。</li>
+  <li><code>deploy/MIGRATION_SOP.md</code> — DB migration 標準作業程序（升版、新增 migration、rollback）。</li>
+  <li><code>CLAUDE.md</code> — 專案記憶（給未來 AI / 新接手者）。</li>
   <li><code>docs/handoff/</code> — 早期設計文件（需求、schema、UI wireframe、設計決策 Q&amp;A）。</li>
   <li><code>/apidocs</code> — 系統上線後的 Swagger API 說明頁。</li>
 </ul>
 
 <div class="doc-footer">
   <div class="doc-footer-brand">Gitea Tracker</div>
-  Internal Project Report &middot; 2026-04-18<br>
+  Internal Project Report &middot; 2026-04-21<br>
   Prepared with AI-Assisted Development
 </div>
 
