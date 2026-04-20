@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Dark navy background matching the app navbar (#2c3e50) -->
+  <rect width="32" height="32" rx="5" fill="#2c3e50"/>
+  <!-- 2x2 grid of state chips: Done / UAT / UAT Done / Unneeded -->
+  <!-- Rounded corners + subtle gap echoes the tracker cell chip shape -->
+  <rect x="5"  y="5"  width="10" height="10" rx="1.8" fill="#27ae60"/>
+  <rect x="17" y="5"  width="10" height="10" rx="1.8" fill="#e67e22"/>
+  <rect x="5"  y="17" width="10" height="10" rx="1.8" fill="#3498db"/>
+  <rect x="17" y="17" width="10" height="10" rx="1.8" fill="#bdc3c7"/>
+</svg>

@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Gitea Tracker{% endblock %}</title>
 
+  <!-- Favicon (SVG — scales cleanly on tab / bookmark / taskbar) -->
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}?v={{ static_version }}">
+
   <!-- Tabler CSS (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
 
