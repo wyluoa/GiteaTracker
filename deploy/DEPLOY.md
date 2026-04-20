@@ -292,29 +292,91 @@ crontab -e
 
 ## 9. 升級流程
 
-以下指令 bash / csh 通用：
+> 完整的升版 SOP（含 rollback、新增 migration 規範、各種注意事項、疑難排解）
+> 寫在 **`deploy/MIGRATION_SOP.md`**。本節是快速操作摘要。
+
+### 9.1 一鍵升版（推薦）
+
+```
+cd ~/gitea-tracker
+./deploy/migrate.sh
+```
+
+這會依序執行：
+
+1. `backup.sh` — SQLite online backup + attachments tar.gz 進 `backups/`
+2. `stop.sh` — 停服務
+3. `git pull` — 拉新 code
+4. `migrate.py --dry-run` — 列出要套用哪些 DB migration（**看一下 terminal 輸出的 pending 清單是否合理**）
+5. `migrate.py` — 實際套用
+6. `start.sh` — 啟動
+
+若某一步失敗，service 會停在停機狀態，不會在半套 migration 的狀況下被啟動。
+
+### 9.2 手動分步（升版腳本失敗時接手）
 
 ```
 cd ~/gitea-tracker
 
-# 1. 先備份
+# 1. 備份
 ./deploy/backup.sh
 
-# 2. 拉新版程式碼
+# 2. 停機
+./deploy/stop.sh
+
+# 3. 拉新 code
 git pull origin main
 
-# 3. 更新 Python 套件（如果 requirements.txt 有變）
+# 4. 更新 Python 套件（如果 requirements.txt 有變）
 ./venv/bin/pip install -r requirements.txt
 
-# 4. 重啟服務
-./deploy/stop.sh
+# 5. 檢查要跑哪些 migration
+./venv/bin/python migrate.py --list          # 看已套用 / pending
+./venv/bin/python migrate.py --dry-run       # 預覽要跑什麼
+
+# 6. 套用 migration
+./venv/bin/python migrate.py
+
+# 7. 啟動
 ./deploy/start.sh
 
-# 5. 驗證
+# 8. 驗證
 curl http://127.0.0.1:5000/healthz
+./venv/bin/python migrate.py --list          # 應該全部 applied
+tail -20 logs/app.log                        # 沒 ERROR / Traceback
 ```
 
-> 如果升級後有問題，用 restore.sh 還原備份即可回滾。
+### 9.3 Rollback（升版失敗救援）
+
+```
+./deploy/stop.sh || true
+
+# 還原 DB + attachments 到備份時間點
+./deploy/restore.sh backups/gitea_tracker_<TIMESTAMP>.db \
+                    backups/attachments_<TIMESTAMP>.tar.gz
+
+# 視情況回 code
+git log --oneline -5
+git checkout <前一個 commit 的 hash>
+
+./deploy/start.sh
+```
+
+Restore 後 `schema_version` 也會回到升版前狀態；下次 `migrate.py` 會把 pending 的那幾個 migration 重跑一遍（每個 migration 都是冪等的，重跑不會壞）。若某個 migration 有 bug 導致這次 rollback，**先修那支 migration 的 code 再升**，不要把同一個壞版本再跑一次。
+
+### 9.4 升版前檢查清單
+
+- [ ] 通知使用者即將停機（10-30 秒）
+- [ ] 確認 `backups/` 磁碟空間夠（至少 DB + 1 份 attachments tar.gz 大小）
+- [ ] 本機已測過這次 release（或在 staging / `DB_PATH` 指 `/tmp/xxx.db` 模擬 `migrate.py --dry-run`）
+- [ ] 看完 pending migration 清單，理解每個在做什麼
+
+### 9.5 DB migration 的特殊注意事項
+
+- **Attachment 檔案絕對不會被 migration 動**（規則寫在 MIGRATION_SOP.md）。
+- **新欄位加在 `app/schema.sql` + 一個 `migrations/NNN_*.py` 檔**，兩邊都要同步；詳見 MIGRATION_SOP 的「新增 Migration」章節。
+- **Migration 必須冪等** — 加欄位前 `PRAGMA table_info` 檢查、加表用 `CREATE IF NOT EXISTS`、資料更新要有條件避免覆蓋。
+- `app/db.py` 裡還殘留一段舊的啟動時 migration（加 `pending_close` / `is_manager`）— 是新系統出現前的做法。新的 migration **不要**加到那裡，一律用 `migrations/`。
 
 ---
 
