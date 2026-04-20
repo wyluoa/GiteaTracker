@@ -69,7 +69,12 @@ CREATE TABLE IF NOT EXISTS issues (
     group_label           TEXT,             -- non-week group label (e.g. "強身健體系列")
     created_at            TEXT NOT NULL,
     created_by_user_id    INTEGER REFERENCES users(id),
-    updated_at            TEXT NOT NULL
+    updated_at            TEXT NOT NULL,
+    -- Per-field update timestamps for tracker highlight (yellow diff vs. user's last_viewed_at).
+    topic_updated_at      TEXT,
+    owner_updated_at      TEXT,
+    jira_updated_at       TEXT,
+    uat_path_updated_at   TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status, is_deleted);

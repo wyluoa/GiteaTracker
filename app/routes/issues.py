@@ -168,11 +168,13 @@ def update_cell(issue_id, node_id):
 
     # Detect changes
     state_changed = new_state != old_state
-    has_change = (
+    cell_changed = (
         state_changed or
         new_check_in != old_check_in or
         new_note != old_note
     )
+    files = [f for f in request.files.getlist("attachments") if f and f.filename]
+    note_only = (not cell_changed) and (bool(update_body) or bool(files))
 
     # Role gate: restrict who can transition to Done / Unneeded
     if state_changed:
@@ -185,7 +187,8 @@ def update_cell(issue_id, node_id):
             flash("狀態變動必須填寫「更新說明」", "error")
             return side_panel(issue_id, node_id)
 
-    if has_change:
+    entry_id = None
+    if cell_changed:
         # Update the cell
         state_model.upsert_state(
             issue_id, node_id,
@@ -212,19 +215,27 @@ def update_cell(issue_id, node_id):
             author_name_snapshot=g.current_user["display_name"],
         )
 
-        # Handle attachments
-        from app.routes.attachments import save_attachments
-        files = request.files.getlist("attachments")
-        if files:
-            save_attachments(entry_id, files)
-
         # Refresh issue cache
         issue_model.refresh_cache(issue_id)
+    elif note_only:
+        # No cell-field change, but user wrote a note or uploaded files:
+        # keep them as a node-scoped comment so nothing is silently dropped.
+        entry_id = timeline_model.create_entry(
+            issue_id=issue_id,
+            entry_type="comment",
+            node_id=node_id,
+            body=update_body,
+            author_user_id=g.current_user["id"],
+            author_name_snapshot=g.current_user["display_name"],
+        )
+
+    if entry_id and files:
+        from app.routes.attachments import save_attachments
+        save_attachments(entry_id, files)
 
     # Return updated side panel via HTMX, and trigger cell refresh on main table
     response = make_response(side_panel(issue_id, node_id))
-    if has_change:
-        import json
+    if cell_changed:
         response.headers["HX-Trigger"] = json.dumps({
             "cellUpdated": {"issueId": issue_id, "nodeId": node_id}
         })

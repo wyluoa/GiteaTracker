@@ -1232,13 +1232,15 @@ def excel_update_apply():
                (display_number, topic, requestor_name, owner_user_id,
                 week_year, week_number, jira_ticket, icv, uat_path,
                 status, pending_close, group_label, created_at, updated_at,
-                latest_update_at, created_by_user_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                latest_update_at, created_by_user_id,
+                topic_updated_at, owner_updated_at, jira_updated_at, uat_path_updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (dn, ei["topic"], ei["requestor_name"], None,
              ei["week_year"], ei["week_number"], ei["jira_ticket"],
              ei["icv"], ei["uat_path"], ei["status"],
              ei.get("pending_close", 0), ei.get("group_label"),
-             now_str, now_str, now_str, user_id),
+             now_str, now_str, now_str, user_id,
+             now_str, now_str, now_str, now_str),
         )
         issue_id = cur.lastrowid
 
@@ -1296,14 +1298,22 @@ def excel_update_apply():
         change_details = []
 
         # Apply issue field changes
+        from app.models.issue import FIELD_TO_TS
         for field_key in updates_by_issue.get(dn, []):
             new_val = ei.get(field_key)
             old_val = existing[field_key]
             if str(new_val or "") != str(old_val or ""):
-                db.execute(
-                    f"UPDATE issues SET {field_key}=?, updated_at=? WHERE id=?",
-                    (new_val, now_str, issue_id),
-                )
+                ts_col = FIELD_TO_TS.get(field_key)
+                if ts_col:
+                    db.execute(
+                        f"UPDATE issues SET {field_key}=?, updated_at=?, {ts_col}=? WHERE id=?",
+                        (new_val, now_str, now_str, issue_id),
+                    )
+                else:
+                    db.execute(
+                        f"UPDATE issues SET {field_key}=?, updated_at=? WHERE id=?",
+                        (new_val, now_str, issue_id),
+                    )
                 change_details.append(f"{field_key}: {old_val} -> {new_val}")
 
         # Apply node state changes
@@ -1366,8 +1376,8 @@ def excel_update_apply():
                 (issue_id,),
             ).fetchone()
             db.execute(
-                "UPDATE issues SET latest_update_at=?, all_nodes_done=?, updated_at=? WHERE id=?",
-                (cache["latest"], cache["all_done"] or 0, now_str, issue_id),
+                "UPDATE issues SET latest_update_at=?, all_nodes_done=? WHERE id=?",
+                (cache["latest"], cache["all_done"] or 0, issue_id),
             )
             updated_count += 1
 
@@ -1614,7 +1624,7 @@ def update_issue_owner(issue_id):
 @bp.route("/issues/<int:issue_id>/edit", methods=["POST"])
 @super_user_required
 def edit_issue(issue_id):
-    """編輯 Issue 的 Topic / Path
+    """編輯 Issue 的 Topic / JIRA / Path
     ---
     tags:
       - Issues
@@ -1624,6 +1634,9 @@ def edit_issue(issue_id):
         type: integer
         required: true
       - name: topic
+        in: formData
+        type: string
+      - name: jira_ticket
         in: formData
         type: string
       - name: uat_path
@@ -1641,10 +1654,13 @@ def edit_issue(issue_id):
 
     updates = {}
     new_topic = request.form.get("topic", "").strip()
+    new_jira = request.form.get("jira_ticket", "").strip()
     new_path = request.form.get("uat_path", "").strip()
 
     if new_topic and new_topic != issue["topic"]:
         updates["topic"] = new_topic
+    if new_jira != (issue["jira_ticket"] or ""):
+        updates["jira_ticket"] = new_jira or None
     if new_path != (issue["uat_path"] or ""):
         updates["uat_path"] = new_path or None
 

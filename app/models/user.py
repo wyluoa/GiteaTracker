@@ -16,9 +16,9 @@ def create_user(username, email, display_name, password, status="pending", is_su
     now = _now()
     cur = db.execute(
         """INSERT INTO users (username, email, display_name, password_hash,
-                              status, is_super_user, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (username, email, display_name, password_hash, status, int(is_super_user), now, now),
+                              status, is_super_user, last_viewed_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (username, email, display_name, password_hash, status, int(is_super_user), now, now, now),
     )
     db.commit()
     return cur.lastrowid
@@ -30,9 +30,9 @@ def create_user_raw(username, email, display_name, password_hash, status="pendin
     now = _now()
     cur = db.execute(
         """INSERT INTO users (username, email, display_name, password_hash,
-                              status, is_super_user, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (username, email, display_name, password_hash, status, int(is_super_user), now, now),
+                              status, is_super_user, last_viewed_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (username, email, display_name, password_hash, status, int(is_super_user), now, now, now),
     )
     db.commit()
     return cur.lastrowid

@@ -4,8 +4,12 @@ Main routes — dashboard, tracker view, calendar, closed, search/filter, mark r
 import calendar as cal_mod
 from datetime import date, datetime, timezone, timedelta
 from io import BytesIO
+from pathlib import Path
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, send_file
+from flask import (
+    Blueprint, render_template, request, redirect, url_for, flash, g,
+    send_file, send_from_directory, abort,
+)
 
 from app.db import get_db
 from app.routes.auth import login_required, super_user_required, optional_login
@@ -82,9 +86,10 @@ def dashboard():
     total_all = ongoing_count + on_hold_count + closed_count
     closing_rate = round(closed_count / total_all * 100, 1) if total_all else 0
 
-    # Per-node UAT / TBD counts
+    # Per-node UAT / TBD / Dev counts
     uat_total, uat_per_node = issue_model.count_node_states_by_type("uat")
     tbd_total, tbd_per_node = issue_model.count_node_states_by_type("tbd")
+    dev_total, dev_per_node = issue_model.count_node_states_by_type("developing")
 
     # Closing rate excluding MtM
     closing_rate_ex_mtm, eff_closed_ex_mtm, _ = issue_model.closing_rate_excluding_node("n_mtm")
@@ -111,6 +116,7 @@ def dashboard():
         manual_trend=manual_trend,
         uat_total=uat_total, uat_per_node=uat_per_node,
         tbd_total=tbd_total, tbd_per_node=tbd_per_node,
+        dev_total=dev_total, dev_per_node=dev_per_node,
         closing_rate_ex_mtm=closing_rate_ex_mtm,
         eff_closed_ex_mtm=eff_closed_ex_mtm,
         bottleneck=bottleneck,
@@ -728,3 +734,39 @@ def healthz():
               example: ok
     """
     return {"status": "ok"}
+
+
+# ── In-app documentation (static HTML under docs/) ──
+
+_DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
+
+_GUIDES = {
+    "user": "user_guide.html",
+    "dev": "developer_guide.html",
+    "report": "management_report.html",
+}
+
+
+@bp.route("/guide/<name>")
+@login_required
+def guide(name):
+    """使用者手冊 / 開發者指南 / 管理報告 — 提供內部 HTML 文件頁面
+    ---
+    tags:
+      - Docs
+    parameters:
+      - name: name
+        in: path
+        type: string
+        required: true
+        description: user | dev | report
+    responses:
+      200:
+        description: 回傳對應的 HTML 文件頁面
+      404:
+        description: 名稱不存在
+    """
+    filename = _GUIDES.get(name)
+    if not filename:
+        abort(404)
+    return send_from_directory(_DOCS_DIR, filename)

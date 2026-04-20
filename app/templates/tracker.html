@@ -74,6 +74,12 @@
 
 {# Macro: render a topic row #}
 {% macro render_issue_row(issue, nodes, extra_class='') %}
+  {# Per-field "new since last_viewed" flags — driven by dedicated timestamp columns
+     on issues so each column highlights independently. #}
+  {% set topic_new = last_viewed and issue.topic_updated_at and issue.topic_updated_at > last_viewed %}
+  {% set owner_new = last_viewed and issue.owner_updated_at and issue.owner_updated_at > last_viewed %}
+  {% set jira_new = last_viewed and issue.jira_updated_at and issue.jira_updated_at > last_viewed %}
+  {% set path_new = last_viewed and issue.uat_path_updated_at and issue.uat_path_updated_at > last_viewed %}
   <tbody class="{{ extra_class }}" x-data="rowApply({{ issue.id }}, {{ '{' }}{% for node in nodes %}'{{ node.id }}':'{{ node.display_name }}'{{ ',' if not loop.last }}{% endfor %}{{ '}' }})">
   <tr
       :class="{ 'table-active': selectedIds.includes({{ issue.id }}) }">
@@ -102,13 +108,13 @@
               x-show="!editing" @click.stop="editing=true">&#9998;</button>
       {% endif %}
     </td>
-    <td class="cell-topic">{{ issue.topic }}</td>
-    <td class="cell-owner">{{ issue.requestor_name or '' }}</td>
+    <td class="cell-topic{% if topic_new %} cell-new-change{% endif %}">{{ issue.topic }}</td>
+    <td class="cell-owner{% if owner_new %} cell-new-change{% endif %}">{{ issue.requestor_name or '' }}</td>
     {% for node in nodes %}
       {{ render_cell(issue, node) }}
     {% endfor %}
-    <td class="cell-jira">{{ (issue.jira_ticket or '')|replace('\n', '<br>')|safe }}</td>
-    <td class="cell-path" title="點擊複製路徑"
+    <td class="cell-jira{% if jira_new %} cell-new-change{% endif %}">{{ (issue.jira_ticket or '')|replace('\n', '<br>')|safe }}</td>
+    <td class="cell-path{% if path_new %} cell-new-change{% endif %}" title="點擊複製路徑"
         onclick="event.stopPropagation();copyText(this.querySelector('.path-raw').textContent)">
       <span class="path-raw" hidden>{{ issue.uat_path or '' }}</span>
       {{ (issue.uat_path or '')|replace('\n', '<br>')|safe }}

@@ -8,6 +8,18 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
+# Which per-field timestamp to bump when a given issues column changes.
+# Drives tracker.html row-level highlight per column.
+FIELD_TO_TS = {
+    "topic": "topic_updated_at",
+    "requestor_name": "owner_updated_at",
+    "requestor_user_id": "owner_updated_at",
+    "owner_user_id": "owner_updated_at",
+    "jira_ticket": "jira_updated_at",
+    "uat_path": "uat_path_updated_at",
+}
+
+
 def create_issue(*, display_number, topic, owner_user_id=None,
                  requestor_user_id=None, requestor_name=None,
                  week_year, week_number, jira_ticket=None, icv=None,
@@ -20,12 +32,14 @@ def create_issue(*, display_number, topic, owner_user_id=None,
            (display_number, topic, requestor_user_id, requestor_name,
             owner_user_id, week_year, week_number, jira_ticket, icv,
             uat_path, gitea_issue_url, status,
-            created_at, created_by_user_id, updated_at, latest_update_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            created_at, created_by_user_id, updated_at, latest_update_at,
+            topic_updated_at, owner_updated_at, jira_updated_at, uat_path_updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (display_number, topic, requestor_user_id, requestor_name,
          owner_user_id, week_year, week_number, jira_ticket, icv,
          uat_path, gitea_issue_url, status,
-         now, created_by_user_id, now, now),
+         now, created_by_user_id, now, now,
+         now, now, now, now),
     )
     db.commit()
     return cur.lastrowid
@@ -216,10 +230,19 @@ def count_node_states_by_type(state_type):
 
 
 def update_issue(issue_id, **fields):
-    """Update arbitrary fields on an issue."""
+    """Update arbitrary fields on an issue.
+
+    Auto-bumps per-field timestamps (FIELD_TO_TS) so the tracker can highlight
+    exactly the column(s) that changed, independent of other meta edits.
+    """
     if not fields:
         return
-    fields["updated_at"] = _now()
+    now = _now()
+    fields["updated_at"] = now
+    for key in list(fields.keys()):
+        ts_col = FIELD_TO_TS.get(key)
+        if ts_col and ts_col not in fields:
+            fields[ts_col] = now
     set_clause = ", ".join(f"{k} = ?" for k in fields)
     vals = list(fields.values()) + [issue_id]
     db = get_db()
@@ -242,9 +265,12 @@ def refresh_cache(issue_id):
     ).fetchone()
 
     if row:
+        # Only bump latest_update_at / all_nodes_done here. issues.updated_at is
+        # reserved for meta-field changes (topic/owner/jira/uat_path/...) so the
+        # tracker can highlight those columns distinctly from per-cell changes.
         db.execute(
-            "UPDATE issues SET latest_update_at = ?, all_nodes_done = ?, updated_at = ? WHERE id = ?",
-            (row["latest"], row["all_done"] or 0, _now(), issue_id),
+            "UPDATE issues SET latest_update_at = ?, all_nodes_done = ? WHERE id = ?",
+            (row["latest"], row["all_done"] or 0, issue_id),
         )
         db.commit()
 
@@ -252,11 +278,14 @@ def refresh_cache(issue_id):
 def get_dashboard_trends():
     """Return weekly cumulative data for dashboard charts.
 
-    Each issue is classified into a phase:
-      - Close:  status = 'closed'
-      - UAT:    any node in ('uat', 'uat_done')
-      - Dev:    any node in 'developing'
-      - TBD:    everything else (ongoing, nodes blank or tbd)
+    Priority-ordered phase classification (first match wins):
+      1. Close: status = 'closed'
+      2. UAT:   any node in ('uat', 'uat_done')
+      3. TBD:   any node state = 'tbd'   (explicit TBD flag outranks developing
+                                           because it's a deliberate "not yet
+                                           decided" marker)
+      4. Dev:   everything else (including all-blank issues and issues where
+                                  all cells are done/unneeded but not closed)
 
     Returns dict with keys: weeks, cumulative, closing_rates.
     """
@@ -271,14 +300,14 @@ def get_dashboard_trends():
     if not issues:
         return {"weeks": [], "cumulative": [], "closing_rates": []}
 
-    # Determine dominant non-done phase per issue
+    # max_phase: UAT(3) > TBD(2) > Developing(1) > else(0)
     issue_ids = [i["id"] for i in issues]
     ph = ",".join("?" * len(issue_ids))
     state_rows = db.execute(
         f"""SELECT issue_id,
                    MAX(CASE WHEN state IN ('uat', 'uat_done') THEN 3
-                            WHEN state = 'developing' THEN 2
-                            WHEN state = 'tbd' THEN 1
+                            WHEN state = 'tbd' THEN 2
+                            WHEN state = 'developing' THEN 1
                             ELSE 0 END) as max_phase
             FROM issue_node_states
             WHERE issue_id IN ({ph})
@@ -291,11 +320,11 @@ def get_dashboard_trends():
         if issue["status"] == "closed":
             return "Close"
         mp = phase_map.get(issue["id"], 0)
-        if mp >= 3:
+        if mp == 3:
             return "UAT"
-        if mp >= 2:
-            return "Dev"
-        return "TBD"
+        if mp == 2:
+            return "TBD"
+        return "Dev"  # catch-all: mp in (0, 1) → developing-only or all blank / all terminal
 
     # Collect unique weeks and count per phase
     weeks_set = sorted({(i["week_year"], i["week_number"]) for i in issues})
