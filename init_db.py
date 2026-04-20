@@ -60,11 +60,17 @@ def main():
             "ORDER BY name"
         )
         tables = [row[0] for row in cur.fetchall()]
-        print(f"\nDone. {len(tables)} tables present:")
+        print(f"\nSchema loaded. {len(tables)} tables present:")
         for t in tables:
             print(f"  - {t}")
     finally:
         conn.close()
+
+    # Apply any pending data migrations (also bootstraps schema_version table
+    # so future `migrate.py` runs skip already-applied migrations). Idempotent.
+    print("\nRunning migrations...")
+    from migrate import run as run_migrations
+    run_migrations()
 
 
 if __name__ == "__main__":
