@@ -166,10 +166,14 @@
                 onclick="this.closest('.sp-timeline').querySelector('.comment-form').classList.toggle('d-none')">
           + 一般留言
         </button>
+        {# + 會議紀錄 and the form below are super-user only — backend
+           add_meeting_note route is @super_user_required. #}
+        {% if user.is_super_user %}
         <button class="btn btn-sm btn-outline-warning"
                 onclick="this.closest('.sp-timeline').querySelector('.meeting-note-form').classList.toggle('d-none')">
           + 會議紀錄
         </button>
+        {% endif %}
       </div>
     </div>
 
@@ -221,7 +225,8 @@
       </form>
     </div>
 
-    {# Meeting note form (hidden by default) #}
+    {# Meeting note form (hidden by default, super_user only) #}
+    {% if user.is_super_user %}
     <div class="meeting-note-form d-none mb-3 p-2 border rounded" style="background:#fffde7;">
       <form hx-post="{{ url_for('issues.add_meeting_note', issue_id=issue.id) }}"
             hx-target="#side-panel-content" hx-swap="innerHTML">
@@ -245,6 +250,7 @@
         <button type="submit" class="btn btn-warning btn-sm">送出會議紀錄</button>
       </form>
     </div>
+    {% endif %}
 
     {# Timeline entries list #}
     <div id="timeline-list">
