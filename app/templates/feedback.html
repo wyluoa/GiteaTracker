@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}意見回饋 — Gitea Tracker{% endblock %}
+
+{% block content %}
+{% set CAT_LABELS = {'bug': 'Bug 回報', 'feature': '功能建議', 'other': '其他'} %}
+{% set STATUS_LABELS = {'new': '待處理', 'reviewed': '已看到', 'resolved': '已處理'} %}
+{% set STATUS_COLORS = {'new': 'bg-yellow-lt', 'reviewed': 'bg-blue-lt', 'resolved': 'bg-green-lt'} %}
+{% set CAT_COLORS = {'bug': 'bg-red-lt', 'feature': 'bg-cyan-lt', 'other': 'bg-secondary-lt'} %}
+
+<div class="page-header">
+  <h2 class="page-title">意見回饋</h2>
+  <div class="text-muted" style="font-size:13px;">
+    有 bug、想要新功能、任何建議都歡迎送出。送出後 super user 會檢視，處理完會回覆。
+  </div>
+</div>
+
+{# ── Submit form ── #}
+<div class="card mt-3">
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('main.feedback') }}">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <label class="form-label">類型</label>
+          <select name="category" class="form-select form-select-sm">
+            {% for c in categories %}
+            <option value="{{ c }}">{{ CAT_LABELS.get(c, c) }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-9">
+          <label class="form-label">內容</label>
+          <textarea name="body" class="form-control" rows="4" required
+                    placeholder="想到什麼就寫什麼，可以很簡短也可以很詳細。如果是 bug，描述一下你的操作步驟會很有幫助。"></textarea>
+        </div>
+      </div>
+      <div class="mt-2">
+        <button type="submit" class="btn btn-primary btn-sm">送出回饋</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── My feedback list ── #}
+<h3 style="font-size:15px; margin:24px 0 8px;">我的歷史回饋（{{ items|length }} 筆）</h3>
+
+{% if items %}
+  {% for it in items %}
+  <div class="card mb-2">
+    <div class="card-body" style="padding:12px 16px;">
+      <div class="d-flex align-items-center mb-1" style="gap:8px;">
+        <span class="badge {{ CAT_COLORS.get(it.category, 'bg-secondary-lt') }}">
+          {{ CAT_LABELS.get(it.category, it.category) }}
+        </span>
+        <span class="badge {{ STATUS_COLORS.get(it.status, 'bg-secondary-lt') }}">
+          {{ STATUS_LABELS.get(it.status, it.status) }}
+        </span>
+        <span style="font-size:11px; color:#999;">{{ it.created_at[:16]|replace('T', ' ') }}</span>
+      </div>
+      <div style="white-space:pre-wrap; font-size:14px;">{{ it.body }}</div>
+
+      {% if it.admin_reply_body %}
+      <div class="mt-3 p-2 rounded" style="background:#f4f6fa; border-left:3px solid #3498db;">
+        <div style="font-size:11px; color:#666; margin-bottom:4px;">
+          &#128172; Super User 回覆 &middot; {{ it.admin_reply_at[:16]|replace('T', ' ') }}
+        </div>
+        <div style="white-space:pre-wrap; font-size:14px;">{{ it.admin_reply_body }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="card"><div class="card-body text-center text-muted" style="padding:24px;">
+  你還沒送出過任何回饋。
+</div></div>
+{% endif %}
+{% endblock %}

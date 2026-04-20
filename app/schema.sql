@@ -165,3 +165,33 @@ CREATE TABLE IF NOT EXISTS weekly_trend_data (
     updated_at    TEXT,
     UNIQUE (week_year, week_number)
 );
+
+-- Jokes / light stories for meeting warm-ups (accessed via easter-egg /fun)
+CREATE TABLE IF NOT EXISTS jokes (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    body                  TEXT NOT NULL,
+    author_user_id        INTEGER REFERENCES users(id),
+    author_name_snapshot  TEXT NOT NULL,
+    created_at            TEXT NOT NULL,
+    is_deleted            INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_jokes_created ON jokes(created_at, is_deleted);
+
+-- User feedback: bug reports, feature requests, general comments
+CREATE TABLE IF NOT EXISTS feedback (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_user_id          INTEGER NOT NULL REFERENCES users(id),
+    author_name_snapshot    TEXT NOT NULL,
+    category                TEXT NOT NULL,                -- bug / feature / other
+    body                    TEXT NOT NULL,
+    status                  TEXT NOT NULL DEFAULT 'new',  -- new / reviewed / resolved
+    admin_reply_body        TEXT,
+    admin_reply_at          TEXT,
+    admin_reply_by_user_id  INTEGER REFERENCES users(id),
+    created_at              TEXT NOT NULL,
+    updated_at              TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_author ON feedback(author_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status, created_at);

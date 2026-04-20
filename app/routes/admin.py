@@ -14,6 +14,7 @@ from app.db import get_db
 from app.routes.auth import super_user_required
 from app.models import setting as setting_model
 from app.models import node as node_model
+from app.models import feedback as feedback_model
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -52,9 +53,11 @@ def index():
     user_count = db.execute("SELECT COUNT(*) as c FROM users WHERE status != 'disabled'").fetchone()["c"]
     group_count = db.execute("SELECT COUNT(*) as c FROM groups").fetchone()["c"]
     node_count = db.execute("SELECT COUNT(*) as c FROM nodes WHERE is_active = 1").fetchone()["c"]
+    feedback_new_count = feedback_model.count_by_status().get("new", 0)
     return render_template("admin/index.html",
                            pending_count=pending_count, user_count=user_count,
-                           group_count=group_count, node_count=node_count)
+                           group_count=group_count, node_count=node_count,
+                           feedback_new_count=feedback_new_count)
 
 
 # ── Pending Users ──
@@ -857,6 +860,65 @@ def test_smtp():
     else:
         flash("寄信失敗，請檢查 SMTP 設定（開發環境下會 log 到 console）", "warning")
     return redirect(url_for("admin.smtp"))
+
+
+# ── Feedback (admin review + reply) ──
+
+@bp.route("/feedback")
+@super_user_required
+def feedback_list():
+    """意見回饋清單 — 依 status 篩選
+    ---
+    tags:
+      - Admin - Feedback
+    parameters:
+      - name: status
+        in: query
+        type: string
+        description: new / reviewed / resolved (空白表示全部)
+      - name: category
+        in: query
+        type: string
+        description: bug / feature / other
+    responses:
+      200:
+        description: 顯示所有使用者回饋，super user 可標狀態與回覆
+    """
+    status = request.args.get("status", "").strip() or None
+    category = request.args.get("category", "").strip() or None
+    items = feedback_model.list_all(status=status, category=category)
+    counts = feedback_model.count_by_status()
+    return render_template(
+        "admin/feedback.html",
+        items=items,
+        counts=counts,
+        current_status=status or "",
+        current_category=category or "",
+        feedback_new_count=counts.get("new", 0),
+    )
+
+
+@bp.route("/feedback/<int:feedback_id>/reply", methods=["POST"])
+@super_user_required
+def feedback_reply(feedback_id):
+    """Super user 回覆一則回饋"""
+    reply = (request.form.get("reply") or "").strip()
+    if not reply:
+        flash("回覆內容不能為空", "error")
+        return redirect(url_for("admin.feedback_list"))
+    feedback_model.add_admin_reply(feedback_id, reply, g.current_user["id"])
+    flash("已回覆", "success")
+    return redirect(url_for("admin.feedback_list"))
+
+
+@bp.route("/feedback/<int:feedback_id>/status", methods=["POST"])
+@super_user_required
+def feedback_set_status(feedback_id):
+    """Super user 改 feedback 狀態"""
+    new_status = (request.form.get("status") or "").strip()
+    feedback_model.update_status(feedback_id, new_status)
+    flash("狀態已更新", "success")
+    return redirect(url_for("admin.feedback_list"))
 
 
 # ── Audit Log ──

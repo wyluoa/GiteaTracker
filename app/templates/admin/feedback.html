@@ -1,0 +1,125 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'feedback' %}
+{% block title %}意見回饋 — Admin{% endblock %}
+{% block admin_content %}
+
+{% set CAT_LABELS = {'bug': 'Bug', 'feature': '功能建議', 'other': '其他'} %}
+{% set STATUS_LABELS = {'new': '待處理', 'reviewed': '已看到', 'resolved': '已處理'} %}
+{% set STATUS_COLORS = {'new': 'bg-yellow', 'reviewed': 'bg-blue', 'resolved': 'bg-green'} %}
+{% set CAT_COLORS = {'bug': 'bg-red-lt', 'feature': 'bg-cyan-lt', 'other': 'bg-secondary-lt'} %}
+
+<div class="card">
+  <div class="card-header d-flex align-items-center" style="gap:12px;">
+    <h3 class="card-title mb-0">意見回饋</h3>
+    <span class="text-muted" style="font-size:12px;">
+      待處理 <strong class="text-yellow">{{ counts.new }}</strong> ·
+      已看到 <strong class="text-blue">{{ counts.reviewed }}</strong> ·
+      已處理 <strong class="text-green">{{ counts.resolved }}</strong>
+    </span>
+  </div>
+  <div class="card-body">
+
+    {# Filter bar #}
+    <form method="GET" action="{{ url_for('admin.feedback_list') }}" class="row g-2 mb-3">
+      <div class="col-md-3">
+        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">狀態（全部）</option>
+          <option value="new"      {% if current_status == 'new' %}selected{% endif %}>待處理</option>
+          <option value="reviewed" {% if current_status == 'reviewed' %}selected{% endif %}>已看到</option>
+          <option value="resolved" {% if current_status == 'resolved' %}selected{% endif %}>已處理</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">類型（全部）</option>
+          <option value="bug"     {% if current_category == 'bug' %}selected{% endif %}>Bug</option>
+          <option value="feature" {% if current_category == 'feature' %}selected{% endif %}>功能建議</option>
+          <option value="other"   {% if current_category == 'other' %}selected{% endif %}>其他</option>
+        </select>
+      </div>
+      {% if current_status or current_category %}
+      <div class="col-auto">
+        <a href="{{ url_for('admin.feedback_list') }}" class="btn btn-sm btn-outline-secondary">清除篩選</a>
+      </div>
+      {% endif %}
+    </form>
+
+    {# List #}
+    {% if items %}
+      {% for it in items %}
+      <div class="card mb-2" x-data="{ showReply: false }">
+        <div class="card-body" style="padding:12px 16px;">
+          {# Header row #}
+          <div class="d-flex align-items-center mb-2" style="gap:8px; flex-wrap:wrap;">
+            <span class="badge {{ CAT_COLORS.get(it.category, 'bg-secondary-lt') }}">
+              {{ CAT_LABELS.get(it.category, it.category) }}
+            </span>
+            <span class="badge {{ STATUS_COLORS.get(it.status, 'bg-secondary') }}">
+              {{ STATUS_LABELS.get(it.status, it.status) }}
+            </span>
+            <span style="font-size:12px;"><strong>{{ it.author_name_snapshot }}</strong></span>
+            <span style="font-size:11px; color:#999;">{{ it.created_at[:16]|replace('T', ' ') }}</span>
+            <span style="margin-left:auto;">
+              {# Status change quick buttons #}
+              {% if it.status != 'reviewed' %}
+              <form method="POST" action="{{ url_for('admin.feedback_set_status', feedback_id=it.id) }}" style="display:inline;">
+                <input type="hidden" name="status" value="reviewed">
+                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:11px;">標為已看到</button>
+              </form>
+              {% endif %}
+              {% if it.status != 'resolved' %}
+              <form method="POST" action="{{ url_for('admin.feedback_set_status', feedback_id=it.id) }}" style="display:inline;">
+                <input type="hidden" name="status" value="resolved">
+                <button type="submit" class="btn btn-sm btn-outline-success" style="font-size:11px;">標為已處理</button>
+              </form>
+              {% endif %}
+              {% if it.status != 'new' %}
+              <form method="POST" action="{{ url_for('admin.feedback_set_status', feedback_id=it.id) }}" style="display:inline;">
+                <input type="hidden" name="status" value="new">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" style="font-size:11px;">重設為待處理</button>
+              </form>
+              {% endif %}
+            </span>
+          </div>
+
+          {# Body #}
+          <div style="white-space:pre-wrap; font-size:14px;">{{ it.body }}</div>
+
+          {# Existing reply (read-only) #}
+          {% if it.admin_reply_body %}
+          <div class="mt-2 p-2 rounded" style="background:#f4f6fa; border-left:3px solid #3498db;">
+            <div style="font-size:11px; color:#666; margin-bottom:4px;">
+              &#128172; 已回覆 · {{ it.admin_reply_at[:16]|replace('T', ' ') }}
+            </div>
+            <div style="white-space:pre-wrap; font-size:14px;">{{ it.admin_reply_body }}</div>
+          </div>
+          {% endif %}
+
+          {# Reply form toggle #}
+          <div class="mt-2">
+            <button class="btn btn-sm btn-link p-0" @click="showReply = !showReply"
+                    x-text="showReply ? '收起' : (it_has_reply ? '補充回覆' : '回覆')"
+                    :class="showReply ? '' : 'text-primary'"
+                    style="font-size:12px;">
+              {% if it.admin_reply_body %}補充回覆{% else %}回覆{% endif %}
+            </button>
+            <form method="POST" action="{{ url_for('admin.feedback_reply', feedback_id=it.id) }}"
+                  x-show="showReply" x-cloak class="mt-2">
+              <textarea name="reply" class="form-control form-control-sm" rows="3" required
+                        placeholder="寫給使用者的回覆... 送出會讓原提交者看到，並把狀態從「待處理」升為「已看到」。"></textarea>
+              <button type="submit" class="btn btn-sm btn-primary mt-2">送出回覆</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="text-center text-muted" style="padding:24px;">
+      目前沒有符合條件的回饋。
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

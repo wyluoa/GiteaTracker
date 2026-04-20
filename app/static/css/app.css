@@ -383,6 +383,33 @@ body {
   background: rgba(0,0,0,0.3);
 }
 
+/* ── Footer (minimal, unobtrusive — houses feedback entry point) ── */
+.gt-footer {
+  border-top: 1px solid #e6e6e6;
+  padding: 10px 0;
+  margin-top: 32px;
+  font-size: 12px;
+  text-align: right;
+}
+.gt-footer-link {
+  color: #999;
+  text-decoration: none;
+  padding: 2px 8px;
+}
+.gt-footer-link:hover {
+  color: #555;
+  text-decoration: underline;
+}
+[data-bs-theme="dark"] .gt-footer {
+  border-top-color: #30363d;
+}
+[data-bs-theme="dark"] .gt-footer-link {
+  color: #8b949e;
+}
+[data-bs-theme="dark"] .gt-footer-link:hover {
+  color: #c9d1d9;
+}
+
 /* ── Navbar ── */
 .gt-navbar {
   background: #2c3e50;

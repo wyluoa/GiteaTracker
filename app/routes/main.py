@@ -18,6 +18,8 @@ from app.models import node as node_model
 from app.models import issue_node_state as state_model
 from app.models import setting as setting_model
 from app.models import user as user_model
+from app.models import joke as joke_model
+from app.models import feedback as feedback_model
 
 bp = Blueprint("main", __name__)
 
@@ -776,3 +778,99 @@ def guide(name):
     if role == "super" and not g.current_user["is_super_user"]:
         abort(403)
     return send_from_directory(_DOCS_DIR, filename)
+
+
+# ── Easter egg: /fun (jokes / light stories for meeting warm-ups) ──
+
+@bp.route("/fun", methods=["GET", "POST"])
+@login_required
+def fun():
+    """笑話 / 小品頁 — 會議開場暖場用 (彩蛋入口: 連點 navbar brand 5 次)
+    ---
+    tags:
+      - Fun
+    responses:
+      200:
+        description: 渲染 fun.html，顯示所有笑話
+    """
+    if request.method == "POST":
+        # Only super_user may add (mode b: you curate)
+        if not g.current_user["is_super_user"]:
+            abort(403)
+        body = request.form.get("body", "").strip()
+        if body:
+            joke_model.create(
+                body=body,
+                author_user_id=g.current_user["id"],
+                author_name_snapshot=g.current_user["display_name"],
+            )
+            flash("新增完成 🎉", "success")
+        return redirect(url_for("main.fun"))
+
+    jokes = joke_model.list_all()
+    return render_template("fun.html", jokes=jokes, user=g.current_user)
+
+
+@bp.route("/fun/<int:joke_id>/delete", methods=["POST"])
+@super_user_required
+def fun_delete(joke_id):
+    """刪除一則笑話 (super user only, soft delete)"""
+    joke_model.soft_delete(joke_id)
+    flash("已刪除", "success")
+    return redirect(url_for("main.fun"))
+
+
+@bp.route("/fun/random")
+@login_required
+def fun_random():
+    """回傳一則隨機笑話的 HTML partial (for HTMX swap)"""
+    joke = joke_model.get_random()
+    return render_template("partials/joke_card.html", joke=joke, user=g.current_user)
+
+
+# ── Feedback (all logged-in users can submit; super user reviews in Admin) ──
+
+@bp.route("/feedback", methods=["GET", "POST"])
+@login_required
+def feedback():
+    """意見回饋 — 使用者提交 bug / feature / other；看自己以前送出的 + admin 回覆
+    ---
+    tags:
+      - Feedback
+    parameters:
+      - name: category
+        in: formData
+        type: string
+        description: bug / feature / other
+      - name: body
+        in: formData
+        type: string
+        description: 回饋內容
+    responses:
+      200:
+        description: 顯示送出表單 + 自己以前的紀錄
+      302:
+        description: 送出後重導回 /feedback
+    """
+    if request.method == "POST":
+        category = (request.form.get("category") or "").strip()
+        body = (request.form.get("body") or "").strip()
+        if not body:
+            flash("請填入內容", "error")
+            return redirect(url_for("main.feedback"))
+        feedback_model.create(
+            author_user_id=g.current_user["id"],
+            author_name_snapshot=g.current_user["display_name"],
+            category=category,
+            body=body,
+        )
+        flash("已送出，謝謝你的回饋！", "success")
+        return redirect(url_for("main.feedback"))
+
+    items = feedback_model.list_by_author(g.current_user["id"])
+    return render_template(
+        "feedback.html",
+        items=items,
+        categories=feedback_model.VALID_CATEGORIES,
+        user=g.current_user,
+    )

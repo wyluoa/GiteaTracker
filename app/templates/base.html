@@ -39,7 +39,24 @@
   {% set _is_elevated = g.get('current_user') and (g.current_user['is_super_user'] or g.current_user['is_manager']) %}
   <header class="navbar navbar-expand-md d-print-none gt-navbar">
     <div class="container-xl">
-      <h1 class="navbar-brand mb-0">
+      {# Brand link — single click navigates normally; 5 rapid clicks within
+         ~2s trigger the /fun easter egg (only for logged-in users; guests
+         just see normal navigation). #}
+      <h1 class="navbar-brand mb-0"
+          {% if session.get('user_id') %}
+          x-data="{ clicks: 0, last: 0 }"
+          @click="
+            const now = Date.now();
+            if (now - last > 2000) clicks = 0;
+            clicks++;
+            last = now;
+            if (clicks >= 5) {
+              $event.preventDefault();
+              clicks = 0;
+              window.location.href = '{{ url_for('main.fun') }}';
+            }
+          "
+          {% endif %}>
         <a href="{{ url_for('main.dashboard') if _is_elevated else url_for('main.tracker') }}"
            class="gt-navbar-brand">
           Gitea Tracker
@@ -97,6 +114,15 @@
         {% block content %}{% endblock %}
       </div>
     </div>
+
+    {% if session.get('user_id') %}
+    {# Minimal footer — feedback entry point, stays subtle to not distract from main content #}
+    <footer class="gt-footer d-print-none">
+      <div class="container-xl">
+        <a href="{{ url_for('main.feedback') }}" class="gt-footer-link">&#9993; 意見回饋</a>
+      </div>
+    </footer>
+    {% endif %}
   </div>
   <script>
     // Theme cycle: light → dark → gray → light

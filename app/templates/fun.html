@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}🎉 Fun Corner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">🎉 Fun Corner</h2>
+      <div class="text-muted" style="font-size:13px;">
+        會議開場的輕鬆小品收藏 &middot; 目前 {{ jokes|length }} 則
+      </div>
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-outline-primary btn-sm"
+              hx-get="{{ url_for('main.fun_random') }}"
+              hx-target="#joke-random-box"
+              hx-swap="innerHTML">
+        &#127922; 隨機一則
+      </button>
+    </div>
+  </div>
+</div>
+
+{# 隨機出現區 (HTMX swap target) #}
+<div id="joke-random-box" class="my-3"></div>
+
+{# Super-user 新增表單 #}
+{% if user and user.is_super_user %}
+<div class="card mb-3" x-data="{ open: false }">
+  <div class="card-body" style="padding:10px 14px;">
+    <button class="btn btn-sm btn-outline-success" @click="open = !open"
+            x-text="open ? '收起' : '＋ 新增一則'"></button>
+    <form method="POST" action="{{ url_for('main.fun') }}" x-show="open" x-cloak class="mt-2">
+      <textarea name="body" class="form-control" rows="4" required
+                placeholder="輸入笑話或小故事... (支援換行)"></textarea>
+      <div class="mt-2">
+        <button type="submit" class="btn btn-primary btn-sm">送出</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{# 完整列表 #}
+<h3 style="font-size:15px; margin:16px 0 8px;">所有收錄（最新在前）</h3>
+{% if jokes %}
+  {% for joke in jokes %}
+    {% include "partials/joke_card.html" %}
+  {% endfor %}
+{% else %}
+  <div class="card"><div class="card-body text-center text-muted" style="padding:30px;">
+    {% if user and user.is_super_user %}
+      這裡還空的 — 用上面「＋ 新增一則」開始收集吧。
+    {% else %}
+      還沒有笑話收錄。等 super user 幫忙填。
+    {% endif %}
+  </div></div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,20 @@
+{# Single joke card — used both in the list and for HTMX random swap #}
+{% if joke %}
+<div class="card mb-2" id="joke-{{ joke.id }}">
+  <div class="card-body" style="padding:14px 18px;">
+    <div style="white-space:pre-wrap; font-size:15px; line-height:1.65;">{{ joke.body }}</div>
+    <div class="d-flex justify-content-between align-items-center mt-2" style="font-size:11px; color:#888;">
+      <span>{{ joke.author_name_snapshot }} · {{ joke.created_at[:10] }}</span>
+      {% if user and user.is_super_user %}
+      <form method="POST" action="{{ url_for('main.fun_delete', joke_id=joke.id) }}"
+            onsubmit="return confirm('刪掉這則？（軟刪除）')" style="display:inline;">
+        <button type="submit" class="btn btn-sm btn-link text-danger p-0"
+                style="font-size:11px;">&#128465;</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="text-muted" style="font-size:13px;">還沒有笑話收錄</div>
+{% endif %}
