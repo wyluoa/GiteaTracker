@@ -1789,6 +1789,21 @@ def create_issue():
         created_by_user_id=g.current_user["id"],
     )
 
+    # Pre-insert a NULL-state cell row for every active node so the
+    # all_nodes_done cache stays correct once cells start being edited.
+    # (Without this, MIN over the sparse row set would flip to 1 the moment
+    # the first cell is set to done — see migration 005 for the back-fill.)
+    db = get_db()
+    db.execute(
+        """INSERT OR IGNORE INTO issue_node_states
+             (issue_id, node_id, state, check_in_date, short_note,
+              updated_at, updated_by_user_id, updated_by_name_snapshot)
+           SELECT ?, id, NULL, NULL, NULL, NULL, NULL, 'auto-init'
+           FROM nodes WHERE is_active = 1""",
+        (new_id,),
+    )
+    db.commit()
+
     _audit("create_issue", "issue", new_id,
            {"display_number": display_number, "topic": topic})
 
