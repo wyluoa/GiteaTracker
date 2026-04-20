@@ -58,6 +58,20 @@ def super_user_required(f):
     return decorated
 
 
+def manager_or_super_required(f):
+    """Allow Manager or Super User. For views that carry managerial content
+    (Dashboard, Calendar) but aren't limited to admins."""
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        u = g.current_user
+        if not (u["is_super_user"] or u["is_manager"]):
+            flash("此頁面需要 Manager 或管理員權限", "error")
+            return redirect(url_for("main.tracker"))
+        return f(*args, **kwargs)
+    return decorated
+
+
 def can_edit_node(node_id_param="node_id"):
     """Decorator: check if current user can edit the given node."""
     def decorator(f):

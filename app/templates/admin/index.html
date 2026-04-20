@@ -32,4 +32,44 @@
     </div>
   </div>
 </div>
+
+<div class="card mt-3">
+  <div class="card-header"><h3 class="card-title">Super User 文件</h3></div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <a href="{{ url_for('main.guide', name='report') }}" target="_blank"
+           class="card card-sm text-decoration-none text-reset" style="height:100%;">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div style="font-size:24px;margin-right:12px;">&#128202;</div>
+              <div>
+                <div class="fw-bold">管理報告</div>
+                <div class="text-muted" style="font-size:12px;">
+                  Internal Project Report — 給管理層閱讀的系統成果、技術決策、AI 協作方法論
+                </div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-6">
+        <a href="{{ url_for('main.guide', name='dev') }}" target="_blank"
+           class="card card-sm text-decoration-none text-reset" style="height:100%;">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div style="font-size:24px;margin-right:12px;">&#128736;</div>
+              <div>
+                <div class="fw-bold">開發者指南</div>
+                <div class="text-muted" style="font-size:12px;">
+                  部署、資料模型、admin 後台、migration、Claude Code 設定
+                </div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

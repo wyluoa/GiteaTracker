@@ -5,7 +5,7 @@ import os
 import time
 from datetime import timedelta
 
-from flask import Flask
+from flask import Flask, redirect, request, session, url_for
 from flasgger import Swagger
 from config import get_config
 from . import db
@@ -96,6 +96,23 @@ def create_app():
         ],
     }
     Swagger(app, config=swagger_config, template=swagger_template)
+
+    # Gate Swagger UI + API spec behind login. Flasgger registers /apidocs/*,
+    # /apispec.json, /oauth2-redirect.html. Static assets under
+    # /flasgger_static/ stay public so the UI can load CSS/JS once the user
+    # is authenticated. Implemented as before_request because Flasgger's
+    # registered endpoints don't accept our @login_required decorator.
+    _SWAGGER_GATED_PREFIXES = ("/apidocs", "/apispec.json", "/oauth2-redirect.html")
+
+    @app.before_request
+    def _gate_swagger():
+        path = request.path or ""
+        if not any(path == p or path.startswith(p + "/") or path.startswith(p + ".")
+                   for p in _SWAGGER_GATED_PREFIXES):
+            return None
+        if "user_id" in session:
+            return None
+        return redirect(url_for("auth.login"))
 
     # Make HTML responses uncacheable so any corporate proxy between the
     # server and browser doesn't serve a stale template with an old

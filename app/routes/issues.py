@@ -351,7 +351,7 @@ def add_comment(issue_id):
 # ── Timeline: Add Meeting Note ──
 
 @bp.route("/issues/<int:issue_id>/timeline/meeting_note", methods=["POST"])
-@login_required
+@super_user_required
 def add_meeting_note(issue_id):
     """新增會議紀錄到 Timeline
     ---
@@ -689,7 +689,7 @@ def row_update(issue_id):
 # ── Close Issue ──
 
 @bp.route("/issues/<int:issue_id>/close", methods=["POST"])
-@login_required
+@super_user_required
 def close_issue(issue_id):
     """關單 — 將 issue 狀態設為 closed
     ---

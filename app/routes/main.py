@@ -12,7 +12,7 @@ from flask import (
 )
 
 from app.db import get_db
-from app.routes.auth import login_required, super_user_required, optional_login
+from app.routes.auth import login_required, super_user_required, manager_or_super_required, optional_login
 from app.models import issue as issue_model
 from app.models import node as node_model
 from app.models import issue_node_state as state_model
@@ -40,7 +40,7 @@ def index():
 # ── Dashboard ──
 
 @bp.route("/dashboard")
-@login_required
+@manager_or_super_required
 def dashboard():
     """儀表板 — 各 Node 卡片、趨勢圖表、Insights
     ---
@@ -501,7 +501,7 @@ def _parse_check_in_date(raw, today):
 
 
 @bp.route("/calendar")
-@login_required
+@manager_or_super_required
 def calendar_view():
     """行事曆 — 依月份顯示 check-in 日期
     ---
@@ -740,10 +740,11 @@ def healthz():
 
 _DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
 
+# filename + role required. "user" = any logged-in user, "super" = super_user only.
 _GUIDES = {
-    "user": "user_guide.html",
-    "dev": "developer_guide.html",
-    "report": "management_report.html",
+    "user":   ("user_guide.html",        "user"),
+    "dev":    ("developer_guide.html",   "super"),
+    "report": ("management_report.html", "super"),
 }
 
 
@@ -759,14 +760,19 @@ def guide(name):
         in: path
         type: string
         required: true
-        description: user | dev | report
+        description: user | dev | report (dev/report require super user)
     responses:
       200:
         description: 回傳對應的 HTML 文件頁面
+      403:
+        description: 權限不足（dev / report 需 super user）
       404:
         description: 名稱不存在
     """
-    filename = _GUIDES.get(name)
-    if not filename:
+    entry = _GUIDES.get(name)
+    if not entry:
         abort(404)
+    filename, role = entry
+    if role == "super" and not g.current_user["is_super_user"]:
+        abort(403)
     return send_from_directory(_DOCS_DIR, filename)
