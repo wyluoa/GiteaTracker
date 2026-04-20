@@ -39,21 +39,27 @@
   {% set _is_elevated = g.get('current_user') and (g.current_user['is_super_user'] or g.current_user['is_manager']) %}
   <header class="navbar navbar-expand-md d-print-none gt-navbar">
     <div class="container-xl">
-      {# Brand link — single click navigates normally; 5 rapid clicks within
-         ~2s trigger the /fun easter egg (only for logged-in users; guests
-         just see normal navigation). #}
+      {# Brand link — 5 rapid clicks within ~2s trigger the /fun easter egg.
+         Counter lives in localStorage so it survives the navigation that
+         each click causes. We always preventDefault + manually navigate
+         so all clicks register before the page changes. #}
       <h1 class="navbar-brand mb-0"
           {% if session.get('user_id') %}
-          x-data="{ clicks: 0, last: 0 }"
           @click="
+            $event.preventDefault();
             const now = Date.now();
-            if (now - last > 2000) clicks = 0;
-            clicks++;
-            last = now;
-            if (clicks >= 5) {
-              $event.preventDefault();
-              clicks = 0;
+            const key = 'gt.brandClicks';
+            let data = {};
+            try { data = JSON.parse(localStorage.getItem(key)) || {}; } catch(e) {}
+            const recent = data.last && (now - data.last < 2000);
+            const count = (recent ? (data.count || 0) : 0) + 1;
+            const dest = $event.target.closest('a').getAttribute('href');
+            if (count >= 5) {
+              localStorage.removeItem(key);
               window.location.href = '{{ url_for('main.fun') }}';
+            } else {
+              localStorage.setItem(key, JSON.stringify({count: count, last: now}));
+              window.location.href = dest;
             }
           "
           {% endif %}>
