@@ -56,6 +56,11 @@ def dashboard():
     red_line_year, red_line_week = setting_model.get_red_line()
 
     node_counts = issue_model.dashboard_node_counts(red_line_year, red_line_week)
+    uat_tbd_above = issue_model.uat_tbd_above_redline_per_node(red_line_year, red_line_week)
+    uat_tbd_jira_above = issue_model.uat_tbd_above_redline_per_node(
+        red_line_year, red_line_week, with_jira=True
+    )
+    weekly_summary = issue_model.weekly_trend_summary()
     ready_issues = issue_model.list_ready_to_close()
     ready_count = len(ready_issues)
     pending_close_issues = issue_model.list_pending_close()
@@ -127,6 +132,9 @@ def dashboard():
         almost_done=almost_done,
         red_line_year=red_line_year,
         red_line_week=red_line_week,
+        uat_tbd_above=uat_tbd_above,
+        uat_tbd_jira_above=uat_tbd_jira_above,
+        weekly_summary=weekly_summary,
         user=g.current_user,
     )
 

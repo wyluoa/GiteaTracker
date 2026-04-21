@@ -149,6 +149,58 @@ def dashboard_node_counts(red_line_year, red_line_week):
     return {r["node_id"]: r["cnt"] for r in rows}
 
 
+def uat_tbd_above_redline_per_node(red_line_year, red_line_week, with_jira=False):
+    """Per-node count of ongoing issues above red line in UAT/UAT done/TBD state.
+
+    with_jira=True restricts to issues whose jira_ticket is set.
+    """
+    if not red_line_year or not red_line_week:
+        return {}
+    db = get_db()
+    jira_clause = "AND i.jira_ticket IS NOT NULL AND TRIM(i.jira_ticket) != ''" if with_jira else ""
+    rows = db.execute(
+        f"""SELECT s.node_id, COUNT(DISTINCT i.id) as cnt
+            FROM issues i
+            JOIN issue_node_states s ON i.id = s.issue_id
+            WHERE i.status = 'ongoing' AND i.is_deleted = 0
+              AND s.state IN ('uat', 'uat_done', 'tbd')
+              AND (i.week_year < ? OR (i.week_year = ? AND i.week_number <= ?))
+              {jira_clause}
+            GROUP BY s.node_id""",
+        (red_line_year, red_line_year, red_line_week),
+    ).fetchall()
+    return {r["node_id"]: r["cnt"] for r in rows}
+
+
+def weekly_trend_summary():
+    """Summary sentence data: latest vs previous row of weekly_trend_data.
+
+    Returns {'latest': {...} | None, 'prev': {...} | None}. Each bucket has
+    total / developing / uat_tbd / closed / week_year / week_number.
+    """
+    db = get_db()
+    rows = db.execute(
+        """SELECT week_year, week_number, cnt_uat, cnt_tbd, cnt_dev, cnt_close
+           FROM weekly_trend_data
+           ORDER BY week_year DESC, week_number DESC
+           LIMIT 2"""
+    ).fetchall()
+
+    def _bucket(r):
+        return {
+            "week_year": r["week_year"],
+            "week_number": r["week_number"],
+            "total": r["cnt_uat"] + r["cnt_tbd"] + r["cnt_dev"] + r["cnt_close"],
+            "developing": r["cnt_dev"],
+            "uat_tbd": r["cnt_uat"] + r["cnt_tbd"],
+            "closed": r["cnt_close"],
+        }
+
+    latest = _bucket(rows[0]) if len(rows) >= 1 else None
+    prev = _bucket(rows[1]) if len(rows) >= 2 else None
+    return {"latest": latest, "prev": prev}
+
+
 def closing_rate_excluding_node(exclude_code="n_mtm"):
     """Closing rate treating issues as 'done' when all nodes EXCEPT the
     excluded node are done/unneeded.

@@ -5,6 +5,17 @@
 {% block content %}
 {% from "_macros.html" import gitea_url_for with context %}
 
+{% macro wk_label(y, w) -%}
+wk{{ y - 2020 }}{{ '%02d'|format(w) }}
+{%- endmacro %}
+
+{% macro delta_badge(cur, prev) -%}
+  {%- if prev is none -%}{%- else -%}
+    {%- set d = cur - prev -%}
+    <span class="text-muted" style="font-size:0.8em;">({{ '%+d'|format(d) }})</span>
+  {%- endif -%}
+{%- endmacro %}
+
 {% macro issue_chip_list(issues) %}
   {% for i in issues %}
     {% set url = gitea_url_for(i.display_number)|trim %}
@@ -31,6 +42,74 @@
     </div>
   </div>
 </div>
+
+{# ── Weekly summary sentence (from weekly_trend_data) ── #}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    {% if weekly_summary.latest %}
+      {% set L = weekly_summary.latest %}
+      {% set P = weekly_summary.prev %}
+      <div style="font-size:15px; line-height:1.7;">
+        From wk328, there are
+        <strong>{{ L.total }}</strong>{{ delta_badge(L.total, P.total if P else none) }}
+        Gitea requests aligned/developed,
+        <strong>{{ L.developing }}</strong>{{ delta_badge(L.developing, P.developing if P else none) }}
+        developing,
+        <strong>{{ L.uat_tbd }}</strong>{{ delta_badge(L.uat_tbd, P.uat_tbd if P else none) }}
+        under UAT/TBD, and
+        <strong>{{ L.closed }}</strong>{{ delta_badge(L.closed, P.closed if P else none) }}
+        requests are closed.
+      </div>
+      <div class="text-muted mt-1" style="font-size:12px;">
+        資料來源：Admin → Trend Data，最新一週 {{ wk_label(L.week_year, L.week_number) }}
+        {%- if P %}，對照 {{ wk_label(P.week_year, P.week_number) }}{% endif %}
+      </div>
+    {% else %}
+      <div class="text-muted" style="font-size:14px;">
+        尚無 Trend Data，請到
+        <a href="{{ url_for('admin.trend_data') }}">Admin → Trend Data</a>
+        輸入週次統計後顯示。
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Excel-like top table: UAT/TBD ≤ red line per node ── #}
+{% if red_line_year %}
+{% set rl_label = wk_label(red_line_year, red_line_week) %}
+<div class="card mb-3">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-vcenter table-bordered table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width:180px;"></th>
+            {% for node in nodes %}
+              <th class="text-center">{{ node.display_name }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th class="text-nowrap">UAT/TBD ≤ {{ rl_label }}</th>
+            {% for node in nodes %}
+              {% set c = uat_tbd_above.get(node.id, 0) %}
+              <td class="text-center {{ 'text-orange fw-bold' if c > 0 else 'text-muted' }}">{{ c }}</td>
+            {% endfor %}
+          </tr>
+          <tr>
+            <th class="text-nowrap">UAT/TBD JIRA ≤ {{ rl_label }}</th>
+            {% for node in nodes %}
+              {% set c = uat_tbd_jira_above.get(node.id, 0) %}
+              <td class="text-center {{ 'text-orange fw-bold' if c > 0 else 'text-muted' }}">{{ c }}</td>
+            {% endfor %}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {# ── Summary cards ── #}
 <div class="row row-deck row-cards mb-3">
@@ -278,8 +357,10 @@
 
 {# ── Per-node cards (above red line, not done) ── #}
 {% if red_line_year %}
-<h3 class="mb-2" style="font-size:15px;">
-  Red Line 以上未完成（per Node）
+<h3 class="mb-2 d-flex align-items-center gap-1" style="font-size:15px;">
+  Red Line 以上未完成（含 UAT/TBD/Dev/空白・per Node）
+  <span class="text-muted" style="cursor:help; font-size:12px;"
+        title="任何非 done / unneeded 的 node 狀態都算（UAT / UAT done / TBD / Dev / 空白）。&#10;僅保留作為開發者參考；UAT/TBD 的精準分布請看最上方表格。">?</span>
 </h3>
 <div class="row row-deck row-cards mb-3">
   {% for node in nodes %}
@@ -300,7 +381,7 @@
 
 {# ── UAT per Node ── #}
 <h3 class="mb-2" style="font-size:15px;">
-  UAT 統計（per Node）— 共 <strong>{{ uat_total }}</strong> 筆
+  UAT 統計（per Node）
 </h3>
 <div class="row row-deck row-cards mb-3">
   {% for node in nodes %}
@@ -318,7 +399,7 @@
 
 {# ── TBD per Node ── #}
 <h3 class="mb-2" style="font-size:15px;">
-  TBD 統計（per Node）— 共 <strong>{{ tbd_total }}</strong> 筆
+  TBD 統計（per Node）
 </h3>
 <div class="row row-deck row-cards mb-3">
   {% for node in nodes %}
@@ -336,7 +417,7 @@
 
 {# ── Dev per Node ── #}
 <h3 class="mb-2" style="font-size:15px;">
-  Dev 統計（per Node）— 共 <strong>{{ dev_total }}</strong> 筆
+  Dev 統計（per Node）
 </h3>
 <div class="row row-deck row-cards mb-3">
   {% for node in nodes %}
