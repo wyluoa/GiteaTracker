@@ -20,10 +20,21 @@ Design notes:
 """
 import argparse
 import importlib.util
+import io
 import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Ensure stdout/stderr can emit non-ASCII (em-dashes, Chinese descriptions, etc.).
+# On hosts with LANG=C / POSIX locale, Python defaults stdout to ascii or latin-1
+# and every print() of an em-dash ('\u2014') blows up the deploy with
+# UnicodeEncodeError: 'latin-1' codec can't encode character '\u2014'.
+for _stream_name in ("stdout", "stderr"):
+    _stream = getattr(sys, _stream_name)
+    if _stream.encoding and _stream.encoding.lower() not in ("utf-8", "utf8"):
+        setattr(sys, _stream_name,
+                io.TextIOWrapper(_stream.buffer, encoding="utf-8", errors="replace"))
 
 from config import Config
 
