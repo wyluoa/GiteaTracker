@@ -63,7 +63,7 @@ Rules that matter day-to-day:
 - **No `DROP COLUMN`, no column-type changes** — SQLite makes these painful. Additive only; for real restructures, do "new column → backfill → cut over → leave old column dormant".
 - **Never touch `data/attachments/` or `attachments.stored_path` from a migration** — attachments are on-disk files. File moves are separate one-shot scripts, never part of DB migrations.
 
-There is a separate legacy migration in `app/db.py::_run_migrations` that runs on every app startup (adds `pending_close`, `is_manager` columns if missing). It predates `migrate.py`. Don't add new migrations there — use `migrations/` going forward.
+All schema changes go through `migrations/NNN_*.py` — there is no other path. (A legacy `app/db.py::_run_migrations` used to run on every startup; it was consolidated into migration 008 and removed.)
 
 ## Permissions & roles
 

@@ -162,7 +162,6 @@ def create_app():
             if user:
                 from app.models import changes_summary as _cs
                 changes_badge = _cs.count_important(
-                    current_user_id=user["id"],
                     since=user["last_viewed_at"],
                 )
         except Exception:

@@ -91,12 +91,16 @@ def _date_diff_days(old_date, new_date):
     return None
 
 
-def count_important(*, current_user_id, since):
+def count_important(*, since):
     """Quick count of "該關心的" events since `since`, for navbar bell badge.
 
-    Excludes events authored by current_user_id. Much cheaper than full
-    build_summary — runs a handful of aggregate queries, no per-event
-    classification / folding. Good enough for a badge number.
+    Counts ALL authors (including the current user's own operations). This
+    keeps the badge consistent with /changes page, which defaults to showing
+    everything. User-level "hide own" toggle lives on the /changes page
+    itself; the badge is a simple "how many important things happened".
+
+    Much cheaper than full build_summary — runs a handful of aggregate
+    queries, no per-event classification / folding.
     """
     if not since:
         return 0
@@ -105,28 +109,25 @@ def count_important(*, current_user_id, since):
 
     total = 0
 
-    # New issues by others (above OR below red line — all count)
+    # New issues
     row = db.execute(
-        """SELECT COUNT(*) AS c FROM issues
-           WHERE is_deleted = 0 AND created_at > ?
-             AND (created_by_user_id IS NULL OR created_by_user_id != ?)""",
-        (since, current_user_id),
+        "SELECT COUNT(*) AS c FROM issues WHERE is_deleted = 0 AND created_at > ?",
+        (since,),
     ).fetchone()
     total += row["c"]
 
-    # Closed by others
+    # Closed
     row = db.execute(
         """SELECT COUNT(*) AS c FROM issues
            WHERE is_deleted = 0 AND status = 'closed'
-             AND closed_at IS NOT NULL AND closed_at > ?
-             AND (closed_by_user_id IS NULL OR closed_by_user_id != ?)""",
-        (since, current_user_id),
+             AND closed_at IS NOT NULL AND closed_at > ?""",
+        (since,),
     ).fetchone()
     total += row["c"]
 
-    # State-change entries by others; we classify in Python since SQLite
-    # doesn't have a nice way to encode the rank table. This set is small
-    # even with a week of activity so the loop is cheap.
+    # State-change entries. We classify in Python since SQLite doesn't
+    # have a nice way to encode the rank table. This set stays small even
+    # with a week of activity so the loop is cheap.
     rows = db.execute(
         """SELECT t.old_state, t.new_state, t.old_check_in_date, t.new_check_in_date,
                   i.week_year, i.week_number
@@ -134,9 +135,8 @@ def count_important(*, current_user_id, since):
            JOIN issues i ON i.id = t.issue_id
            WHERE t.created_at > ?
              AND t.entry_type = 'state_change'
-             AND i.is_deleted = 0
-             AND (t.author_user_id IS NULL OR t.author_user_id != ?)""",
-        (since, current_user_id),
+             AND i.is_deleted = 0""",
+        (since,),
     ).fetchall()
     for r in rows:
         above = _is_above_red_line(r["week_year"], r["week_number"], red_year, red_week)

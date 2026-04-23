@@ -398,3 +398,98 @@ def test_since_none_returns_nothing(app, db, sample_issue, nodes, make_user):
             current_user_id=user["id"], since=None, include_own=False,
         )
     assert s["counts"]["total_events"] == 0
+
+
+# ─── count_important counts ALL authors (including current user) ──────
+
+def test_count_important_includes_own_events(app, db, old_issue, nodes, make_user):
+    """The navbar badge must agree with /changes default. Since /changes
+    now defaults to showing everything, count_important must also count
+    events authored by the viewing user."""
+    user = make_user("viewer")
+    set_red_line_year, set_red_line_week = 2024, 45  # below-red issue
+    iid = old_issue(week_year=2024, week_number=40)  # above red line
+    db.execute("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)",
+               ("red_line_week_year", str(set_red_line_year)))
+    db.execute("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)",
+               ("red_line_week_number", str(set_red_line_week)))
+    db.commit()
+    since = _iso(datetime.now(timezone.utc) - ONE_HOUR)
+
+    # Author the event as `user` themselves — this would be hidden in
+    # the old "exclude own" badge, but NOW must count.
+    _insert_state_change(db, issue_id=iid, node_id=nodes[0]["id"],
+                         old_state="developing", new_state="uat",
+                         author_user_id=user["id"])
+
+    with app.app_context():
+        n = changes_summary.count_important(since=since)
+    # Above red line + state changed → 1 important event
+    assert n == 1
+
+
+def test_count_important_zero_when_no_events(app, db, make_user):
+    user = make_user("viewer")
+    since = _iso(datetime.now(timezone.utc) - ONE_HOUR)
+    with app.app_context():
+        assert changes_summary.count_important(since=since) == 0
+
+
+def test_count_important_ignores_non_important_state_changes(app, db, old_issue, nodes, make_user):
+    """Normal progression on below-red issue shouldn't count."""
+    user = make_user("viewer")
+    # No red line set → nothing is above red line → state change is plain.
+    iid = old_issue()
+    since = _iso(datetime.now(timezone.utc) - ONE_HOUR)
+    _insert_state_change(db, issue_id=iid, node_id=nodes[0]["id"],
+                         old_state="developing", new_state="uat",
+                         author_user_id=user["id"])
+    with app.app_context():
+        assert changes_summary.count_important(since=since) == 0
+
+
+# ─── /changes route default behavior ──────────────────────────────────
+
+def test_changes_route_default_includes_own(app, client, db, make_user, nodes, old_issue):
+    """GET /changes (no query string) must default to include_own=True."""
+    user = make_user("viewer")
+    iid = old_issue()
+    # Set user's last_viewed_at so `since` is defined
+    db.execute("UPDATE users SET last_viewed_at = ? WHERE id = ?",
+               (_iso(datetime.now(timezone.utc) - ONE_HOUR), user["id"]))
+    db.commit()
+    # User made their own state change
+    _insert_state_change(db, issue_id=iid, node_id=nodes[0]["id"],
+                         old_state="developing", new_state="uat",
+                         author_user_id=user["id"])
+    # Log in as user
+    with client.session_transaction() as s:
+        s["user_id"] = user["id"]
+        s.permanent = True
+
+    r = client.get("/changes")
+    assert r.status_code == 200
+    # The event should be visible on the page (own operation included by default)
+    body = r.data.decode("utf-8", errors="replace")
+    assert "chg-event-item" in body
+
+
+def test_changes_route_include_own_0_hides_own(app, client, db, make_user, nodes, old_issue):
+    """Explicit ?include_own=0 → hide own events."""
+    user = make_user("viewer")
+    iid = old_issue()
+    db.execute("UPDATE users SET last_viewed_at = ? WHERE id = ?",
+               (_iso(datetime.now(timezone.utc) - ONE_HOUR), user["id"]))
+    db.commit()
+    _insert_state_change(db, issue_id=iid, node_id=nodes[0]["id"],
+                         old_state="developing", new_state="uat",
+                         author_user_id=user["id"])
+    with client.session_transaction() as s:
+        s["user_id"] = user["id"]
+        s.permanent = True
+
+    r = client.get("/changes?include_own=0")
+    assert r.status_code == 200
+    body = r.data.decode("utf-8", errors="replace")
+    # No own events should appear → no issue cards
+    assert "chg-event-item" not in body

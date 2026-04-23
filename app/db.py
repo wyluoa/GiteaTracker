@@ -27,29 +27,10 @@ def close_db(e=None):
         db.close()
 
 
-def _run_migrations(app):
-    """Lightweight column-add migrations for existing DBs.
-
-    Keep idempotent. New installs run schema.sql and already have these columns.
-    """
-    conn = sqlite3.connect(app.config["DB_PATH"])
-    try:
-        issue_cols = {r[1] for r in conn.execute("PRAGMA table_info(issues)").fetchall()}
-        if "pending_close" not in issue_cols:
-            conn.execute(
-                "ALTER TABLE issues ADD COLUMN pending_close INTEGER NOT NULL DEFAULT 0"
-            )
-        user_cols = {r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
-        if "is_manager" not in user_cols:
-            conn.execute(
-                "ALTER TABLE users ADD COLUMN is_manager INTEGER NOT NULL DEFAULT 0"
-            )
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def init_app(app):
     """Register close_db as a teardown handler on the Flask app."""
     app.teardown_appcontext(close_db)
-    _run_migrations(app)
+    # Schema changes live in migrations/NNN_*.py exclusively; see
+    # deploy/MIGRATION_SOP.md. The legacy startup-time _run_migrations was
+    # removed in commit introducing migration 008 — all deployments should
+    # now run migrate.py as part of the release process.

@@ -446,7 +446,9 @@ def changes():
         description: 渲染 changes.html
     """
     from app.models import changes_summary
-    include_own = request.args.get("include_own", "0") == "1"
+    # Default: show everything (include own). User can click "隱藏本人操作"
+    # on the page to filter their own edits out.
+    include_own = request.args.get("include_own", "1") == "1"
     filter_node_id = request.args.get("node", type=int) or None
     since = g.current_user["last_viewed_at"]
     has_undo = bool(g.current_user["previous_last_viewed_at"])
