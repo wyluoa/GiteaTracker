@@ -257,9 +257,41 @@ tail -100 ~/gitea-tracker/logs/app.log
 ```
 
 備份內容：
-- SQLite 資料庫（使用 `.backup` 指令，運行中也可安全備份）
+- SQLite 資料庫（Python `sqlite3.backup()` 線上備份；**不**依賴 `sqlite3` CLI，在沒裝 `sqlite3` 指令的機器也能跑）
 - 附件目錄壓縮檔
 - 自動保留最近 30 天的備份
+
+### ⚠ 異地備份（避免單點故障）
+
+本機 `backups/` 跟 live DB 在同一台機器上——硬碟毀損/主機遺失時備份一起沒。
+設 `GITEA_TRACKER_OFFSITE` 讓 backup.sh 額外 rsync 到別處：
+
+```
+# crontab -e：每天 2 AM 備份 + 推一份到 NAS
+0 2 * * * GITEA_TRACKER_OFFSITE="user@nas:/backups/giteatr" ~/gitea-tracker/deploy/backup.sh
+```
+
+`GITEA_TRACKER_OFFSITE` 可以是：
+- `user@host:/path` — SSH rsync 到另一台機器（需設好 ssh key）
+- 本地路徑 `/mnt/nas/gitea` — 網路掛載的 NAS / 網芳
+- 公司檔案伺服器上的路徑
+
+如果環境沒裝 rsync，腳本會印 warning 但本機備份仍會完成。
+
+### 驗證備份真的可用
+
+```
+~/gitea-tracker/deploy/verify_backup.sh
+```
+
+腳本會拿最新一份備份 DB，開啟並跑 sanity SELECT（檢查 schema + 資料可讀）。
+建議 **每週 cron 跑一次**，出問題 cron 會發 mail 通知：
+
+```
+0 3 * * 1 ~/gitea-tracker/deploy/verify_backup.sh
+```
+
+> 「沒驗證過的備份，出事那天才發現不能用」是常見災難。
 
 ### 設定每日自動備份（user crontab）
 
