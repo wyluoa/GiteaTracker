@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}變動總表 — Gitea Tracker{% endblock %}
+
+{% block content %}
+
+{# State chip palette — consistent with tracker.html #}
+{% set STATE_COLORS = {
+  'done':       {'bg': '#27ae60', 'text': 'white', 'label': 'Done'},
+  'uat_done':   {'bg': '#3498db', 'text': 'white', 'label': 'UAT✓'},
+  'uat':        {'bg': '#e67e22', 'text': 'white', 'label': 'UAT'},
+  'developing': {'bg': '#95a5a6', 'text': 'white', 'label': 'Dev'},
+  'tbd':        {'bg': '#8e44ad', 'text': 'white', 'label': 'TBD'},
+  'unneeded':   {'bg': '#bdc3c7', 'text': '#555',  'label': 'Unneeded'},
+} %}
+{% set EMPTY_COLOR = {'bg': 'transparent', 'text': 'var(--chg-meta-text)', 'label': '—'} %}
+
+{% macro state_chip(state) -%}
+  {%- set info = STATE_COLORS.get(state, EMPTY_COLOR) -%}
+  <span class="chg-state-chip" style="background:{{ info.bg }};color:{{ info.text }};">{{ info.label }}</span>
+{%- endmacro %}
+
+{% macro fmt_since(ts) -%}
+  {%- if ts -%}{{ ts[:10] }} {{ ts[11:16] }}{%- else -%}—{%- endif -%}
+{%- endmacro %}
+
+{% macro fmt_when(ts) -%}
+  {%- if ts -%}{{ ts[5:10] }} {{ ts[11:16] }}{%- else -%}—{%- endif -%}
+{%- endmacro %}
+
+{% set c = summary.counts %}
+{% set important_issues = summary.issues | selectattr('max_severity', 'equalto', 'important') | list %}
+{% set normal_issues    = summary.issues | selectattr('max_severity', 'equalto', 'normal')    | list %}
+
+<div class="page-header d-print-none mb-2">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <div class="chg-kicker">Changes</div>
+      <h2 class="page-title mb-0">變動總表</h2>
+      <div class="text-muted small">
+        基準時間：<strong>{{ fmt_since(summary.since) }}</strong>
+      </div>
+    </div>
+    <div class="col-auto ms-auto d-flex gap-2 flex-wrap align-items-center">
+      {# Node filter — GET form, keeps include_own in sync so toggling one
+         doesn't reset the other. #}
+      <form method="get" class="d-inline-flex align-items-center gap-1 m-0">
+        <label class="small text-muted mb-0" for="chg-node-filter">Node：</label>
+        <select name="node" id="chg-node-filter"
+                class="form-select form-select-sm"
+                style="width:auto; min-width:100px;"
+                onchange="this.form.submit()">
+          <option value="">全部</option>
+          {% for n in nodes %}
+          <option value="{{ n.id }}" {% if filter_node_id == n.id %}selected{% endif %}>{{ n.display_name }}</option>
+          {% endfor %}
+        </select>
+        {# Preserve include_own across filter changes #}
+        {% if include_own %}<input type="hidden" name="include_own" value="1">{% endif %}
+      </form>
+
+      <form method="get" class="d-inline m-0">
+        <input type="hidden" name="include_own" value="{{ '0' if include_own else '1' }}">
+        {% if filter_node_id %}<input type="hidden" name="node" value="{{ filter_node_id }}">{% endif %}
+        <button type="submit" class="btn btn-sm {{ 'btn-outline-secondary' if include_own else 'btn-outline-primary' }}">
+          {% if include_own %}隱藏本人操作{% else %}顯示本人操作{% endif %}
+        </button>
+      </form>
+      {% if has_undo %}
+      <form method="post" action="{{ url_for('main.mark_all_read_undo') }}" class="d-inline m-0">
+        <input type="hidden" name="next" value="{{ url_for('main.changes') }}{% if filter_node_id %}?node={{ filter_node_id }}{% endif %}">
+        <button type="submit" class="btn btn-sm btn-outline-warning">↶ 還原上次已讀</button>
+      </form>
+      {% endif %}
+      {% if c.total_events > 0 %}
+      <form method="post" action="{{ url_for('main.mark_all_read') }}" class="d-inline m-0">
+        <input type="hidden" name="next" value="{{ url_for('main.changes') }}{% if filter_node_id %}?node={{ filter_node_id }}{% endif %}">
+        <button type="submit" class="btn btn-sm btn-primary">標記已讀</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── Active-filter banner: makes current Node filter unambiguous + 1-click clear ── #}
+{% if filter_node_id %}
+  {% set filter_node = (nodes | selectattr('id', 'equalto', filter_node_id) | list | first) %}
+  <div class="alert alert-info py-2 mb-3 d-flex align-items-center" role="alert" style="font-size:13px;">
+    已篩選：Node =
+    <strong class="ms-1">{{ filter_node.display_name if filter_node else filter_node_id }}</strong>
+    <span class="text-muted ms-2" style="font-size:12px;">(僅顯示此 Node 的 cell 變動，不含欄位編輯 / 新增 / 關單)</span>
+    <a href="{{ url_for('main.changes') }}{% if include_own %}?include_own=1{% endif %}"
+       class="btn btn-sm btn-ghost-secondary ms-auto">× 清除篩選</a>
+  </div>
+{% endif %}
+
+{# ── Headline numbers: typography, no boxes ── #}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    {% if c.total_events == 0 %}
+      <div class="chg-empty">
+        <div class="chg-empty-icon">🗂</div>
+        <div class="chg-empty-title">
+          {% if filter_node_id %}此 Node 無新變動{% else %}無新變動{% endif %}
+        </div>
+        <div class="small mt-1">
+          {% if filter_node_id %}
+            此 Node 在基準時間之後沒有 cell 狀態變動。
+            <a href="{{ url_for('main.changes') }}{% if include_own %}?include_own=1{% endif %}">查看全部 Node</a>
+          {% else %}
+            自基準時間以來，無任何記錄變更。
+          {% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div class="chg-headline">
+        {% if c.red_line_events > 0 %}
+        <div class="chg-headline-item">
+          <div class="chg-headline-num is-critical">{{ c.red_line_events }}</div>
+          <div class="chg-headline-label">紅線以上變動</div>
+        </div>
+        {% endif %}
+        {% if c.check_in_delay_events > 0 %}
+        <div class="chg-headline-item">
+          <div class="chg-headline-num is-critical">{{ c.check_in_delay_events }}</div>
+          <div class="chg-headline-label">Check-in 延期</div>
+        </div>
+        {% endif %}
+        {% if c.regression_events > 0 %}
+        <div class="chg-headline-item">
+          <div class="chg-headline-num is-critical">{{ c.regression_events }}</div>
+          <div class="chg-headline-label">狀態回退</div>
+        </div>
+        {% endif %}
+        {% if c.new_issues > 0 %}
+        <div class="chg-headline-item">
+          <div class="chg-headline-num">{{ c.new_issues }}</div>
+          <div class="chg-headline-label">新增題目</div>
+        </div>
+        {% endif %}
+        {% if c.closed_issues > 0 %}
+        <div class="chg-headline-item">
+          <div class="chg-headline-num">{{ c.closed_issues }}</div>
+          <div class="chg-headline-label">已關單</div>
+        </div>
+        {% endif %}
+        <div class="chg-headline-item ms-auto text-md-end">
+          <div class="chg-headline-meta">
+            共 {{ c.total_events }} 筆 / {{ c.total_issues }} 題
+          </div>
+          {% if summary.red_line[0] %}
+          <div class="chg-headline-meta mt-1">
+            紅線 wk{{ summary.red_line[0] - 2020 }}{{ '%02d'|format(summary.red_line[1]) }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Render one event — readable line with an optional "why" body ── #}
+{% macro render_event(ev) %}
+<div class="chg-event-item {% if ev.important %}chg-event-important{% endif %}">
+  <div class="chg-event-main">
+    {# Col 1: node / field / marker #}
+    <span class="chg-event-node">
+      {% if ev.type == 'cell' %}{{ ev.node_name }}
+      {% elif ev.type == 'field' %}{{ ev.field_label }}
+      {% elif ev.type == 'new_issue' %}新增
+      {% elif ev.type == 'closed' %}已關單
+      {% endif %}
+    </span>
+
+    {# Col 2: the change itself — narrative, with state chips for cells #}
+    <span class="chg-event-change">
+      {% if ev.type == 'cell' %}
+        {{ state_chip(ev.old_state) }}
+        <span class="chg-arrow">→</span>
+        {{ state_chip(ev.new_state) }}
+        {% if ev.new_check_in_date %}
+          <span class="chg-check-in">check-in {{ ev.new_check_in_date }}</span>
+        {% endif %}
+        {% if ev.fold_count > 1 %}
+          <span class="chg-fold" title="期間內共 {{ ev.fold_count }} 次變動，僅顯示淨變化">· {{ ev.fold_count }} 次</span>
+        {% endif %}
+      {% elif ev.type == 'field' %}
+        {% if ev.old_value %}
+          <span class="chg-val chg-val-old">{{ ev.old_value }}</span>
+          <span class="chg-arrow">→</span>
+        {% else %}
+          <span class="chg-val chg-val-old">（空）</span>
+          <span class="chg-arrow">→</span>
+        {% endif %}
+        {% if ev.new_value %}
+          <span class="chg-val chg-val-new">{{ ev.new_value }}</span>
+        {% else %}
+          <span class="chg-val chg-val-old">（清空）</span>
+        {% endif %}
+      {% elif ev.type == 'new_issue' %}
+        <span class="chg-val chg-val-new">Owner：{{ ev.requestor_name or '—' }}</span>
+      {% elif ev.type == 'closed' %}
+        {% if ev.closed_note %}
+          <span class="chg-val chg-val-new">{{ ev.closed_note }}</span>
+        {% else %}
+          <span class="chg-val chg-val-old">（無備註）</span>
+        {% endif %}
+      {% endif %}
+    </span>
+
+    {# Col 3: severity flags, accent color, dot-separated #}
+    {% set flags = [] %}
+    {% if ev.flag_red_line %}{% set _ = flags.append('紅線') %}{% endif %}
+    {% if ev.flag_regression %}{% set _ = flags.append('回退') %}{% endif %}
+    {% if ev.flag_delay and ev.check_in_delta_days %}{% set _ = flags.append('延 ' ~ ev.check_in_delta_days ~ ' 天') %}{% endif %}
+    {% if flags %}
+    <span class="chg-event-flags">
+      · {{ flags | join(' · ') }}
+    </span>
+    {% endif %}
+
+    {# Col 4: who · when — auto-right #}
+    <span class="chg-event-who">
+      {% if ev.type == 'cell' or ev.type == 'field' %}
+        {{ ev.last_author }} · {{ fmt_when(ev.last_at) }}
+      {% elif ev.type == 'new_issue' %}
+        {{ fmt_when(ev.created_at) }}
+      {% elif ev.type == 'closed' %}
+        {{ fmt_when(ev.closed_at) }}
+      {% endif %}
+    </span>
+  </div>
+
+  {# Body line: the "why" — the mandatory update note for state changes,
+     or short_note for cell edits. This is the most valuable info for the
+     meeting owner and was previously being hidden. #}
+  {% if ev.type == 'cell' and ev.body %}
+    <div class="chg-event-body">{{ ev.body }}</div>
+  {% elif ev.type == 'cell' and ev.new_short_note and ev.new_short_note != ev.old_short_note %}
+    <div class="chg-event-body">備註：{{ ev.new_short_note }}</div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro render_issue(b) %}
+<div class="chg-issue-card {% if b.above_red %}is-redline{% endif %}" id="chg-issue-{{ b.issue_id }}">
+  <div class="chg-issue-title">
+    <a href="{{ url_for('main.tracker') }}#issue-{{ b.issue_id }}" class="chg-issue-num">#{{ b.display_number }}</a>
+    <span class="chg-issue-topic">{{ b.topic }}</span>
+    <span class="chg-issue-meta">
+      {% if b.week_year %}wk{{ b.week_year - 2020 }}{{ '%02d'|format(b.week_number) }}{% endif %}
+      {% if b.above_red %}<em class="chg-redline-tag">紅線以上</em>{% endif %}
+      {% if b.is_closed %}<em class="chg-redline-tag" style="color:var(--chg-meta-text);">已關單</em>{% endif %}
+      {% if b.is_new %}<em class="chg-redline-tag" style="color:var(--tblr-success,#2c7a2c);">新題目</em>{% endif %}
+    </span>
+  </div>
+  <div class="chg-event-list">
+    {% for ev in b.events %}{{ render_event(ev) }}{% endfor %}
+  </div>
+</div>
+{% endmacro %}
+
+{# ── Display rules — collapsible legend so no UI element is ever a mystery ── #}
+{% if c.total_events > 0 %}
+<details class="chg-rules">
+  <summary class="chg-rules-summary">顯示規則
+    <span class="chg-rules-hint">(點擊展開查看分類與旗標的判定條件)</span>
+  </summary>
+  <ul class="chg-rules-list">
+    <li>
+      <strong>重點項目</strong>：含下列任一事件的題目：<em>紅線以上狀態變動 · 狀態回退 · Check-in 延期 · 新增題目 · 關單</em>。<br>
+      <strong>其他變動</strong>：僅含正常狀態進展（Dev→UAT、UAT→UAT✓ 等）或欄位編輯（JIRA / UAT Path）的題目。
+    </li>
+    <li>
+      <strong>紅線以上</strong>：題目週次 ≤ 紅線週次（由 Admin 設定{% if summary.red_line[0] %}，目前為 wk{{ summary.red_line[0] - 2020 }}{{ '%02d'|format(summary.red_line[1]) }}{% endif %}）。
+      題號卡左側出現<span class="chg-rules-mark"></span>紅色直條者即為此類。
+    </li>
+    <li>
+      <strong>狀態回退</strong>：狀態從較後階段（Done / UAT✓）移回較前階段（UAT / Dev / TBD），通常代表需求變更。
+    </li>
+    <li>
+      <strong>延 N 天</strong>：Check-in 日期被後延 N 天（比較前後的 check_in_date 欄位）。
+    </li>
+    <li>
+      <strong>(N 次)</strong>：同一 cell 在期間內被連改 N 次，僅顯示最終淨變化；中間軌跡不展開。
+    </li>
+    <li>
+      本頁預設 <strong>排除本人操作</strong>。可點右上「顯示本人操作」切換。
+    </li>
+    <li>
+      <strong>基準時間</strong>：上一次按「標記已讀」的時間（新使用者則為帳號建立時）。按「標記已讀」會把基準往前推到現在；「還原上次已讀」可復原一次。
+    </li>
+  </ul>
+</details>
+{% endif %}
+
+{# ── Section 1: 重點項目 ── #}
+{% if important_issues %}
+<div class="chg-section-head">
+  <span class="chg-section-title">重點項目</span>
+  <span class="chg-section-count">{{ important_issues|length }} 題</span>
+  <span class="chg-section-hint">· 含紅線、回退、延期、新增、關單任一事件</span>
+</div>
+<div class="chg-list">
+  {% for b in important_issues %}{{ render_issue(b) }}{% endfor %}
+</div>
+{% endif %}
+
+{# ── Section 2: 其他變動 ── #}
+{% if normal_issues %}
+<div x-data="{ open: false }">
+  <div class="chg-section-head">
+    <span class="chg-section-title">其他變動</span>
+    <span class="chg-section-count">{{ normal_issues|length }} 題</span>
+    <span class="chg-section-hint">· 正常狀態進展與欄位編輯</span>
+    <button type="button" class="chg-expand-btn chg-section-actions" @click="open = !open">
+      <span x-text="open ? '收合' : '展開'"></span>
+    </button>
+  </div>
+  <div x-show="open" x-cloak>
+    <div class="chg-list">
+      {% for b in normal_issues %}{{ render_issue(b) }}{% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

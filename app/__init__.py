@@ -144,17 +144,35 @@ def create_app():
     @app.context_processor
     def inject_dynamic_settings():
         import json as _json
+        from flask import g
         from app.models import setting as setting_model
         raw_mappings = setting_model.get("gitea_url_mappings", "[]")
         try:
             _url_mappings = _json.loads(raw_mappings)
         except (ValueError, TypeError):
             _url_mappings = []
+
+        # Navbar bell badge: count of "該關心的" changes since last visit.
+        # Only compute when logged in; otherwise skip entirely.
+        changes_badge = 0
+        try:
+            user = g.get("current_user") if hasattr(g, "get") else None
+            if user:
+                from app.models import changes_summary as _cs
+                changes_badge = _cs.count_important(
+                    current_user_id=user["id"],
+                    since=user["last_viewed_at"],
+                )
+        except Exception:
+            # Never let the badge break page rendering.
+            changes_badge = 0
+
         return {
             "col_topic_min_width": setting_model.get("col_topic_min_width", "280"),
             "col_path_min_width": setting_model.get("col_path_min_width", "220"),
             "gitea_url_mappings": _url_mappings,
             "static_version": _static_version,
+            "changes_badge_count": changes_badge,
         }
 
     # Reverse proxy path prefix (e.g. /GiteaTracker)

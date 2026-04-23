@@ -1674,7 +1674,11 @@ def update_issue_owner(issue_id):
     new_owner = request.form.get("requestor_name", "").strip()
     old_owner = issue["requestor_name"] or ""
     if new_owner != old_owner:
-        issue_model.update_issue(issue_id, requestor_name=new_owner)
+        issue_model.update_issue(
+            issue_id, requestor_name=new_owner,
+            author_user_id=g.current_user["id"],
+            author_name_snapshot=g.current_user["display_name"],
+        )
         _audit("update_owner", "issue", issue_id,
                {"old": old_owner, "new": new_owner})
         flash(f"#{issue['display_number']} Owner 已更新為 {new_owner}", "success")
@@ -1727,7 +1731,12 @@ def edit_issue(issue_id):
         updates["uat_path"] = new_path or None
 
     if updates:
-        issue_model.update_issue(issue_id, **updates)
+        issue_model.update_issue(
+            issue_id,
+            author_user_id=g.current_user["id"],
+            author_name_snapshot=g.current_user["display_name"],
+            **updates,
+        )
         _audit("edit_issue", "issue", issue_id, updates)
         flash(f"#{issue['display_number']} 已更新", "success")
     return redirect(request.referrer or url_for("main.tracker"))

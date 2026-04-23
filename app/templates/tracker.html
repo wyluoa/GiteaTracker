@@ -114,10 +114,16 @@
       {{ render_cell(issue, node) }}
     {% endfor %}
     <td class="cell-jira{% if jira_new %} cell-new-change{% endif %}">{{ (issue.jira_ticket or '')|replace('\n', '<br>')|safe }}</td>
-    <td class="cell-path{% if path_new %} cell-new-change{% endif %}" title="點擊複製路徑"
-        onclick="event.stopPropagation();copyText(this.querySelector('.path-raw').textContent)">
-      <span class="path-raw" hidden>{{ issue.uat_path or '' }}</span>
-      {{ (issue.uat_path or '')|replace('\n', '<br>')|safe }}
+    <td class="cell-path{% if path_new %} cell-new-change{% endif %}">
+      {# Each line is its own clickable element so "click to copy" only copies
+         the single line the user clicked, not the whole multi-line blob. #}
+      {% for line in (issue.uat_path or '').split('\n') %}
+        {% set trimmed = line.strip() %}
+        {% if trimmed %}
+          <div class="path-line" title="點擊複製此行"
+               onclick="event.stopPropagation();copyText(this.textContent.trim())">{{ trimmed }}</div>
+        {% endif %}
+      {% endfor %}
     </td>
   </tr>
   <tr x-show="editing" x-cloak style="background:#f0f4ff;">

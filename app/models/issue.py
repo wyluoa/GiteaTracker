@@ -19,6 +19,11 @@ FIELD_TO_TS = {
     "uat_path": "uat_path_updated_at",
 }
 
+# Canonical user-facing fields tracked in /changes summary. Only these emit
+# field_change timeline entries (avoids double-logging for user_id variants
+# that point at the same timestamp column).
+_FIELD_CHANGE_LOGGED = ("topic", "requestor_name", "jira_ticket", "uat_path")
+
 
 def create_issue(*, display_number, topic, owner_user_id=None,
                  requestor_user_id=None, requestor_name=None,
@@ -281,14 +286,24 @@ def count_node_states_by_type(state_type):
     return total, per_node
 
 
-def update_issue(issue_id, **fields):
+def update_issue(issue_id, *, author_user_id=None, author_name_snapshot=None,
+                 **fields):
     """Update arbitrary fields on an issue.
 
     Auto-bumps per-field timestamps (FIELD_TO_TS) so the tracker can highlight
     exactly the column(s) that changed, independent of other meta edits.
+
+    When author_user_id + author_name_snapshot are provided, also append a
+    field_change timeline entry for each canonical tracked field that actually
+    changed (topic/requestor_name/jira_ticket/uat_path). Callers that don't
+    represent a human edit (bulk import, soft delete, close/reopen) can omit
+    them to skip the log.
     """
     if not fields:
         return
+    will_log = (author_user_id is not None and author_name_snapshot is not None)
+    old_row = get_by_id(issue_id) if will_log else None
+
     now = _now()
     fields["updated_at"] = now
     for key in list(fields.keys()):
@@ -300,6 +315,25 @@ def update_issue(issue_id, **fields):
     db = get_db()
     db.execute(f"UPDATE issues SET {set_clause} WHERE id = ?", vals)
     db.commit()
+
+    if will_log and old_row is not None:
+        from app.models import timeline as timeline_model
+        for key in _FIELD_CHANGE_LOGGED:
+            if key not in fields:
+                continue
+            old_val = old_row[key] if key in old_row.keys() else None
+            new_val = fields[key]
+            if (old_val or "") == (new_val or ""):
+                continue
+            timeline_model.create_entry(
+                issue_id=issue_id,
+                entry_type="field_change",
+                field_name=key,
+                old_field_value=(str(old_val) if old_val is not None else None),
+                new_field_value=(str(new_val) if new_val is not None else None),
+                author_user_id=author_user_id,
+                author_name_snapshot=author_name_snapshot,
+            )
 
 
 def refresh_cache(issue_id):

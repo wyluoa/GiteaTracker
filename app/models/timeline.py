@@ -13,20 +13,23 @@ def create_entry(*, issue_id, entry_type, author_user_id=None,
                  old_state=None, new_state=None,
                  old_check_in_date=None, new_check_in_date=None,
                  old_short_note=None, new_short_note=None,
+                 field_name=None, old_field_value=None, new_field_value=None,
                  body=None, meeting_week_year=None, meeting_week_number=None):
     db = get_db()
     cur = db.execute(
         """INSERT INTO timeline_entries
            (issue_id, entry_type, node_id,
             old_state, new_state, old_check_in_date, new_check_in_date,
-            old_short_note, new_short_note, body,
-            meeting_week_year, meeting_week_number,
+            old_short_note, new_short_note,
+            field_name, old_field_value, new_field_value,
+            body, meeting_week_year, meeting_week_number,
             author_user_id, author_name_snapshot, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (issue_id, entry_type, node_id,
          old_state, new_state, old_check_in_date, new_check_in_date,
-         old_short_note, new_short_note, body,
-         meeting_week_year, meeting_week_number,
+         old_short_note, new_short_note,
+         field_name, old_field_value, new_field_value,
+         body, meeting_week_year, meeting_week_number,
          author_user_id, author_name_snapshot, _now()),
     )
     db.commit()

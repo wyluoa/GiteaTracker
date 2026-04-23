@@ -76,14 +76,49 @@ body {
 .cell-path   {
   font-size: 11px;
   color: #666;
-  cursor: pointer;
   white-space: normal;
   word-break: break-all;
   position: relative;
   padding: 3px 8px !important;
 }
-.cell-path:hover {
-  color: #0d6efd;
+/* Each line is its own click-to-copy target — so a multi-line path
+   doesn't force the user to copy everything. Hover gives a strong,
+   unmistakable "this line is the target" visual so the user always knows
+   what clicking will copy. */
+.cell-path .path-line {
+  display: block;
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: 1px -6px;
+  border-radius: 3px;
+  border-left: 2px solid transparent;
+  line-height: 1.55;
+  transition: background 0.08s, color 0.08s, border-color 0.08s;
+}
+.cell-path .path-line:hover {
+  background: #dbe9ff;
+  color: #0b5ed7;
+  border-left-color: #0d6efd;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.cell-path .path-line:hover::after {
+  content: ' ⧉';
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+[data-bs-theme="dark"] .cell-path .path-line:hover {
+  background: #2a3a5a;
+  color: #9ec5ff;
+  border-left-color: #6ea8fe;
+}
+[data-bs-theme="gray"] .cell-path .path-line:hover {
+  background: #cfd8e8;
+  color: #0b5ed7;
+  border-left-color: #0d6efd;
 }
 .cell-path .copy-ok {
   font-size: 10px;
@@ -871,4 +906,391 @@ body {
 [data-bs-theme="gray"] [style*="background: #fffde7"] {
   background: #ebebee !important;
   border-color: #d9d9dd !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   /changes — Changes Summary page (editorial briefing style)
+   ═════════════════════════════════════════════════════════════════════
+   Design principles:
+     - ONE strong accent color (critical red) for severity, used as text not fill
+     - Tabler CSS vars (--tblr-*) so dark/gray mode inherit automatically
+     - CSS Grid with subgrid-style display:contents for cross-issue alignment
+     - tabular-nums on all times/IDs/numerics so columns line up exactly
+     - No decorative badges — typography carries the signal
+*/
+
+/* Color tokens — severity accent + a "body text" token specifically for small
+   secondary text (notes, meta, who/when). In dark/gray mode we bump the
+   secondary text brighter than --tblr-muted so it stays readable instead of
+   blending into the surrounding dark card background. */
+:root {
+  --chg-accent: #b91c1c;       /* deep red, editorial */
+  --chg-accent-soft: #fef2f2;  /* near-white warm tint */
+  --chg-body-text: #4a5261;    /* note/meta text in light mode (darker than muted) */
+  --chg-meta-text: #5c6370;    /* who/when meta */
+}
+[data-bs-theme="dark"] {
+  --chg-accent: #f87171;
+  --chg-accent-soft: #3a2020;
+  --chg-body-text: #c5ccd5;    /* high-contrast light gray for dark bg */
+  --chg-meta-text: #a3acb8;
+}
+[data-bs-theme="gray"] {
+  --chg-accent: #9f2020;
+  --chg-accent-soft: #ead5d5;
+  --chg-body-text: #3a424d;
+  --chg-meta-text: #555d6a;
+}
+
+/* ── Top summary strip: numbers with labels, no boxes ── */
+.chg-headline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem 2.5rem;
+  padding: 0.5rem 0;
+}
+.chg-headline-item {
+  min-width: 100px;
+}
+.chg-headline-num {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--tblr-body-color);
+}
+.chg-headline-num.is-critical {
+  color: var(--chg-accent);
+}
+.chg-headline-label {
+  font-size: 11.5px;
+  color: var(--chg-meta-text);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+.chg-headline-meta {
+  color: var(--chg-meta-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Section header: pure typography ── */
+.chg-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 1.5rem 0 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--tblr-border-color);
+  flex-wrap: wrap;
+}
+.chg-section-head .chg-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--tblr-body-color);
+}
+.chg-section-head .chg-section-count {
+  font-size: 11px;
+  color: var(--chg-meta-text);
+  font-variant-numeric: tabular-nums;
+}
+.chg-section-head .chg-section-hint {
+  font-size: 11.5px;
+  color: var(--chg-meta-text);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.chg-section-head .chg-section-actions { margin-left: auto; }
+
+/* ── Rules / legend panel — collapsible, explains every UI convention
+   so user never has to guess what a tag / bar / flag / fold means. ── */
+.chg-rules {
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 0.85rem;
+  border-left: 3px solid var(--tblr-border-color);
+  background: transparent;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--chg-body-text);
+}
+.chg-rules-summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--tblr-body-color);
+  list-style: none;
+  user-select: none;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.chg-rules-summary::-webkit-details-marker { display: none; }
+.chg-rules-summary::before {
+  content: '▸';
+  font-size: 10px;
+  color: var(--chg-meta-text);
+  transition: transform 0.15s ease;
+}
+.chg-rules[open] .chg-rules-summary::before {
+  transform: rotate(90deg);
+}
+.chg-rules-hint {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--chg-meta-text);
+  margin-left: 0.4rem;
+}
+.chg-rules-list {
+  margin: 0.55rem 0 0.15rem 0;
+  padding-left: 1rem;
+  list-style: none;
+}
+.chg-rules-list li {
+  margin-bottom: 0.35rem;
+  position: relative;
+}
+.chg-rules-list li::before {
+  content: '·';
+  position: absolute;
+  left: -0.75rem;
+  color: var(--chg-meta-text);
+  font-weight: 700;
+}
+.chg-rules-list strong {
+  color: var(--tblr-body-color);
+  font-weight: 700;
+}
+.chg-rules-list .chg-rules-mark {
+  display: inline-block;
+  width: 2px;
+  height: 0.9em;
+  background: var(--chg-accent);
+  vertical-align: -1px;
+  margin: 0 2px;
+}
+
+/* ── Outer list wrapper ── */
+.chg-list {
+  max-width: 840px;
+}
+
+/* ── One card per issue — separated by a single hairline ── */
+.chg-issue-card {
+  position: relative;
+  padding: 0.9rem 0 0.75rem;
+  border-top: 1px solid var(--tblr-border-color);
+}
+.chg-issue-card:first-child {
+  border-top: none;
+  padding-top: 0.3rem;
+}
+
+/* Red-line issue: a single continuous 2px red bar that spans the WHOLE card
+   (title + all events), not per-event. This matches user intuition — "the
+   issue is above red line" is a property of the issue, not of individual events. */
+.chg-issue-card.is-redline {
+  padding-left: 12px;
+}
+.chg-issue-card.is-redline::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.9rem;
+  bottom: 0.75rem;
+  width: 2px;
+  background: var(--chg-accent);
+  border-radius: 1px;
+}
+.chg-issue-card.is-redline:first-child::before {
+  top: 0.3rem;
+}
+
+/* ── Issue title: #num + TOPIC (full, readable) + meta (right) ── */
+.chg-issue-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+  line-height: 1.35;
+}
+.chg-issue-num {
+  font-weight: 700;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tblr-body-color);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.chg-issue-num:hover {
+  color: var(--tblr-primary, #206bc4);
+  text-decoration: underline;
+}
+.chg-issue-topic {
+  font-size: 14px;
+  color: var(--tblr-body-color);
+  flex: 1 1 auto;
+  min-width: 0;
+  /* No truncation. Wrap if long — topic is what the user needs to recognize the issue. */
+}
+.chg-issue-meta {
+  font-size: 11.5px;
+  color: var(--chg-meta-text);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.chg-issue-meta .chg-redline-tag {
+  color: var(--chg-accent);
+  font-weight: 700;
+  font-style: normal;
+  margin-left: 0.35rem;
+}
+
+/* ── Event list: small indent, each event is a readable line ── */
+.chg-event-list {
+  padding-left: 1.25rem;
+}
+.chg-event-item {
+  padding: 0.35rem 0;
+  margin-bottom: 0.1rem;
+}
+/* .chg-event-important class kept for potential future per-event emphasis;
+   visual cue is now carried by (a) the card-level red bar for above-red
+   issues and (b) the accent-color flag text (·紅線 ·回退 ·延 N 天) on the
+   event line itself — both read clearer than a per-event left border. */
+
+/* The primary event line — single flex row, baseline aligned */
+.chg-event-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.chg-event-node {
+  flex: 0 0 auto;
+  min-width: 64px;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--tblr-body-color);
+  font-variant-numeric: tabular-nums;
+}
+.chg-event-change {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+}
+.chg-event-flags {
+  flex: 0 1 auto;
+  color: var(--chg-accent);
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.chg-event-who {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--chg-meta-text);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Secondary line under the event — the update note / body (the "why").
+   Full text, wraps naturally. Aligned with the change column for readability. */
+.chg-event-body {
+  color: var(--chg-body-text);
+  font-size: 12.5px;
+  padding-left: calc(64px + 0.7rem);
+  margin-top: 2px;
+  line-height: 1.55;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.chg-event-body::before {
+  content: '「';
+  color: var(--chg-meta-text);
+}
+.chg-event-body::after {
+  content: '」';
+  color: var(--chg-meta-text);
+}
+
+/* State chip — kept because state color IS the signal (consistent with tracker) */
+.chg-state-chip {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.55;
+  flex-shrink: 0;
+}
+/* Arrows carry directional meaning (before → after) — keep them readable.
+   Body-text color (same as regular content) so they don't fade into the bg. */
+.chg-arrow {
+  color: var(--chg-body-text);
+  margin: 0 2px;
+  font-weight: 500;
+}
+
+/* Text values (field change old/new, closed note, UAT path) — full text,
+   allowed to wrap. Long paths (e.g. /uat/checkin/2026-04-22/foo/bar) break
+   on any character so they stay within the change column. */
+.chg-val {
+  font-size: 12px;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+.chg-val-old {
+  color: var(--chg-meta-text);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.chg-val-new { color: var(--tblr-body-color); }
+
+.chg-check-in, .chg-fold {
+  font-size: 11.5px;
+  color: var(--chg-meta-text);
+}
+
+/* Empty state */
+.chg-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--chg-meta-text);
+}
+.chg-empty-icon { font-size: 40px; margin-bottom: 0.5rem; }
+.chg-empty-title { font-size: 14px; font-weight: 600; color: var(--tblr-body-color); }
+
+/* "Expand other changes" button row */
+.chg-expand-btn {
+  background: none;
+  border: 0;
+  color: var(--chg-meta-text);
+  font-size: 12px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.chg-expand-btn:hover {
+  color: var(--tblr-body-color);
+  background: var(--tblr-border-color);
+}
+
+/* ── Editorial kicker: "CHANGES" in uppercase above the Chinese title
+     so anyone landing on the page instantly knows what it is. ── */
+.chg-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--chg-accent);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+  line-height: 1;
 }

@@ -94,14 +94,14 @@ wk{{ y - 2020 }}{{ '%02d'|format(w) }}
             <th class="text-nowrap">UAT/TBD ≤ {{ rl_label }}</th>
             {% for node in nodes %}
               {% set c = uat_tbd_above.get(node.id, 0) %}
-              <td class="text-center {{ 'text-orange fw-bold' if c > 0 else 'text-muted' }}">{{ c }}</td>
+              <td class="text-center {{ 'text-red fw-bold' if c > 0 else 'text-muted' }}">{{ c }}</td>
             {% endfor %}
           </tr>
           <tr>
             <th class="text-nowrap">UAT/TBD JIRA ≤ {{ rl_label }}</th>
             {% for node in nodes %}
               {% set c = uat_tbd_jira_above.get(node.id, 0) %}
-              <td class="text-center {{ 'text-orange fw-bold' if c > 0 else 'text-muted' }}">{{ c }}</td>
+              <td class="text-center {{ 'text-red fw-bold' if c > 0 else 'text-muted' }}">{{ c }}</td>
             {% endfor %}
           </tr>
         </tbody>

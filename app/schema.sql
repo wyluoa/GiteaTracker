@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_super_user   INTEGER NOT NULL DEFAULT 0,
     is_manager      INTEGER NOT NULL DEFAULT 0,
     last_viewed_at  TEXT,
+    previous_last_viewed_at TEXT,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 );
@@ -100,7 +101,7 @@ CREATE INDEX IF NOT EXISTS idx_states_node  ON issue_node_states(node_id, state)
 CREATE TABLE IF NOT EXISTS timeline_entries (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     issue_id              INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    entry_type            TEXT NOT NULL,  -- state_change/comment/meeting_note
+    entry_type            TEXT NOT NULL,  -- state_change/comment/meeting_note/field_change
     node_id               INTEGER REFERENCES nodes(id),
     old_state             TEXT,
     new_state             TEXT,
@@ -108,6 +109,10 @@ CREATE TABLE IF NOT EXISTS timeline_entries (
     new_check_in_date     TEXT,
     old_short_note        TEXT,
     new_short_note        TEXT,
+    -- Used when entry_type = 'field_change' (topic/owner/jira/uat_path).
+    field_name            TEXT,
+    old_field_value       TEXT,
+    new_field_value       TEXT,
     body                  TEXT,
     meeting_week_year     INTEGER,
     meeting_week_number   INTEGER,

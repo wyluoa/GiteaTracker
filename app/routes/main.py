@@ -402,7 +402,73 @@ def mark_all_read():
     """
     user_model.update_last_viewed(g.current_user["id"])
     flash("已標記全部為已讀", "success")
+    next_url = request.form.get("next") or request.args.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     return redirect(url_for("main.tracker"))
+
+
+@bp.route("/mark_all_read/undo", methods=["POST"])
+@login_required
+def mark_all_read_undo():
+    """還原上一次「標記已讀」— 把 last_viewed_at 回復到上次標記前的值。"""
+    ok = user_model.undo_last_viewed(g.current_user["id"])
+    if ok:
+        flash("已還原到上次標記已讀前", "success")
+    else:
+        flash("沒有可還原的「標記已讀」紀錄", "warning")
+    next_url = request.form.get("next") or request.args.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect(url_for("main.changes"))
+
+
+# ── Changes summary page ──
+
+@bp.route("/changes")
+@login_required
+def changes():
+    """變動總表 — 列出自上次查看以來的所有變動
+    ---
+    tags:
+      - Tracker
+    parameters:
+      - name: include_own
+        in: query
+        type: integer
+        description: 是否顯示自己做的變動 (1 = 顯示, 0 = 隱藏, 預設 0)
+      - name: node
+        in: query
+        type: integer
+        description: 只顯示指定 Node 的 cell 變動（依 node id 篩選）
+    responses:
+      200:
+        description: 渲染 changes.html
+    """
+    from app.models import changes_summary
+    include_own = request.args.get("include_own", "0") == "1"
+    filter_node_id = request.args.get("node", type=int) or None
+    since = g.current_user["last_viewed_at"]
+    has_undo = bool(g.current_user["previous_last_viewed_at"])
+
+    summary = changes_summary.build_summary(
+        current_user_id=g.current_user["id"],
+        since=since,
+        include_own=include_own,
+        filter_node_id=filter_node_id,
+    )
+
+    nodes = node_model.get_all_active()
+
+    return render_template(
+        "changes.html",
+        summary=summary,
+        include_own=include_own,
+        filter_node_id=filter_node_id,
+        has_undo=has_undo,
+        nodes=nodes,
+        user=g.current_user,
+    )
 
 
 # ── Export Excel ──

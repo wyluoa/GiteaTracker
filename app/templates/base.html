@@ -83,6 +83,16 @@
         {% endif %}
         <a class="nav-link gt-nav-link" href="{{ url_for('main.closed') }}">Closed</a>
         {% if session.get('user_id') and g.get('current_user') %}
+        <a class="nav-link gt-nav-link" href="{{ url_for('main.changes') }}"
+           title="變動總表（自上次查看以來）">
+          Changes
+          {% if changes_badge_count and changes_badge_count > 0 %}
+          <span class="badge bg-red text-white ms-1"
+                style="font-size:10px; padding:2px 6px; vertical-align:2px;">
+            {{ changes_badge_count if changes_badge_count <= 99 else '99+' }}
+          </span>
+          {% endif %}
+        </a>
         <a class="nav-link gt-nav-link" href="{{ url_for('main.guide', name='user') }}"
            target="_blank" title="在新分頁開啟使用手冊">使用手冊</a>
         {% if g.current_user['is_super_user'] %}
