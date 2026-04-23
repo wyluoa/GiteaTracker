@@ -4,3 +4,7 @@ bcrypt==4.2.0
 flasgger==0.9.7.1
 openpyxl==3.1.5
 python-dotenv==1.0.1
+
+# --- test dependencies (pip install -r requirements.txt installs these too;
+#     production deploy is fine shipping them, they add <2 MB total) ---
+pytest==8.3.3
