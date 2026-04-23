@@ -91,6 +91,7 @@
       </button>
       <dialog id="reopenModal{{ issue.id }}" class="modal-dialog-custom">
         <form method="POST" action="{{ url_for('issues.reopen_issue', issue_id=issue.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <h4>Reopen #{{ issue.display_number }}</h4>
           <p class="text-muted" style="font-size:13px;">{{ issue.topic }}</p>
           <div class="mb-3">

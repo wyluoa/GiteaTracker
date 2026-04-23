@@ -17,6 +17,7 @@
           <td style="font-size:12px;">{{ u.created_at[:16]|replace('T',' ') }}</td>
           <td>
             <form method="POST" action="{{ url_for('admin.approve_user', user_id=u.id) }}" class="d-inline" id="approve-{{ u.id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               {% for g in groups %}
                 <label class="form-check form-check-inline" style="font-size:12px;">
                   <input type="checkbox" name="group_ids" value="{{ g.id }}" class="form-check-input">
@@ -28,6 +29,7 @@
           <td>
             <button type="submit" form="approve-{{ u.id }}" class="btn btn-sm btn-success">Approve</button>
             <form method="POST" action="{{ url_for('admin.reject_user', user_id=u.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('確定拒絕？')">Reject</button>
             </form>
           </td>

@@ -9,6 +9,7 @@ from flask import Flask, redirect, request, session, url_for
 from flasgger import Swagger
 from config import get_config
 from . import db
+from . import csrf as csrf_module
 from app.routes import main as main_routes
 from app.routes import auth as auth_routes
 from app.routes import issues as issue_routes
@@ -42,6 +43,7 @@ def create_app():
     app.permanent_session_lifetime = timedelta(hours=app.config.get("SESSION_HOURS", 24))
 
     db.init_app(app)
+    csrf_module.init_app(app)
 
     # Static asset cache (1 week)
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 604800

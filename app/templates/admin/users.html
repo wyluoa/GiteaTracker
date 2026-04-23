@@ -11,6 +11,7 @@
         {% for u in users %}
         <tr>
           <form method="POST" action="{{ url_for('admin.update_user', user_id=u.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <td>{{ u.username }}</td>
             <td><input type="text" name="display_name" value="{{ u.display_name }}" class="form-control form-control-sm" style="width:100px;"></td>
             <td style="font-size:11px;">{{ u.email }}</td>
@@ -40,11 +41,13 @@
                         onclick="document.getElementById('pwModal{{ u.id }}').showModal()">重設密碼</button>
                 {% if u.status == 'disabled' %}
                   <form method="POST" action="{{ url_for('admin.restore_user', user_id=u.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-success">恢復</button>
                   </form>
                 {% elif u.username != 'wy' and u.username != 'legacy' %}
                   <form method="POST" action="{{ url_for('admin.disable_user', user_id=u.id) }}" style="display:inline;"
                         onsubmit="return confirm('確定停用 {{ u.display_name }}？')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-outline-danger">停用</button>
                   </form>
                 {% endif %}
@@ -52,6 +55,7 @@
               {# Reset password modal #}
               <dialog id="pwModal{{ u.id }}" class="modal-dialog-custom">
                 <form method="POST" action="{{ url_for('admin.reset_user_password', user_id=u.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <h4 class="mb-3">重設密碼 — {{ u.display_name }} ({{ u.username }})</h4>
                   <div class="mb-3">
                     <label class="form-label">新密碼 <span class="text-danger">*</span></label>

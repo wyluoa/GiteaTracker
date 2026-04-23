@@ -68,12 +68,14 @@
       </form>
       {% if has_undo %}
       <form method="post" action="{{ url_for('main.mark_all_read_undo') }}" class="d-inline m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="next" value="{{ url_for('main.changes') }}{% if filter_node_id %}?node={{ filter_node_id }}{% endif %}">
         <button type="submit" class="btn btn-sm btn-outline-warning">↶ 還原上次已讀</button>
       </form>
       {% endif %}
       {% if c.total_events > 0 %}
       <form method="post" action="{{ url_for('main.mark_all_read') }}" class="d-inline m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="next" value="{{ url_for('main.changes') }}{% if filter_node_id %}?node={{ filter_node_id }}{% endif %}">
         <button type="submit" class="btn btn-sm btn-primary">標記已讀</button>
       </form>

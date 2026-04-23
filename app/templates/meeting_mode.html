@@ -15,6 +15,7 @@
 
     {% if issues %}
     <form method="POST" action="{{ url_for('issues.meeting_mode_submit', year=year, week=week) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% for issue in issues %}
       <div class="meeting-issue-row mb-3 p-3 border rounded">
         <div class="row">

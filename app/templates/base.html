@@ -25,8 +25,43 @@
   <!-- Base URL for JS (reverse proxy path prefix) -->
   <script>window.__BASE__ = "{{ request.script_root }}";</script>
 
+  {# CSRF token: read once here, injected into all fetch() + HTMX requests. #}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+
   <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <script>
+    // Inject X-CSRFToken into every mutating request, so inline fetch() and
+    // HTMX forms don't each have to remember.
+    (function(){
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      var token = meta ? meta.getAttribute('content') : null;
+      window.__CSRF__ = token;
+
+      // Wrap fetch so all POST/PUT/PATCH/DELETE calls carry the token.
+      var _fetch = window.fetch;
+      window.fetch = function(input, init){
+        init = init || {};
+        var method = (init.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
+        if (['POST','PUT','PATCH','DELETE'].indexOf(method) >= 0 && token) {
+          init.headers = new Headers(init.headers || {});
+          if (!init.headers.has('X-CSRFToken')) init.headers.set('X-CSRFToken', token);
+        }
+        return _fetch(input, init);
+      };
+
+      // HTMX: attach token to every request.
+      document.body && document.body.addEventListener('htmx:configRequest', function(e){
+        if (token) e.detail.headers['X-CSRFToken'] = token;
+      });
+      // Above listener may fire before body exists; re-bind on DOMContentLoaded.
+      document.addEventListener('DOMContentLoaded', function(){
+        document.body.addEventListener('htmx:configRequest', function(e){
+          if (window.__CSRF__) e.detail.headers['X-CSRFToken'] = window.__CSRF__;
+        });
+      });
+    })();
+  </script>
 
   <!-- Alpine.js -->
   <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>

@@ -7,6 +7,7 @@
   <div class="card-header"><h3 class="card-title">建立新 Group</h3></div>
   <div class="card-body">
     <form method="POST" action="{{ url_for('admin.create_group') }}" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-auto">
         <label class="form-label">名稱</label>
         <input type="text" name="name" class="form-control form-control-sm" required>
@@ -33,10 +34,12 @@
     <div class="card-actions">
       {% if g.is_active %}
         <form method="POST" action="{{ url_for('admin.delete_group', group_id=g.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('確定停用 {{ g.name }}？')">停用</button>
         </form>
       {% else %}
         <form method="POST" action="{{ url_for('admin.restore_group', group_id=g.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-sm btn-success">恢復</button>
         </form>
       {% endif %}
@@ -44,6 +47,7 @@
   </div>
   <div class="card-body">
     <form method="POST" action="{{ url_for('admin.update_group', group_id=g.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-2 mb-3">
         <div class="col-md-4">
           <label class="form-label">名稱</label>

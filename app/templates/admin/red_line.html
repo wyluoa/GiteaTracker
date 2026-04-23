@@ -16,6 +16,7 @@
     {% endif %}
 
     <form method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-auto">
         <label class="form-label">年份</label>
         <input type="number" name="week_year" class="form-control form-control-sm" style="width:100px;"

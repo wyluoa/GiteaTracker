@@ -366,6 +366,7 @@
 {% if user.get('id') %}
 <dialog x-ref="closeModal" class="modal-dialog-custom">
   <form method="POST" :action="window.__BASE__ + '/issues/' + closeIssueId + '/close'">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h4>關單 #<span x-text="closeIssueNum"></span></h4>
     <div class="mb-3">
       <label class="form-label">關單備註（選填）</label>

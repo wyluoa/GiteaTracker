@@ -10,6 +10,7 @@
       <br>也可直接在 CSS 中修改 <code>--col-topic-min-width</code> / <code>--col-path-min-width</code> 變數。
     </p>
     <form method="POST" action="{{ url_for('admin.update_column_width') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-3">
         <div class="col-md-4">
           <label class="form-label">Topic 最小寬度 (px)</label>

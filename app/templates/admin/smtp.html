@@ -9,6 +9,7 @@
       寄信透過公司內部 SMTP Relay (smtplib)。
     </p>
     <form method="POST" action="{{ url_for('admin.update_smtp') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-3">
         <div class="col-md-4">
           <label class="form-label">SMTP Host</label>
@@ -32,6 +33,7 @@
     </form>
     <hr>
     <form method="POST" action="{{ url_for('admin.test_smtp') }}" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-auto">
         <label class="form-label">收件人 (測試)</label>
         <input type="email" name="test_to" class="form-control form-control-sm"

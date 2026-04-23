@@ -6,6 +6,7 @@
   <div class="card-header"><h3 class="card-title">新增題目</h3></div>
   <div class="card-body">
     <form method="POST" action="{{ url_for('admin.create_issue') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-3">
         <div class="col-md-3">
           <label class="form-label">題號 <span class="text-danger">*</span></label>

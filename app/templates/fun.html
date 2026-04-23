@@ -32,6 +32,7 @@
     <button class="btn btn-sm btn-outline-success" @click="open = !open"
             x-text="open ? '收起' : '＋ 新增一則'"></button>
     <form method="POST" action="{{ url_for('main.fun') }}" x-show="open" x-cloak class="mt-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <textarea name="body" class="form-control" rows="4" required
                 placeholder="輸入笑話或小故事... (支援換行)"></textarea>
       <div class="mt-2">

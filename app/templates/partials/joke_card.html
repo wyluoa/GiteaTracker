@@ -8,6 +8,7 @@
       {% if user and user.is_super_user %}
       <form method="POST" action="{{ url_for('main.fun_delete', joke_id=joke.id) }}"
             onsubmit="return confirm('刪掉這則？（軟刪除）')" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-sm btn-link text-danger p-0"
                 style="font-size:11px;">&#128465;</button>
       </form>

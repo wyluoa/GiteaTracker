@@ -63,18 +63,21 @@
               {# Status change quick buttons #}
               {% if it.status != 'reviewed' %}
               <form method="POST" action="{{ url_for('admin.feedback_set_status', feedback_id=it.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="status" value="reviewed">
                 <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:11px;">標為已看到</button>
               </form>
               {% endif %}
               {% if it.status != 'resolved' %}
               <form method="POST" action="{{ url_for('admin.feedback_set_status', feedback_id=it.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="status" value="resolved">
                 <button type="submit" class="btn btn-sm btn-outline-success" style="font-size:11px;">標為已處理</button>
               </form>
               {% endif %}
               {% if it.status != 'new' %}
               <form method="POST" action="{{ url_for('admin.feedback_set_status', feedback_id=it.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="status" value="new">
                 <button type="submit" class="btn btn-sm btn-outline-secondary" style="font-size:11px;">重設為待處理</button>
               </form>
@@ -105,6 +108,7 @@
             </button>
             <form method="POST" action="{{ url_for('admin.feedback_reply', feedback_id=it.id) }}"
                   x-show="showReply" x-cloak class="mt-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <textarea name="reply" class="form-control form-control-sm" rows="3" required
                         placeholder="寫給使用者的回覆... 送出會讓原提交者看到，並把狀態從「待處理」升為「已看到」。"></textarea>
               <button type="submit" class="btn btn-sm btn-primary mt-2">送出回覆</button>

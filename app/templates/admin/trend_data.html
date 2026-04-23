@@ -11,6 +11,7 @@
       輸入每週的 UAT / TBD / Dev / Close 數量，Dashboard 的 Closing Rate Trend 圖表會根據這些數據繪製。
     </p>
     <form method="POST" action="{{ url_for('admin.update_trend_data') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="table-responsive">
         <table class="table table-sm" style="font-size:13px;">
           <thead>
@@ -75,6 +76,7 @@
           <td>{{ r.cnt_close }}</td>
           <td>
             <form method="POST" action="{{ url_for('admin.delete_trend_data') }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="id" value="{{ r.id }}">
               <button type="submit" class="btn btn-sm btn-ghost-danger"
                       onclick="return confirm('確定刪除？')">&times;</button>

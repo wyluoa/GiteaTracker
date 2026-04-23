@@ -12,6 +12,7 @@
       against the current database and show you a preview of all changes before applying.
     </p>
     <form action="{{ url_for('admin.excel_update_preview') }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="mb-3">
         <label class="form-label">Excel File (.xlsx)</label>
         <input type="file" class="form-control" name="file" accept=".xlsx,.xls" required>

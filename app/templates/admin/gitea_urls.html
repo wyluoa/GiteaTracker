@@ -11,6 +11,7 @@
       <br>題號 P260 就會對應到 <code>.../issues/260</code>
     </p>
     <form method="POST" action="{{ url_for('admin.update_gitea_urls') }}" x-data="urlMappings()">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <table class="table table-sm" style="font-size:13px;">
         <thead>
           <tr>

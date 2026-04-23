@@ -57,6 +57,7 @@
     <div x-show="editMeta" x-cloak class="mt-2 p-2 border rounded" style="font-size:12px;">
       {# Owner #}
       <form method="POST" action="{{ url_for('admin.update_issue_owner', issue_id=issue.id) }}" class="mb-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label class="form-label mb-1">Owner</label>
         <div class="d-flex gap-1">
           <input type="text" name="requestor_name" class="form-control form-control-sm"
@@ -66,6 +67,7 @@
       </form>
       {# Topic / JIRA / Path #}
       <form method="POST" action="{{ url_for('admin.edit_issue', issue_id=issue.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="mb-2">
           <label class="form-label mb-1">Topic</label>
           <input type="text" name="topic" class="form-control form-control-sm"
