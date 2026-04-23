@@ -1,0 +1,65 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'errors' %}
+{% block title %}Error Log — Admin{% endblock %}
+{% block admin_content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Error Log</h3>
+    <div class="card-actions text-muted small">
+      檔案：<code>{{ log_path }}</code> · 共 {{ total }} 筆，顯示最新 {{ entries|length }} 筆
+    </div>
+  </div>
+
+  {% if not entries %}
+    <div class="card-body">
+      <div class="empty">
+        <p class="empty-title">尚無錯誤紀錄</p>
+        <p class="empty-subtitle text-muted small">
+          服務發生 500 未處理例外時，會在 <code>{{ log_path }}</code> 追加一筆 JSON。
+          現在是好事——代表沒當機。
+        </p>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-responsive">
+      <table class="table table-vcenter" style="font-size:12px;">
+        <thead>
+          <tr>
+            <th style="width:140px;">時間</th>
+            <th style="width:100px;">使用者</th>
+            <th style="width:100px;">方法/路徑</th>
+            <th style="width:120px;">錯誤類型</th>
+            <th>訊息 + traceback（點展開）</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+          <tr>
+            <td style="white-space:nowrap;">{{ (e.ts or '')[:19]|replace('T',' ') }}</td>
+            <td>{{ e.user_name or e.user_id or '—' }}</td>
+            <td>
+              <span class="text-muted">{{ e.method }}</span>
+              <code style="font-size:11px;">{{ e.path or '—' }}</code>
+            </td>
+            <td><code style="font-size:11px;">{{ e.error_type or '—' }}</code></td>
+            <td>
+              <details>
+                <summary style="cursor:pointer;">
+                  <span style="color:#b91c1c;">{{ e.error_message or '(no message)' }}</span>
+                </summary>
+                <pre style="font-size:11px; background:var(--tblr-bg-surface-secondary, #f6f8fa); padding:0.5rem; margin-top:0.3rem; white-space:pre-wrap; word-break:break-all;">{{ e.traceback or '' }}</pre>
+              </details>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if total > limit %}
+      <div class="card-footer text-muted small">
+        只顯示最新 {{ limit }} 筆。如需更多，加查詢 <code>?limit=1000</code>（上限 1000）或直接到伺服器看 <code>{{ log_path }}</code>。
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

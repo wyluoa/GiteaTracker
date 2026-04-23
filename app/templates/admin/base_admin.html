@@ -18,6 +18,7 @@
         <a href="{{ url_for('admin.trend_data') }}" class="list-group-item list-group-item-action {% if active_page == 'trend_data' %}active{% endif %}">趨勢數據</a>
         <a href="{{ url_for('admin.smtp') }}" class="list-group-item list-group-item-action {% if active_page == 'smtp' %}active{% endif %}">SMTP</a>
         <a href="{{ url_for('admin.audit_log') }}" class="list-group-item list-group-item-action {% if active_page == 'audit' %}active{% endif %}">Audit Log</a>
+        <a href="{{ url_for('admin.errors_log') }}" class="list-group-item list-group-item-action {% if active_page == 'errors' %}active{% endif %}">Error Log</a>
         <a href="{{ url_for('admin.feedback_list') }}" class="list-group-item list-group-item-action {% if active_page == 'feedback' %}active{% endif %}">
           意見回饋 {% if feedback_new_count|default(0) > 0 %}<span class="badge bg-red ms-1">{{ feedback_new_count }}</span>{% endif %}
         </a>

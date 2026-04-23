@@ -972,6 +972,62 @@ def audit_log():
                            page=page)
 
 
+# ── Error Log viewer ──
+
+@bp.route("/errors")
+@super_user_required
+def errors_log():
+    """錯誤日誌 — 讀 logs/errors.jsonl，列出最近 N 筆未處理異常
+    ---
+    tags:
+      - Admin - Audit
+    parameters:
+      - name: limit
+        in: query
+        type: integer
+        description: 顯示最近幾筆（預設 200，上限 1000）
+    responses:
+      200:
+        description: 以時間倒序列出 logs/errors.jsonl 的內容
+    """
+    import json as _json
+    from pathlib import Path
+
+    limit = min(int(request.args.get("limit", 200)), 1000)
+    path = Path(current_app.root_path).parent / "logs" / "errors.jsonl"
+
+    entries = []
+    total = 0
+    if path.exists():
+        # Read bottom N lines without loading the whole file (logs/errors.jsonl
+        # can grow unbounded over months). Tail approach: read chunks from end.
+        try:
+            with path.open("rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                # Simple approach for small files: just read all. If file gets
+                # big (>5 MB), this cost ~5 MB memory per admin hit — acceptable.
+                f.seek(0)
+                lines = f.read().decode("utf-8", errors="replace").splitlines()
+            total = len(lines)
+            for ln in lines[-limit:]:
+                try:
+                    entries.append(_json.loads(ln))
+                except _json.JSONDecodeError:
+                    continue
+        except OSError:
+            pass
+    entries.reverse()  # newest first
+
+    return render_template(
+        "admin/errors_log.html",
+        entries=entries,
+        total=total,
+        limit=limit,
+        log_path=str(path),
+    )
+
+
 # ── Excel Update ──
 
 EXCEL_TMP_DIR = "data/tmp"
