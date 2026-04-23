@@ -317,9 +317,8 @@ ADMIN_PASSWORD=&lt;強密碼&gt;</code></pre>
 <h2 id="run">4. 啟動 / 停止 / 重啟</h2>
 
 <h3>4.1 啟動（foreground 測試）</h3>
-<pre><code>python main.py
-# 或
-flask --app app run --host 0.0.0.0 --port 5000</code></pre>
+<pre><code>venv/bin/python main.py
+# 預設 port 在 .env 裡設為 9987（舊版 README 寫的 5000 是過時的）</code></pre>
 
 <h3>4.2 背景執行（無 systemd 的環境）</h3>
 <pre><code># 用 nohup 掛背景
@@ -764,7 +763,8 @@ SNPS         http://gitea/Synopsys/issues/{number}</code></pre>
 </ol>
 
 <h3>11.3 「我想確認資料沒壞」</h3>
-<pre><code>sqlite3 data/tracker.db "PRAGMA integrity_check;"
+<pre><code># 用 Python（在沒裝 sqlite3 CLI 的機器也可以跑）
+venv/bin/python -c "import sqlite3; c=sqlite3.connect('data/gitea_tracker.db'); print(c.execute('PRAGMA integrity_check').fetchone()[0])"
 # 回傳 ok 即資料庫健康</code></pre>
 
 <!-- ═══ 12. Migration ═══ -->
@@ -846,10 +846,16 @@ venv/bin/python migrate.py                   # 套用
   </ul>
 </div>
 
-<h3>12.6 既有 <code>app/db.py::_run_migrations</code> 仍在</h3>
+<h3>12.6 升版前先看這次的專屬說明</h3>
 <p>
-  這段舊的啟動時 migration（加 <code>pending_close</code>、<code>is_manager</code>）是新系統出現之前的做法。還留著是因為已在正式機跑過、動它風險大於效益。
-  <strong>新的 migration 不要加到這段</strong>，全部走 <code>migrations/</code>。
+  每次正式升版都會放一份檔案在 <code>deploy/releases/YYYY-MM-DD-*.md</code>，列這次
+  <strong>額外</strong>要做的事（例如 <code>pip install</code>、行為改變、使用者要硬重整等）。
+  <code>migrate.sh</code> 不會自動 <code>pip install</code>，所以若 <code>requirements.txt</code>
+  有動，要手動分步（看 <code>deploy/MIGRATION_SOP.md</code> 「手動分步流程」節）。
+</p>
+<p>
+  歷史註記：舊版 <code>app/db.py::_run_migrations</code>（每次啟動跑的迷你 migration）
+  已於 migration 008 合併並移除。<strong>所有 schema 變動一律走 <code>migrations/</code></strong>。
 </p>
 
 <h3>12.7 Rollback</h3>
@@ -1041,8 +1047,64 @@ echo '{"tool_name":"Bash","tool_input":{"command":"venv/bin/python migrate.py"}}
 # 若 backups/ 無近 24h 備份：exit 2 + 提示先 backup.sh</code></pre>
 </div>
 
+<!-- ═══ 17. CSRF / 測試 / Observability（2026-04-24 新增） ═══ -->
+<h2 id="platform">17. CSRF / 測試 / Observability
+  <span class="role role-super">2026-04-24 新增</span></h2>
+
+<h3>17.1 CSRF 保護（<code>app/csrf.py</code>）</h3>
+<p>
+  所有 <code>POST/PUT/PATCH/DELETE</code> 請求必須帶 token（form 欄位
+  <code>csrf_token</code> 或 header <code>X-CSRFToken</code>）。沒帶或對不上就 403。
+</p>
+<ul>
+  <li>Token 存在 <code>session["_csrf"]</code>，由 <code>secrets.token_urlsafe(32)</code> 產生，第一次讀到才生。</li>
+  <li>模板用 <code>&#123;&#123; csrf_token() &#125;&#125;</code>（context processor 注入）。Python 代碼用 <code>app.csrf.get_or_create_token()</code>。</li>
+  <li><code>base.html</code> 有 <code>&lt;meta name="csrf-token"&gt;</code> 和 fetch/HTMX wrapper，自動把 token 注入到所有 fetch() 和 HTMX POST。</li>
+  <li>豁免 endpoint：<code>auth.login / auth.register / auth.forgot_password / auth.reset_password / main.healthz</code>（見 <code>EXEMPT_ENDPOINTS</code>）。</li>
+  <li>要額外豁免某個 route 加 <code>@csrf_exempt</code> 裝飾器（謹慎使用）。</li>
+</ul>
+<div class="box box-warning">
+  <strong>升版後使用者必須硬重整</strong>
+  舊快取的 HTML 沒有 csrf-token meta。升版完通知：<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>。
+</div>
+
+<h3>17.2 測試套件（<code>tests/</code>）</h3>
+<pre><code>venv/bin/pytest -q    # ~20s，全綠代表 infra + model 核心行為都沒壞</code></pre>
+<ul>
+  <li>每個測試拿到自己的 tmp SQLite（<code>tests/conftest.py</code>），schema.sql + migrate.py 重跑——跟 production 同一個初始化路徑。</li>
+  <li>Fixtures：<code>super_user</code> / <code>manager_user</code> / <code>editor_user</code>、<code>make_user</code>、<code>sample_issue</code>、<code>old_issue</code>（back-date created_at）、<code>login_as</code>。</li>
+  <li>Migration 冪等性測試是 parametrized，新加的 migration 會自動被測——但有 bug 的 migration 也會自動 fail。</li>
+  <li>用 <code>WTF_CSRF_ENABLED = False</code> 讓大部分測試繞過 CSRF；<code>test_csrf.py</code> 另起一個 fixture 專門測 CSRF。</li>
+</ul>
+
+<h3>17.3 結構化錯誤 log（<code>app/errors.py</code> + <code>/admin/errors</code>）</h3>
+<p>
+  未處理的例外會寫一筆 JSON 到 <code>logs/errors.jsonl</code>：時間、路徑、操作者、
+  錯誤類型、完整 traceback、remote_addr。
+</p>
+<ul>
+  <li>寫入是 best-effort — 若 log 寫失敗會被吞掉，避免把 500 變成第二個 500。</li>
+  <li>Admin 介面在 <code>/admin/errors</code>（super user only），tails 最新 N 筆，traceback 用 <code>&lt;details&gt;</code> 收合。</li>
+  <li>沒做自動 rotate。log 變大後手動：
+    <pre><code>cd ~/GiteaTracker/logs
+mv errors.jsonl errors.$(date +%Y%m).jsonl
+gzip errors.2026*.jsonl</code></pre>
+  </li>
+</ul>
+
+<h3>17.4 <code>/changes</code> 變動總表</h3>
+<p>
+  Model: <code>app/models/changes_summary.py</code>. 路由: <code>/changes</code>（main.py）。
+</p>
+<ul>
+  <li>彙整 <code>last_viewed_at</code> 以來的 timeline state_change + field_change，配合新增 issue / 關單。</li>
+  <li>分類：<strong>重點項目</strong>（紅線以上 / 狀態回退 / Check-in 延期 / 新增 / 關單）vs <strong>其他變動</strong>（正常進展、欄位編輯）。</li>
+  <li>預設 <code>include_own=True</code>（含本人操作）。Navbar bell badge 用 <code>count_important()</code>，同樣計入所有人。</li>
+  <li>有 <code>?node=&lt;id&gt;</code> 篩選——Node 篩選只保留 cell 變動（field / new / closed 是 issue-level，不屬於特定 node 所以被排除）。</li>
+</ul>
+
 <div class="doc-footer">
-  Gitea Tracker Developer Guide &mdash; Last updated: 2026-04-21
+  Gitea Tracker Developer Guide &mdash; Last updated: 2026-04-24
 </div>
 
 </div><!-- /container -->

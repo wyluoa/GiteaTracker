@@ -220,12 +220,17 @@ tail -100 ~/gitea-tracker/logs/app.log
 [ ] /dashboard 顯示 node 統計
 [ ] /tracker  顯示追蹤表，資料與 Excel 一致
 [ ] 點擊 cell 可開啟側面板
+[ ] /changes  變動總表可打開、navbar 徽章數字合理
 [ ] /admin    可進入管理後台
 [ ] /admin/excel_update  Excel 上傳更新功能正常
+[ ] /admin/errors        錯誤日誌頁面可打開（super user）
 [ ] 上傳附件功能正常
+[ ] tail logs/errors.jsonl — 沒剛冒出的新錯誤
 ```
 
 > 同事在自己的電腦上用瀏覽器打開 `http://f12titan:5000` 即可使用。
+> **首次升版或有大改動後，提醒使用者 `Ctrl+Shift+R` 硬重整**，
+> 否則 CSRF token 相關的操作可能回 403。
 
 ---
 
@@ -326,6 +331,10 @@ crontab -e
 
 > 完整的升版 SOP（含 rollback、新增 migration 規範、各種注意事項、疑難排解）
 > 寫在 **`deploy/MIGRATION_SOP.md`**。本節是快速操作摘要。
+>
+> **每次正式升版還會有獨立的版本說明**，放在 **`deploy/releases/YYYY-MM-DD-*.md`**。
+> 升版前務必看一下該版本的說明，會列出那次額外要注意的事（新套件、行為改變、
+> 使用者要做什麼等）。
 
 ### 9.1 一鍵升版（推薦）
 
@@ -344,6 +353,10 @@ cd ~/gitea-tracker
 6. `start.sh` — 啟動
 
 若某一步失敗，service 會停在停機狀態，不會在半套 migration 的狀況下被啟動。
+
+> ⚠ **`migrate.sh` 不會跑 `pip install`**。當 `requirements.txt` 有變動時
+> （通常會在 `deploy/releases/*.md` 點出），用 §9.2 手動分步流程，在
+> `git pull` 之後多跑一次 `venv/bin/pip install -r requirements.txt`。
 
 ### 9.2 手動分步（升版腳本失敗時接手）
 
@@ -491,12 +504,18 @@ find ~/gitea-tracker -name "*.pyc" -delete
 ├── logs/                    # 應用 log
 │   └── app.log
 ├── backups/                 # 備份檔案
+├── migrations/              # DB migration 檔案
+├── tests/                   # pytest 測試套件
 └── deploy/                  # 部署工具
-    ├── DEPLOY.md            #   本文件
+    ├── DEPLOY.md            #   本文件（常態升版流程）
+    ├── MIGRATION_SOP.md     #   Migration 完整 SOP
+    ├── releases/            #   每次升版的專屬說明
     ├── start.sh             #   啟動腳本
     ├── stop.sh              #   停止腳本
     ├── status.sh            #   狀態檢查
-    ├── backup.sh            #   備份腳本
+    ├── migrate.sh           #   一鍵升版
+    ├── backup.sh            #   備份（Python-based，不需 sqlite3 CLI）
+    ├── verify_backup.sh     #   驗證最新備份能還原
     └── restore.sh           #   還原腳本
 ```
 

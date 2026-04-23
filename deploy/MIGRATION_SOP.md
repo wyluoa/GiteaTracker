@@ -26,19 +26,26 @@ git checkout <前一個 commit hash>
 
 ### 前置準備（第一次使用才做）
 
-1. **確認 `deploy/migrate.sh` 可執行**
+1. **確認 deploy 腳本可執行**
    ```bash
-   chmod +x deploy/migrate.sh deploy/backup.sh deploy/restore.sh deploy/start.sh deploy/stop.sh
+   chmod +x deploy/migrate.sh deploy/backup.sh deploy/verify_backup.sh \
+            deploy/restore.sh deploy/start.sh deploy/stop.sh
    ```
 2. **確認 `backups/` 目錄存在並有寫入權限**（`backup.sh` 會自動建立）
-3. **如果是第一次升到有 `migrate.py` 的版本**：`deploy/migrate.sh` 會自動 bootstrap `schema_version` 表，不用額外動作。
+3. **備份不再依賴 `sqlite3` CLI**：`backup.sh` 從 2026-04-24 版起改用
+   Python `sqlite3.backup()`，機器沒裝 `sqlite3` 指令也能跑。
+4. **如果是第一次升到有 `migrate.py` 的版本**：`deploy/migrate.sh` 會自動
+   bootstrap `schema_version` 表，不用額外動作。
 
 ### 正式升版流程
 
 **Step 0 — 升版前確認**
+- [ ] 看一下 **`deploy/releases/YYYY-MM-DD-*.md`** 是否有這次版本的專屬說明
 - [ ] 本機已測過這次變動（可以 `cp data/gitea_tracker.db /tmp/t.db && DB_PATH=/tmp/t.db venv/bin/python migrate.py --dry-run` 模擬）
+- [ ] 跑 `venv/bin/pytest -q`，全綠才繼續
 - [ ] 通知使用者升版時段（會停機 10~30 秒）
 - [ ] 確認有可用的 `backups/` 磁碟空間（至少 DB + 1 個 attachments tar.gz 大小）
+- [ ] 若 `requirements.txt` 有變動：手動分步（§「手動分步流程」）而非一鍵 migrate.sh
 
 **Step 1 — 執行一鍵 migrate**
 ```bash
@@ -232,8 +239,11 @@ def up(conn):
 | `app/schema.sql` | Fresh DB 的完整 schema（migration 有加欄位就要同步） |
 | `init_db.py` | 新建 DB 時用，會自動呼叫 migrate |
 | `deploy/migrate.sh` | 一鍵升版 workflow |
-| `deploy/backup.sh` / `restore.sh` | 備份還原 |
+| `deploy/backup.sh` / `restore.sh` | 備份還原（backup 用 Python，不需 `sqlite3` CLI） |
+| `deploy/verify_backup.sh` | 驗證最新一份備份能還原 + 開啟（建議每週 cron） |
+| `deploy/releases/*.md` | 每次升版的專屬說明（commit 清單 / 行為改變 / 特殊注意） |
 | `deploy/start.sh` / `stop.sh` / `status.sh` | Service 控制 |
+| `tests/` + `pytest.ini` | Pytest 測試套件；`venv/bin/pytest -q` 可跑 |
 | `backups/` | 自動產生的備份檔（DB + attachments tar.gz） |
 
 ---

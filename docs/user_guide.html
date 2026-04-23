@@ -450,6 +450,40 @@
   <li><strong>匯出 Excel</strong>：下載目前所有 ongoing + on hold 題目（含所有 node 狀態）到 <code>.xlsx</code>。</li>
 </ul>
 
+<h3>4.11 變動總表（Changes）<span class="new-badge">2026-04-24</span></h3>
+<p>
+  導覽列按 <strong>Changes</strong>（或網址 <code>/changes</code>）進入變動總表頁。
+  這頁把「自上次按『標記已讀』以來所有的變動」彙整成一份清單，方便你在每週會議前
+  一眼看完這段時間發生什麼事。
+</p>
+<p>頁面分兩區：</p>
+<ul>
+  <li>
+    <strong>重點項目</strong> — 預設展開。只有以下 5 種會進來：
+    <ul>
+      <li><strong>紅線以上</strong>：題目週次 ≤ Admin 設定的紅線週次，任何狀態改動都算重點。左側會有一條紅色直條。</li>
+      <li><strong>狀態回退</strong>：Done/UAT✓ 改回 UAT/Dev/TBD，通常代表需求走回頭路。</li>
+      <li><strong>Check-in 延期</strong>：check-in 日期被往後延 N 天。</li>
+      <li><strong>新增題目</strong>、<strong>關單</strong>。</li>
+    </ul>
+  </li>
+  <li>
+    <strong>其他變動</strong> — 預設收合。放正常進展（Dev→UAT 等）與欄位編輯（JIRA / UAT Path）。需要時點「展開」。
+  </li>
+</ul>
+<p>
+  導覽列 <strong>Changes</strong> 右邊的紅色數字徽章，就是「重點項目」的筆數。
+  打開頁面後徽章不會自動消失——要讓徽章歸零，按頁面右上的 <strong>標記已讀</strong>。
+</p>
+<p>
+  不小心按到標記已讀時，右上會出現 <strong>↶ 還原上次已讀</strong> 按鈕可以反悔一次。
+</p>
+<ul>
+  <li>想只看別人做的變動：按 <strong>隱藏本人操作</strong>。預設是顯示全部（含本人）。</li>
+  <li>想只看某個 Node 的變動：右上的 <strong>Node ▼</strong> 下拉選一個。</li>
+  <li>頁面頂端的 <strong>顯示規則</strong> 可點開看完整的分類條件（紅線以上怎麼判、回退是什麼、延 N 天怎麼算等）。</li>
+</ul>
+
 <!-- ═══ 5. States ═══ -->
 <h2 id="states">5. 狀態定義</h2>
 <table>

@@ -30,7 +30,7 @@
 **驗收**:
 1. `python init_db.py` 不報錯,建出 12 張表
 2. `python main.py` 起得來
-3. `http://localhost:5000` 顯示綠色 DB status
+3. `http://localhost:9987` 顯示綠色 DB status（port 由 `.env` 控制）
 4. 12 張表 badge 顯示
 5. Alpine.js 計數器按鈕能正常累加
 6. HTMX ping 按鈕呼叫 `/healthz` 顯示 `{"status": "ok"}`
