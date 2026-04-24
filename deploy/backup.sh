@@ -16,8 +16,14 @@
 #
 # IMPORTANT: runs purely in Python — does NOT require `sqlite3` CLI
 #            (which is not present on some corporate Linux images).
+#
+# ENCODING: always export PYTHONIOENCODING=utf-8 before any Python heredoc
+#           and keep printed strings ASCII-only. Cron / corporate locales
+#           often default to C / POSIX / latin-1 and will crash Python on
+#           a bare Unicode character (e.g. "→"). See deploy/MIGRATION_SOP.md.
 
 set -euo pipefail
+export PYTHONIOENCODING=utf-8
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BACKUP_DIR="${1:-${APP_DIR}/backups}"
@@ -45,13 +51,13 @@ try:
     src.backup(dst)
 finally:
     dst.close(); src.close()
-print(f"DB backed up → {dst_path}")
+print(f"DB backed up -> {dst_path}")
 PY
 
 # ── 2. Attachments tarball ──
 if [ -d "${ATT_DIR}" ] && [ "$(ls -A "${ATT_DIR}" 2>/dev/null)" ]; then
     tar czf "${ATT_BACKUP}" -C "${APP_DIR}/data" attachments
-    echo "Attachments archived → ${ATT_BACKUP}"
+    echo "Attachments archived -> ${ATT_BACKUP}"
 fi
 
 # ── 3. Retention: keep last 30 days locally ──
@@ -64,7 +70,7 @@ find "${BACKUP_DIR}" -name "attachments_*.tar.gz" -mtime +30 -delete 2>/dev/null
 # elsewhere (NAS, another server, network share).
 if [ -n "${GITEA_TRACKER_OFFSITE:-}" ]; then
     if command -v rsync >/dev/null 2>&1; then
-        echo "Off-site sync → ${GITEA_TRACKER_OFFSITE}"
+        echo "Off-site sync -> ${GITEA_TRACKER_OFFSITE}"
         rsync -aq --partial "${DB_BACKUP}" "${GITEA_TRACKER_OFFSITE}/" \
             || echo "  WARN: rsync DB failed (continuing)" >&2
         if [ -f "${ATT_BACKUP}" ]; then

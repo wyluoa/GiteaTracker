@@ -9,6 +9,7 @@
 # Exits 0 on success, non-zero on any problem (so cron mail fires).
 
 set -euo pipefail
+export PYTHONIOENCODING=utf-8   # Prevent latin-1 crashes under cron/POSIX locale.
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BACKUP_DIR="${APP_DIR}/backups"
@@ -45,7 +46,7 @@ try:
         sys.exit(3)
     n_issues = conn.execute("SELECT COUNT(*) FROM issues").fetchone()[0]
     n_users  = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    print(f"OK: ${LATEST} restored & queried — issues={n_issues}, users={n_users}")
+    print(f"OK: ${LATEST} restored & queried - issues={n_issues}, users={n_users}")
 finally:
     conn.close()
 PY

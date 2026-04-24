@@ -477,6 +477,34 @@ find ~/gitea-tracker -type d -name __pycache__ -exec rm -rf {} +
 find ~/gitea-tracker -name "*.pyc" -delete
 ```
 
+### `backup.sh` 報 `UnicodeEncodeError` / `'latin-1' codec can't encode / decode...`
+
+**現象**：手動或 cron 執行 `./deploy/backup.sh` / `./deploy/verify_backup.sh`
+出現類似
+
+```
+UnicodeEncodeError: 'latin-1' codec can't encode character '→' ...
+UnicodeEncodeError: 'ascii'   codec can't encode character '→' ...
+```
+
+**原因**：Python 的 `sys.stdout.encoding` 跟著系統 locale / `PYTHONIOENCODING` 決定。
+在 cron 或 POSIX / C / latin-1 locale 的機器上，stdout 會被視為 ASCII/latin-1，
+只要 `print()` 出現非 ASCII 字元（例如箭頭 `→`）就會炸掉。
+
+**修正**：
+1. `deploy/backup.sh` 與 `deploy/verify_backup.sh` 在最上面 `set -euo pipefail` 後
+   **強制 `export PYTHONIOENCODING=utf-8`**（已加上，新版預設有）。
+2. 腳本裡嵌入的 Python heredoc 若要 print，**全部用 ASCII**。不要再用 `→`、
+   `・`、`「」` 等非 ASCII 符號；用 `->`、`-` 代替。
+
+**寫新 deploy 腳本時記得**：
+- shebang `#!/bin/bash` 下第一段就 `export PYTHONIOENCODING=utf-8`。
+- Python heredoc 裡的 `print()` 字串維持 ASCII（反正這些訊息是給 log 看的，不用炫）。
+- 若真的要輸出中文，要多加一句 `sys.stdout.reconfigure(encoding="utf-8")`
+  並確認執行環境的 locale 允許 UTF-8 輸出。
+
+> 這個坑踩過一次就好。新寫 `.sh` 裡的 Python 訊息前先看這一節。
+
 ---
 
 ## 附錄 A：完整檔案結構
