@@ -155,7 +155,10 @@ def dashboard_node_counts(red_line_year, red_line_week):
 
 
 def uat_tbd_above_redline_per_node(red_line_year, red_line_week, with_jira=False):
-    """Per-node count of ongoing issues above red line in UAT/UAT done/TBD state.
+    """Per-node count of ongoing issues above red line in UAT/TBD state.
+
+    UAT done is excluded — those are already tested and waiting to go live,
+    not the "still stuck" issues this count is meant to surface.
 
     with_jira=True restricts to issues whose jira_ticket is set.
     """
@@ -168,7 +171,7 @@ def uat_tbd_above_redline_per_node(red_line_year, red_line_week, with_jira=False
             FROM issues i
             JOIN issue_node_states s ON i.id = s.issue_id
             WHERE i.status = 'ongoing' AND i.is_deleted = 0
-              AND s.state IN ('uat', 'uat_done', 'tbd')
+              AND s.state IN ('uat', 'tbd')
               AND (i.week_year < ? OR (i.week_year = ? AND i.week_number <= ?))
               {jira_clause}
             GROUP BY s.node_id""",
