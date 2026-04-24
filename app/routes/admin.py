@@ -1699,54 +1699,12 @@ def delete_trend_data():
     return redirect(url_for("admin.trend_data"))
 
 
-# ── Issue Owner Update (admin only) ──
-
-@bp.route("/issues/<int:issue_id>/owner", methods=["POST"])
-@super_user_required
-def update_issue_owner(issue_id):
-    """更新 Issue 的 Owner
-    ---
-    tags:
-      - Admin - Users
-    parameters:
-      - name: issue_id
-        in: path
-        type: integer
-        required: true
-      - name: requestor_name
-        in: formData
-        type: string
-        required: true
-    responses:
-      302:
-        description: 更新後重導至 tracker
-    """
-    from app.models import issue as issue_model
-    issue = issue_model.get_by_id(issue_id)
-    if not issue:
-        flash("Issue 不存在", "error")
-        return redirect(url_for("main.tracker"))
-
-    new_owner = request.form.get("requestor_name", "").strip()
-    old_owner = issue["requestor_name"] or ""
-    if new_owner != old_owner:
-        issue_model.update_issue(
-            issue_id, requestor_name=new_owner,
-            author_user_id=g.current_user["id"],
-            author_name_snapshot=g.current_user["display_name"],
-        )
-        _audit("update_owner", "issue", issue_id,
-               {"old": old_owner, "new": new_owner})
-        flash(f"#{issue['display_number']} Owner 已更新為 {new_owner}", "success")
-    return redirect(request.referrer or url_for("main.tracker"))
-
-
-# ── Issue Edit (Topic / Path — super_user only) ──
+# ── Issue Edit (題號 / Owner / Topic / JIRA / Path — super_user only) ──
 
 @bp.route("/issues/<int:issue_id>/edit", methods=["POST"])
 @super_user_required
 def edit_issue(issue_id):
-    """編輯 Issue 的 Topic / JIRA / Path
+    """編輯 Issue 的 題號 / Owner / Topic / JIRA / Path
     ---
     tags:
       - Issues
@@ -1755,6 +1713,12 @@ def edit_issue(issue_id):
         in: path
         type: integer
         required: true
+      - name: display_number
+        in: formData
+        type: string
+      - name: requestor_name
+        in: formData
+        type: string
       - name: topic
         in: formData
         type: string
@@ -1775,10 +1739,24 @@ def edit_issue(issue_id):
         return redirect(url_for("main.tracker"))
 
     updates = {}
+    new_number = request.form.get("display_number", "").strip()
+    new_owner = request.form.get("requestor_name", "").strip()
     new_topic = request.form.get("topic", "").strip()
     new_jira = request.form.get("jira_ticket", "").strip()
     new_path = request.form.get("uat_path", "").strip()
 
+    if new_number and new_number != issue["display_number"]:
+        # Must be unique among non-deleted issues (other than self).
+        dup = get_db().execute(
+            "SELECT id FROM issues WHERE display_number = ? AND is_deleted = 0 AND id != ?",
+            (new_number, issue_id),
+        ).fetchone()
+        if dup:
+            flash(f"題號 {new_number} 已被其他題目使用，請改用其他編號", "error")
+            return redirect(request.referrer or url_for("main.tracker"))
+        updates["display_number"] = new_number
+    if new_owner != (issue["requestor_name"] or ""):
+        updates["requestor_name"] = new_owner
     if new_topic and new_topic != issue["topic"]:
         updates["topic"] = new_topic
     if new_jira != (issue["jira_ticket"] or ""):
@@ -1794,7 +1772,8 @@ def edit_issue(issue_id):
             **updates,
         )
         _audit("edit_issue", "issue", issue_id, updates)
-        flash(f"#{issue['display_number']} 已更新", "success")
+        shown_number = updates.get("display_number", issue["display_number"])
+        flash(f"#{shown_number} 已更新", "success")
     return redirect(request.referrer or url_for("main.tracker"))
 
 

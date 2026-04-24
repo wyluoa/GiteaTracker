@@ -49,25 +49,24 @@
     </div>
   </div>
 
-  {# ── Owner / Topic / JIRA / Path edit (super_user only) ── #}
+  {# ── 題號 / Owner / Topic / JIRA / Path edit (super_user only) ── #}
   {% if user.is_super_user %}
   <div class="mt-2 mb-2" x-data="{ editMeta: false }">
     <button class="btn btn-sm btn-outline-secondary" style="font-size:11px;"
-            @click="editMeta = !editMeta" x-text="editMeta ? '收起' : '編輯 Owner / Topic / JIRA / Path'"></button>
+            @click="editMeta = !editMeta" x-text="editMeta ? '收起' : '編輯 題號 / Owner / Topic / JIRA / Path'"></button>
     <div x-show="editMeta" x-cloak class="mt-2 p-2 border rounded" style="font-size:12px;">
-      {# Owner #}
-      <form method="POST" action="{{ url_for('admin.update_issue_owner', issue_id=issue.id) }}" class="mb-2">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label class="form-label mb-1">Owner</label>
-        <div class="d-flex gap-1">
-          <input type="text" name="requestor_name" class="form-control form-control-sm"
-                 value="{{ issue.requestor_name or '' }}" style="width:160px;">
-          <button type="submit" class="btn btn-sm btn-primary">更新</button>
-        </div>
-      </form>
-      {# Topic / JIRA / Path #}
       <form method="POST" action="{{ url_for('admin.edit_issue', issue_id=issue.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-2">
+          <label class="form-label mb-1">題號</label>
+          <input type="text" name="display_number" class="form-control form-control-sm"
+                 value="{{ issue.display_number }}" style="width:160px;" maxlength="32">
+        </div>
+        <div class="mb-2">
+          <label class="form-label mb-1">Owner</label>
+          <input type="text" name="requestor_name" class="form-control form-control-sm"
+                 value="{{ issue.requestor_name or '' }}" style="width:160px;">
+        </div>
         <div class="mb-2">
           <label class="form-label mb-1">Topic</label>
           <input type="text" name="topic" class="form-control form-control-sm"
@@ -83,7 +82,7 @@
           <textarea name="uat_path" class="form-control form-control-sm" rows="2"
                     style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px;">{{ issue.uat_path or '' }}</textarea>
         </div>
-        <button type="submit" class="btn btn-sm btn-primary">更新 Topic / JIRA / Path</button>
+        <button type="submit" class="btn btn-sm btn-primary">更新</button>
       </form>
     </div>
   </div>

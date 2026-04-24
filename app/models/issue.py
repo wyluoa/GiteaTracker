@@ -22,7 +22,7 @@ FIELD_TO_TS = {
 # Canonical user-facing fields tracked in /changes summary. Only these emit
 # field_change timeline entries (avoids double-logging for user_id variants
 # that point at the same timestamp column).
-_FIELD_CHANGE_LOGGED = ("topic", "requestor_name", "jira_ticket", "uat_path")
+_FIELD_CHANGE_LOGGED = ("display_number", "topic", "requestor_name", "jira_ticket", "uat_path")
 
 
 def create_issue(*, display_number, topic, owner_user_id=None,

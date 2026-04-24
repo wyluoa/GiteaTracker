@@ -41,6 +41,7 @@ _STATE_LABEL = {
 }
 
 _FIELD_LABEL = {
+    "display_number": "題號",
     "topic": "Topic",
     "requestor_name": "Owner",
     "jira_ticket": "JIRA",
