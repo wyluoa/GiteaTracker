@@ -226,6 +226,9 @@ tail -100 ~/gitea-tracker/logs/app.log
 [ ] /admin/errors        錯誤日誌頁面可打開（super user）
 [ ] 上傳附件功能正常
 [ ] tail logs/errors.jsonl — 沒剛冒出的新錯誤
+[ ] /tracker 右上「匯出 Excel ▾」dropdown 可展開（兩個選項）
+[ ] 「匯出全部」下載 .xlsx，含 Ongoing + Closed 兩張 sheet
+[ ] /admin/audit_log 看到 `export_excel` 動作紀錄
 ```
 
 > 同事在自己的電腦上用瀏覽器打開 `http://f12titan:5000` 即可使用。
@@ -520,7 +523,8 @@ UnicodeEncodeError: 'ascii'   codec can't encode character '→' ...
 ├── requirements.txt         # Python 套件清單
 ├── venv/                    # Python 虛擬環境
 ├── app/                     # Flask 應用程式碼
-│   ├── excel.py             #   Excel 解析共用模組
+│   ├── excel.py             #   Excel 解析（匯入；含 MM-DD → YYYY-MM-DD 推年）
+│   ├── excel_export.py      #   Excel 產生（匯出；theme + 狀態色 + 紅線）
 │   ├── schema.sql
 │   ├── routes/
 │   ├── models/
