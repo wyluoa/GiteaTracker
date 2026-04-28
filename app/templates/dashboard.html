@@ -71,6 +71,28 @@ wk{{ y - 2020 }}{{ '%02d'|format(w) }}
         輸入週次統計後顯示。
       </div>
     {% endif %}
+
+    {% if current_snapshot %}
+      {% set S = current_snapshot %}
+      <hr class="my-2">
+      <div class="d-flex flex-wrap align-items-center" style="gap:.5rem; font-size:14px;">
+        <span class="text-muted">本週快照（{{ wk_label(S.week_year, S.week_number) }}，截至現在）：</span>
+        <span class="badge bg-orange-lt">UAT <strong>{{ S.UAT }}</strong></span>
+        <span class="badge bg-purple-lt">TBD <strong>{{ S.TBD }}</strong></span>
+        <span class="badge bg-blue-lt">Dev <strong>{{ S.Dev }}</strong></span>
+        <span class="badge bg-secondary-lt">Close <strong>{{ S.Close }}</strong></span>
+        <span class="text-muted">Total <strong>{{ S.total }}</strong></span>
+        {% if user and user.is_super_user %}
+          <a class="btn btn-sm btn-outline-primary ms-auto"
+             href="{{ url_for('admin.trend_data') }}?prefill_year={{ S.week_year }}&amp;prefill_week={{ S.week_number }}&amp;uat={{ S.UAT }}&amp;tbd={{ S.TBD }}&amp;dev={{ S.Dev }}&amp;close={{ S.Close }}">
+            填入 Trend Data
+          </a>
+        {% endif %}
+      </div>
+      <div class="text-muted mt-1" style="font-size:11px;">
+        分類規則（每題只歸一類，依 Close → UAT → TBD → Dev 優先順序判定）：Close = 題目已關單；UAT = 至少一個 Node 處於 UAT；TBD = 至少一個 Node 處於 TBD；Dev = 其餘（含 UAT Done、未填、全部 Done/Unneeded 但尚未關單）。
+      </div>
+    {% endif %}
   </div>
 </div>
 
@@ -239,7 +261,7 @@ wk{{ y - 2020 }}{{ '%02d'|format(w) }}
 </div>
 
 {# ── Charts row 1: Cumulative + Closing Rate ── #}
-{% if trends.weeks %}
+{% if manual_trend.weeks %}
 <div class="row row-deck row-cards mb-3">
   <div class="col-lg-7">
     <div class="card">
@@ -447,19 +469,14 @@ wk{{ y - 2020 }}{{ '%02d'|format(w) }}
 </div>
 
 {# ── Chart.js ── #}
-{% if trends.weeks or velocity.weeks %}
+{% if manual_trend.weeks or velocity.weeks %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 (function() {
-  {# ── Stacked Bar: Cumulative Topic Trend ── #}
-  {% if trends.weeks %}
-  const weeks = {{ trends.weeks | tojson }};
-  const cumData = {{ trends.cumulative | tojson }};
-  const rates  = {{ trends.closing_rates | tojson }};
-
-  // Closing Rate Trend — prefer manual data if available
-  const manualWeeks = {{ manual_trend.weeks | tojson }};
-  const manualData  = {{ manual_trend.data | tojson }};
+  {# ── Stacked Bar: Cumulative Topic Trend (reads weekly_trend_data) ── #}
+  {% if manual_trend.weeks %}
+  const weeks   = {{ manual_trend.weeks | tojson }};
+  const cumData = {{ manual_trend.data  | tojson }};
 
   function filterByRange(weeks, data, range) {
     if (!weeks.length) return { weeks: [], data: [] };
@@ -525,15 +542,9 @@ wk{{ y - 2020 }}{{ '%02d'|format(w) }}
 
   let closingRateChart;
   function renderClosingRateChart(range) {
-    let chartWeeks, chartRates;
-    if (manualWeeks.length > 0) {
-      const f = filterByRange(manualWeeks, manualData, range);
-      chartWeeks = f.weeks;
-      chartRates = f.data.map(d => d.rate);
-    } else {
-      chartWeeks = weeks;
-      chartRates = rates;
-    }
+    const f = filterByRange(weeks, cumData, range);
+    const chartWeeks = f.weeks;
+    const chartRates = f.data.map(d => d.rate);
     if (closingRateChart) closingRateChart.destroy();
     closingRateChart = new Chart(document.getElementById('chartClosingRate'), {
       type: 'line',

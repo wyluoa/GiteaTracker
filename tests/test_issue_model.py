@@ -286,3 +286,130 @@ def test_update_issue_value_to_none_records_as_null_new(app, db, sample_issue, m
     ).fetchone()
     assert r["old_field_value"] == "JIRA-OLD"
     assert r["new_field_value"] is None
+
+
+# ─── current_phase_snapshot ───────────────────────────────────────────
+#
+# Snapshot powers Dashboard "本週快照" — the hint that tells Meeting Owner
+# what to fill in Admin → Trend Data this week. Priority Close > UAT > TBD > Dev,
+# each issue counted exactly once. UAT bucket excludes 'uat_done' deliberately
+# (UAT means "still needs testing"; uat_done is already tested).
+
+def _set_cell(db, iid, node_id, state):
+    db.execute(
+        """INSERT INTO issue_node_states
+             (issue_id, node_id, state, updated_at,
+              updated_by_user_id, updated_by_name_snapshot)
+           VALUES (?, ?, ?, ?, NULL, 'tester')""",
+        (iid, node_id, state, _now()),
+    )
+    db.commit()
+
+
+def test_snapshot_empty_db(app):
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["UAT"] == s["TBD"] == s["Dev"] == s["Close"] == 0
+    assert s["total"] == 0
+    # ISO week fields populated even when no data
+    assert s["week_year"] >= 2026
+    assert 1 <= s["week_number"] <= 53
+
+
+def test_snapshot_closed_takes_precedence(app, db, sample_issue, nodes):
+    """status='closed' wins even if some node still says 'uat'."""
+    iid = sample_issue(status="closed")
+    _set_cell(db, iid, nodes[0]["id"], "uat")  # would otherwise vote UAT
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["Close"] == 1
+    assert s["UAT"] == 0
+
+
+def test_snapshot_uat_excludes_uat_done(app, db, sample_issue, nodes):
+    """LOCKED DECISION (2026-04-29): a node state of 'uat_done' must NOT
+    count as UAT. Issues with only uat_done fall to Dev."""
+    iid = sample_issue()
+    _set_cell(db, iid, nodes[0]["id"], "uat_done")
+    _set_cell(db, iid, nodes[1]["id"], "done")
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["UAT"] == 0, "uat_done must not count as UAT"
+    assert s["Dev"] == 1
+    assert s["TBD"] == s["Close"] == 0
+
+
+def test_snapshot_uat_priority_over_tbd(app, db, sample_issue, nodes):
+    """An issue with both 'uat' and 'tbd' cells lands in UAT."""
+    iid = sample_issue()
+    _set_cell(db, iid, nodes[0]["id"], "uat")
+    _set_cell(db, iid, nodes[1]["id"], "tbd")
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["UAT"] == 1
+    assert s["TBD"] == 0
+
+
+def test_snapshot_tbd_priority_over_dev(app, db, sample_issue, nodes):
+    """An issue with 'tbd' + 'developing' cells (and no uat) lands in TBD."""
+    iid = sample_issue()
+    _set_cell(db, iid, nodes[0]["id"], "tbd")
+    _set_cell(db, iid, nodes[1]["id"], "developing")
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["TBD"] == 1
+    assert s["Dev"] == 0
+
+
+def test_snapshot_blank_issue_falls_to_dev(app, sample_issue):
+    """An issue with no cells at all is Dev (catch-all)."""
+    sample_issue()
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["Dev"] == 1
+    assert s["UAT"] == s["TBD"] == s["Close"] == 0
+
+
+def test_snapshot_all_done_but_not_closed_is_dev(app, db, sample_issue, nodes):
+    """All cells done/unneeded but issue still 'ongoing' → Dev (not Close).
+    Only status='closed' counts as Close."""
+    iid = sample_issue()
+    for i, n in enumerate(nodes):
+        _set_cell(db, iid, n["id"], "unneeded" if i % 2 else "done")
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["Close"] == 0
+    assert s["Dev"] == 1
+
+
+def test_snapshot_soft_deleted_excluded(app, db, sample_issue, nodes):
+    """is_deleted=1 issues must not appear in any bucket."""
+    iid_alive = sample_issue(display_number="A1")
+    _set_cell(db, iid_alive, nodes[0]["id"], "uat")
+    iid_dead = sample_issue(display_number="A2")
+    _set_cell(db, iid_dead, nodes[0]["id"], "uat")
+    db.execute("UPDATE issues SET is_deleted=1 WHERE id=?", (iid_dead,))
+    db.commit()
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["UAT"] == 1
+    assert s["total"] == 1
+
+
+def test_snapshot_total_invariant(app, db, sample_issue, nodes):
+    """total == UAT + TBD + Dev + Close, always — regardless of cell mix."""
+    a = sample_issue(display_number="A", status="closed")
+    b = sample_issue(display_number="B")
+    _set_cell(db, b, nodes[0]["id"], "uat")
+    c = sample_issue(display_number="C")
+    _set_cell(db, c, nodes[0]["id"], "tbd")
+    d = sample_issue(display_number="D")  # blank → Dev
+    e = sample_issue(display_number="E")
+    _set_cell(db, e, nodes[0]["id"], "uat_done")  # → Dev
+    with app.app_context():
+        s = issue_model.current_phase_snapshot()
+    assert s["Close"] == 1
+    assert s["UAT"] == 1
+    assert s["TBD"] == 1
+    assert s["Dev"] == 2  # blank + uat_done both fall here
+    assert s["total"] == s["UAT"] + s["TBD"] + s["Dev"] + s["Close"] == 5

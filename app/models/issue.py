@@ -364,39 +364,45 @@ def refresh_cache(issue_id):
         db.commit()
 
 
-def get_dashboard_trends():
-    """Return weekly cumulative data for dashboard charts.
+def current_phase_snapshot():
+    """Snapshot the current count of all live issues split into UAT/TBD/Dev/Close.
 
-    Priority-ordered phase classification (first match wins):
+    Priority-ordered, each issue lands in exactly one bucket (first match wins):
       1. Close: status = 'closed'
-      2. UAT:   any node in ('uat', 'uat_done')
-      3. TBD:   any node state = 'tbd'   (explicit TBD flag outranks developing
-                                           because it's a deliberate "not yet
-                                           decided" marker)
-      4. Dev:   everything else (including all-blank issues and issues where
-                                  all cells are done/unneeded but not closed)
+      2. UAT:   any node state = 'uat'   (uat_done is NOT UAT — UAT means
+                                           "still needs testing"; once tested it
+                                           drops out)
+      3. TBD:   any node state = 'tbd'
+      4. Dev:   everything else (catch-all: developing-only, all blank,
+                                  uat_done, all done/unneeded but not closed,
+                                  on_hold without uat/tbd)
 
-    Returns dict with keys: weeks, cumulative, closing_rates.
+    Used by the Dashboard "本週快照" hint to tell the user what numbers to
+    record this week in Admin → Trend Data. The cumulative chart itself reads
+    weekly_trend_data, not this snapshot.
     """
     db = get_db()
 
+    today = date.today()
+    iso_year, iso_week, _ = today.isocalendar()
+
     issues = db.execute(
-        """SELECT id, week_year, week_number, status
-           FROM issues WHERE is_deleted = 0
-           ORDER BY week_year, week_number"""
+        "SELECT id, status FROM issues WHERE is_deleted = 0"
     ).fetchall()
 
-    if not issues:
-        return {"weeks": [], "cumulative": [], "closing_rates": []}
+    snapshot = {"UAT": 0, "TBD": 0, "Dev": 0, "Close": 0,
+                "week_year": iso_year, "week_number": iso_week}
+    snapshot["total"] = 0
 
-    # max_phase: UAT(3) > TBD(2) > Developing(1) > else(0)
+    if not issues:
+        return snapshot
+
     issue_ids = [i["id"] for i in issues]
     ph = ",".join("?" * len(issue_ids))
     state_rows = db.execute(
         f"""SELECT issue_id,
-                   MAX(CASE WHEN state IN ('uat', 'uat_done') THEN 3
+                   MAX(CASE WHEN state = 'uat' THEN 3
                             WHEN state = 'tbd' THEN 2
-                            WHEN state = 'developing' THEN 1
                             ELSE 0 END) as max_phase
             FROM issue_node_states
             WHERE issue_id IN ({ph})
@@ -405,45 +411,21 @@ def get_dashboard_trends():
     ).fetchall()
     phase_map = {r["issue_id"]: r["max_phase"] for r in state_rows}
 
-    def _phase(issue):
-        if issue["status"] == "closed":
-            return "Close"
-        mp = phase_map.get(issue["id"], 0)
-        if mp == 3:
-            return "UAT"
-        if mp == 2:
-            return "TBD"
-        return "Dev"  # catch-all: mp in (0, 1) → developing-only or all blank / all terminal
-
-    # Collect unique weeks and count per phase
-    weeks_set = sorted({(i["week_year"], i["week_number"]) for i in issues})
-    week_counts = {}
     for i in issues:
-        wk = (i["week_year"], i["week_number"])
-        week_counts.setdefault(wk, {"TBD": 0, "Dev": 0, "UAT": 0, "Close": 0})
-        week_counts[wk][_phase(i)] += 1
+        if i["status"] == "closed":
+            snapshot["Close"] += 1
+            continue
+        mp = phase_map.get(i["id"], 0)
+        if mp == 3:
+            snapshot["UAT"] += 1
+        elif mp == 2:
+            snapshot["TBD"] += 1
+        else:
+            snapshot["Dev"] += 1
 
-    # Build cumulative series
-    cum = {"TBD": 0, "Dev": 0, "UAT": 0, "Close": 0}
-    result_weeks = []
-    result_cum = []
-    result_rates = []
-
-    for wk in weeks_set:
-        c = week_counts.get(wk, {"TBD": 0, "Dev": 0, "UAT": 0, "Close": 0})
-        for p in ("TBD", "Dev", "UAT", "Close"):
-            cum[p] += c[p]
-        total = sum(cum.values())
-        rate = round(cum["Close"] / total * 100, 1) if total else 0
-        result_weeks.append(f"wk{wk[0] - 2020}{wk[1]:02d}")
-        result_cum.append(dict(cum))
-        result_rates.append(rate)
-
-    return {
-        "weeks": result_weeks,
-        "cumulative": result_cum,
-        "closing_rates": result_rates,
-    }
+    snapshot["total"] = (snapshot["UAT"] + snapshot["TBD"]
+                         + snapshot["Dev"] + snapshot["Close"])
+    return snapshot
 
 
 def get_bottleneck_nodes():

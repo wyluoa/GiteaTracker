@@ -646,11 +646,27 @@
 <h3>9.2 圖表</h3>
 <ul>
   <li><strong>Topic Cumulative Trend</strong> — 每週 TBD / Dev / UAT / Close 的堆疊長條。
-      右上有時間範圍選單：<em>YTD</em> / <em>近 30 週</em> / <em>近 50 週</em> / <em>全部</em>
-      <span class="new-badge">2026-04</span>。</li>
-  <li><strong>Closing Rate Trend</strong> — 逐週關單率折線；若 admin 有輸入手動 trend data 優先用它。
-      同樣有時間範圍選單。</li>
+      <span class="new-badge">2026-04-29</span>
+      <strong>資料來源 = Admin → Trend Data 手動輸入的 <code>weekly_trend_data</code></strong>，
+      不再從現有 issues 即席運算。原因：cumulative 是「每週當下的快照」，
+      事後從現況回推會把每題畫到首次提出週，無法表達歷史。
+      右上時間範圍選單：<em>YTD</em> / <em>近 30 週</em> / <em>近 50 週</em> / <em>全部</em>。
+      Admin 沒填過任何一週時整張圖不顯示。</li>
+  <li><strong>Closing Rate Trend</strong> — 逐週關單率折線；同樣以 <code>weekly_trend_data</code> 為單一資料源（每週 <code>Close / Total</code>）。</li>
 </ul>
+
+<h3>9.2.1 本週快照（提示填表）
+  <span class="new-badge">2026-04-29</span></h3>
+<p>
+  Dashboard 上方的 Weekly summary 卡，現在會多一條「本週快照（wkXXX，截至現在）」，
+  顯示<strong>當下</strong>所有未刪除題目分到 UAT / TBD / Dev / Close 各幾題（總和 = Total）。
+  這個數字是要拿去填到 Admin → Trend Data 的，不是圖上的歷史值。
+</p>
+<p>
+  Super User 會看到右側「填入 Trend Data」按鈕，點下去會帶 query string
+  跳到 Admin → Trend Data，第一列直接被快照值 prefill（年/週也是當下 ISO 週），
+  你看一眼確認後按「儲存全部」即完成本週紀錄。每週固定流程是：開 Dashboard → 看快照 → 點按鈕 → 儲存。
+</p>
 
 <h3>9.3 Per-Node 統計區塊
   <span class="new-badge">2026-04-21</span></h3>
@@ -663,27 +679,36 @@
   <li><strong>Dev per-Node</strong>（新）— cell 狀態為 <span class="chip chip-dev">Dev</span> 的題數。對稱 TBD 那塊，讓 node 負責人一眼看到自己手上還在開發階段有幾題。</li>
 </ul>
 
-<h3>9.4 TBD / Dev 統計的分類邏輯
-  <span class="new-badge">2026-04-21</span></h3>
+<h3>9.4 本週快照的分類邏輯
+  <span class="new-badge">2026-04-29</span></h3>
 <p>
-  Dashboard 最上方的 Topic Cumulative Trend 堆疊長條，把每題歸到一個 phase：
+  本週快照（§9.2.1）依下列<strong>優先順序</strong>判定，每題只歸一類：
 </p>
 <table>
-  <tr><th style="width:90px;">優先</th><th style="width:120px;">Phase</th><th>條件</th></tr>
-  <tr><td>1</td><td><strong>Close</strong></td><td>題目狀態 = closed。</td></tr>
+  <tr><th style="width:90px;">優先</th><th style="width:120px;">類別</th><th>條件</th></tr>
+  <tr><td>1</td><td><strong>Close</strong></td><td>題目已關單。</td></tr>
   <tr><td>2</td><td><span class="chip chip-uat">UAT</span></td>
-      <td>任一 node 為 UAT / UAT Done。</td></tr>
+      <td>至少一個 Node 處於 UAT。<br>
+          <span style="font-size:12px;color:#777;">
+          <strong>UAT Done 不算 UAT</strong>（2026-04-29 起）。
+          UAT 類別的語意是「還需要被測試、要提醒 user」，UAT Done 已測完所以不該繼續催。
+          </span></td></tr>
   <tr><td>3</td><td><span class="chip chip-tbd">TBD</span></td>
-      <td>任一 node 明確標為 TBD。<br>
+      <td>至少一個 Node 處於 TBD。<br>
           <span style="font-size:12px;color:#777;">
-          明確 tbd 是管理者刻意下的「尚未定案」記號，<strong>優先於 developing</strong>。
-          所以 1 個 cell tbd + 1 個 cell developing 也算 TBD。</span></td></tr>
+          TBD 是管理者刻意下的「尚未定案」記號，<strong>優先於 Developing</strong>。
+          所以 1 個 cell TBD + 1 個 cell Developing 也算 TBD。</span></td></tr>
   <tr><td>4</td><td><span class="chip chip-dev">Dev</span></td>
-      <td>其他全部（預設 bucket）。<br>
+      <td>其餘所有題目（預設類別）。<br>
           <span style="font-size:12px;color:#777;">
-          包含：全空白題（還沒動工）、只有 developing 的題、全 done/unneeded 但還沒正式關單的題。
+          包含：全空白題（還沒動工）、只有 Developing 的題、有 UAT Done 但沒有 UAT/TBD 的題、全部 Done/Unneeded 但還沒正式關單的題、On Hold 且沒有 UAT/TBD 的題。
           </span></td></tr>
 </table>
+<div class="box box-tip">
+  <strong>定義轉折點</strong> — 2026-04-29 之前的 Trend Data
+  是按「UAT 含 UAT Done」的舊定義填的；之後新填的是新定義。
+  歷史圖整體趨勢仍然有效，個別週的 UAT/Dev 比例可能在這個轉折點有小幅跳動，這是預期行為。
+</div>
 
 <h3>9.5 洞察表</h3>
 <ul>

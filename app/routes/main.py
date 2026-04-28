@@ -69,8 +69,9 @@ def dashboard():
     ongoing_count = issue_model.count_by_status("ongoing")
     closed_count = issue_model.count_closed()
 
-    # Trend data for charts (auto-calculated)
-    trends = issue_model.get_dashboard_trends()
+    # Current-state snapshot — what to fill into Admin → Trend Data this week.
+    # The cumulative chart itself reads weekly_trend_data (manual_trend), not this.
+    current_snapshot = issue_model.current_phase_snapshot()
 
     # Manual trend data (from Admin > Trend Data)
     db = get_db()
@@ -119,7 +120,7 @@ def dashboard():
         ongoing_count=ongoing_count,
         closed_count=closed_count,
         closing_rate=closing_rate,
-        trends=trends,
+        current_snapshot=current_snapshot,
         manual_trend=manual_trend,
         uat_total=uat_total, uat_per_node=uat_per_node,
         tbd_total=tbd_total, tbd_per_node=tbd_per_node,

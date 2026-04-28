@@ -572,11 +572,32 @@ SNPS         http://gitea/Synopsys/issues/{number}</code></pre>
   建議：Topic 280、Path 220。Path 有多行路徑時可拉大到 400-500。
 </p>
 
-<h3>6.8 Trend Data</h3>
+<h3>6.8 Trend Data
+  <span class="role role-super">2026-04-29</span></h3>
 <p>
-  若希望 Dashboard 的 Closing Rate Trend 用人工指定的數字（例如會議匯報過的歷史數據），
-  可逐週輸入 <code>UAT / TBD / Dev / Close</code> 題數。沒輸入時會 fallback 到自動算的趨勢。
+  Dashboard 的 <strong>Topic Cumulative Trend</strong> 與 <strong>Closing Rate Trend</strong>
+  兩張圖的<strong>單一資料源</strong>。每週手動輸入該週當下的
+  <code>UAT / TBD / Dev / Close</code> 題數，圖才會出現該週點。
 </p>
+<ul>
+  <li><strong>沒有 fallback</strong>：以前曾有「沒填就從現有 issues 算」的 fallback（<code>get_dashboard_trends()</code>），
+      已於 2026-04-29 移除。原因：歷史 cumulative 不能從現況回推，那會把每題畫到首次提出週、無法表達歷史快照。</li>
+  <li><strong>本週快照</strong>：Dashboard 上方 Weekly summary 卡會顯示
+      <code>current_phase_snapshot()</code>（<code>app/models/issue.py</code>）算出的當下分類結果，
+      Super User 可一鍵點「填入 Trend Data」帶 query string
+      （<code>prefill_year</code> / <code>prefill_week</code> / <code>uat</code> / <code>tbd</code> / <code>dev</code> / <code>close</code>）
+      跳轉到本頁，新列被自動 prefill。</li>
+  <li><strong>分類邏輯</strong>（每題只歸一類，priority Close &gt; UAT &gt; TBD &gt; Dev）：
+    <ul>
+      <li><strong>Close</strong> = <code>issues.status = 'closed'</code></li>
+      <li><strong>UAT</strong> = 任一 node state = <code>'uat'</code>（<strong>不含</strong> <code>uat_done</code>，因 UAT 類別語意是「尚未測試」）</li>
+      <li><strong>TBD</strong> = 任一 node state = <code>'tbd'</code></li>
+      <li><strong>Dev</strong> = 其餘（含 <code>uat_done</code>、空白、全 done/unneeded 但未關單、on_hold 無 uat/tbd）</li>
+    </ul>
+  </li>
+  <li><strong>歷史資料</strong>：2026-04-29 之前填過的舊週數字是按舊定義（UAT 含 <code>uat_done</code>）填的，
+      不會自動回填。如要對齊定義，到本頁手動把對應週的 UAT 移到 Dev。</li>
+</ul>
 
 <h3>6.9 SMTP</h3>
 <p>設定寄信所需：</p>

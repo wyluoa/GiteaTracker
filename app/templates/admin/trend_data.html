@@ -95,8 +95,26 @@ function trendTable() {
   const today = new Date();
   const onejan = new Date(today.getFullYear(), 0, 1);
   const weekNum = Math.ceil((((today - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+
+  // Prefill from query string (?prefill_year=&prefill_week=&uat=&tbd=&dev=&close=).
+  // Sent by Dashboard 本週快照 button so the row is filled in for one click.
+  const qs = new URLSearchParams(window.location.search);
+  const intParam = (k, fallback) => {
+    const v = qs.get(k);
+    const n = v === null ? NaN : parseInt(v, 10);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const initRow = {
+    week_year:   intParam("prefill_year", today.getFullYear()),
+    week_number: intParam("prefill_week", weekNum),
+    cnt_uat:     intParam("uat",   0),
+    cnt_tbd:     intParam("tbd",   0),
+    cnt_dev:     intParam("dev",   0),
+    cnt_close:   intParam("close", 0),
+  };
+
   return {
-    rows: [{week_year: today.getFullYear(), week_number: weekNum, cnt_uat: 0, cnt_tbd: 0, cnt_dev: 0, cnt_close: 0}],
+    rows: [initRow],
     addRow() {
       const last = this.rows[this.rows.length - 1];
       let ny = last ? last.week_year : today.getFullYear();

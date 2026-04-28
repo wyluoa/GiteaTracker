@@ -127,6 +127,18 @@
 ### Q: 為什麼要有「版本差異黃底」?
 **A**: 使用者描述現有 Excel 的做法:「每個版本的狀態更改都會用黃色醒目底來標示,讓大家知道這版跟上一版差異在哪」。系統化後改成 per-user 「自上次查看以來的變動」,比原本的版本差異更精準(每個人看到的都是「對他而言的新變動」)。
 
+### Q: 為什麼 Cumulative 圖讀手動表 `weekly_trend_data`,不從現有 issues 算? (2026-04-29)
+**A**: cumulative 是「每週當下還活著的題目分到 UAT/TBD/Dev/Close 各幾題」的歷史快照,而 `issues` 表只保留每題目前的狀態。從現有資料回推會把每題畫到「首次提出週」,結果是「以現在的狀態回填過去」,圖看起來合理但語意是錯的(歷史走勢是假的)。
+
+正確流程是 Meeting Owner 每週開 Dashboard → 看「本週快照」(`current_phase_snapshot()`)→ 點「填入 Trend Data」按鈕一鍵 prefill → 儲存。這也讓 Meeting Owner 對「這週數字是不是合理」有把關機會,不是黑盒運算結果。
+
+舊 fallback 邏輯 `get_dashboard_trends()` 已移除,Admin 沒填過任何一週時兩張趨勢圖整體不顯示。
+
+### Q: 為什麼本週快照的 UAT 類別<strong>不</strong>含 `uat_done`? (2026-04-29)
+**A**: UAT 類別在 Dashboard 上的語意是「還需要 user 去測試」——這是 Meeting Owner 用來提醒對應 owner 的訊號。`uat_done` 是「已經測完只是還沒上線」,不需要再被催,放進 UAT 類別會讓提醒失準(Meeting Owner 看到 UAT=15 但實際只有 8 題待測)。
+
+四個類別不擴張(weekly_trend_data 仍是 UAT/TBD/Dev/Close),所以 `uat_done` priority 順序自然 fall-through 到 Dev——這在「已測完但未關單」的語意上略怪,但 (a) UAT/TBD 是要催的類別,Dev/Close 是「不需催」的類別,uat_done 屬於後者比較對;(b) 不需要 schema migration、不影響歷史資料結構。同樣的 trade-off 不適用 cell 顏色——cell 上 `uat_done` 仍是獨立的藍色狀態,跟 Dev 完全分開。
+
 ---
 
 ## UI 與視覺
