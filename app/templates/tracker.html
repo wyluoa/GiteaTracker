@@ -235,30 +235,39 @@
         {% if user.get('id') %}
         <button type="button" class="btn btn-sm btn-outline-secondary"
                 onclick="fetch('{{ url_for('main.mark_all_read') }}',{method:'POST',credentials:'same-origin'}).then(()=>location.reload())">標記已讀</button>
-        <div class="dropdown">
-          <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                  data-bs-toggle="dropdown" aria-expanded="false">
+        <div x-data="{ open: false }" @click.outside="open = false" class="position-relative">
+          <button type="button" class="btn btn-sm btn-outline-secondary"
+                  @click="open = !open">
             匯出 Excel
+            <span class="ms-1" style="font-size:10px;">▾</span>
           </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li>
-              <a class="dropdown-item" href="{{ url_for('main.export_excel') }}">
-                匯出全部
-                <div class="text-muted small">所有 Ongoing / On Hold / Closed</div>
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item {{ '' if has_any_filter else 'disabled' }}"
-                 {% if has_any_filter %}
-                 href="{{ url_for('main.export_excel') }}?filtered=1{% if request.query_string %}&amp;{{ request.query_string.decode() }}{% endif %}"
-                 {% else %}
-                 aria-disabled="true" tabindex="-1"
-                 {% endif %}>
-                匯出目前篩選結果
-                <div class="text-muted small">套用上方搜尋/進階條件{% if not has_any_filter %}（目前無條件）{% endif %}</div>
-              </a>
-            </li>
-          </ul>
+          <div x-show="open" x-cloak x-transition.opacity
+               class="card position-absolute end-0 mt-1 p-1"
+               style="min-width:240px; z-index:1000; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+            <a class="d-block px-2 py-2 text-decoration-none text-body rounded"
+               style="cursor:pointer;"
+               onmouseover="this.style.backgroundColor='#f0f4ff'"
+               onmouseout="this.style.backgroundColor='transparent'"
+               href="{{ url_for('main.export_excel') }}">
+              <div>匯出全部</div>
+              <div class="text-muted small">所有 Ongoing / On Hold / Closed</div>
+            </a>
+            {% if has_any_filter %}
+            <a class="d-block px-2 py-2 text-decoration-none text-body rounded"
+               style="cursor:pointer;"
+               onmouseover="this.style.backgroundColor='#f0f4ff'"
+               onmouseout="this.style.backgroundColor='transparent'"
+               href="{{ url_for('main.export_excel') }}?filtered=1{% if request.query_string %}&amp;{{ request.query_string.decode() }}{% endif %}">
+              <div>匯出目前篩選結果</div>
+              <div class="text-muted small">套用上方搜尋/進階條件</div>
+            </a>
+            {% else %}
+            <div class="d-block px-2 py-2 text-muted" style="cursor:not-allowed;">
+              <div>匯出目前篩選結果</div>
+              <div class="small">目前沒有套用任何條件</div>
+            </div>
+            {% endif %}
+          </div>
         </div>
         {% if user.get('is_super_user') %}
         <a href="{{ url_for('admin.create_issue') }}" class="btn btn-sm btn-outline-success">+ 新增題目</a>
