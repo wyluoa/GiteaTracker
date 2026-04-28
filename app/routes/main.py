@@ -2,6 +2,7 @@
 Main routes — dashboard, tracker view, calendar, closed, search/filter, mark read, export.
 """
 import calendar as cal_mod
+import json
 from datetime import date, datetime, timezone, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -20,6 +21,7 @@ from app.models import setting as setting_model
 from app.models import user as user_model
 from app.models import joke as joke_model
 from app.models import feedback as feedback_model
+from app import excel_export
 
 bp = Blueprint("main", __name__)
 
@@ -388,6 +390,122 @@ def _apply_filters(issues, nodes, q, owner, state, week_from, week_to):
     return result
 
 
+def _apply_tracker_filters_from_args(ongoing, on_hold, nodes, args):
+    """Apply the same filters as the tracker page, sourced from request args.
+
+    Mirrors the inline filter logic in the tracker() route so the filtered
+    export and the tracker view stay 1:1 consistent. Returns
+    (filtered_ongoing, filtered_on_hold, all_states_for_filtered).
+
+    Filter sources (all optional):
+      q, owner, node, state, week_from, week_to,
+      adv_node_1..3, adv_state_1..3, adv_match (all|any).
+    """
+    q = args.get("q", "").strip()
+    filter_owner = args.get("owner", "").strip()
+    filter_node = args.get("node", "").strip()
+    filter_state = args.get("state", "").strip()
+    filter_week_from = args.get("week_from", "").strip()
+    filter_week_to = args.get("week_to", "").strip()
+
+    has_basic = (q or filter_owner or filter_node or filter_state
+                 or filter_week_from or filter_week_to)
+
+    if has_basic:
+        ongoing = _apply_filters(ongoing, nodes, q, filter_owner, filter_state,
+                                 filter_week_from, filter_week_to)
+        on_hold = _apply_filters(on_hold, nodes, q, filter_owner, filter_state,
+                                 filter_week_from, filter_week_to)
+
+    all_ids = [i["id"] for i in ongoing] + [i["id"] for i in on_hold]
+    all_states = state_model.get_all_states_for_issues(all_ids)
+
+    basic_node_id = int(filter_node) if filter_node.isdigit() else None
+    if (basic_node_id or filter_state) and all_states:
+        kept = set()
+        for issue_id, node_states in all_states.items():
+            if basic_node_id and filter_state:
+                cell = node_states.get(basic_node_id)
+                if filter_state == "__blank__":
+                    if not cell or not cell["state"]:
+                        kept.add(issue_id)
+                elif cell and cell["state"] == filter_state:
+                    kept.add(issue_id)
+            elif basic_node_id:
+                cell = node_states.get(basic_node_id)
+                if cell and cell["state"]:
+                    kept.add(issue_id)
+            elif filter_state:
+                for _, cell in node_states.items():
+                    if filter_state == "__blank__":
+                        if not cell["state"]:
+                            kept.add(issue_id)
+                            break
+                    elif cell["state"] == filter_state:
+                        kept.add(issue_id)
+                        break
+        ongoing = [i for i in ongoing if i["id"] in kept]
+        on_hold = [i for i in on_hold if i["id"] in kept]
+        all_ids = [i["id"] for i in ongoing] + [i["id"] for i in on_hold]
+        all_states = state_model.get_all_states_for_issues(all_ids)
+
+    adv_filters = []
+    for i in range(1, 4):
+        anode = args.get(f"adv_node_{i}", "").strip()
+        astate = args.get(f"adv_state_{i}", "").strip()
+        if anode or astate:
+            adv_filters.append((anode, astate))
+    adv_match = args.get("adv_match", "all").strip().lower()
+    if adv_match not in ("all", "any"):
+        adv_match = "all"
+
+    if adv_filters:
+        all_current_ids = {i["id"] for i in ongoing} | {i["id"] for i in on_hold}
+
+        def _matches(issue_id, af_node_id, af_state):
+            ns = all_states.get(issue_id, {})
+            if af_node_id and af_state:
+                cell = ns.get(af_node_id)
+                if af_state == "__blank__":
+                    return not cell or not cell["state"]
+                return bool(cell and cell["state"] == af_state)
+            if af_node_id and not af_state:
+                cell = ns.get(af_node_id)
+                return bool(cell and cell["state"])
+            if not af_node_id and af_state:
+                for _, cell in ns.items():
+                    if af_state == "__blank__":
+                        if not cell["state"]:
+                            return True
+                    elif cell["state"] == af_state:
+                        return True
+                return False
+            return False
+
+        per_cond = []
+        for anode, astate in adv_filters:
+            af_node_id = int(anode) if anode else None
+            matched = {iid for iid in all_current_ids
+                       if _matches(iid, af_node_id, astate)}
+            per_cond.append(matched)
+        kept = set().union(*per_cond) if adv_match == "any" else set.intersection(*per_cond)
+        ongoing = [i for i in ongoing if i["id"] in kept]
+        on_hold = [i for i in on_hold if i["id"] in kept]
+        all_ids = [i["id"] for i in ongoing] + [i["id"] for i in on_hold]
+        all_states = state_model.get_all_states_for_issues(all_ids)
+
+    return ongoing, on_hold, all_states
+
+
+def _has_any_tracker_filter(args) -> bool:
+    """True iff at least one tracker filter knob is set in args."""
+    keys = ("q", "owner", "node", "state", "week_from", "week_to",
+            "adv_node_1", "adv_state_1",
+            "adv_node_2", "adv_state_2",
+            "adv_node_3", "adv_state_3")
+    return any(args.get(k, "").strip() for k in keys)
+
+
 # ── Mark all as read ──
 
 @bp.route("/mark_all_read", methods=["POST"])
@@ -476,80 +594,117 @@ def changes():
 
 # ── Export Excel ──
 
+def _gitea_url_resolver():
+    """Build a Python equivalent of the Jinja `gitea_url_for(display_number)`
+    macro for use in the Excel export. Reads `gitea_url_mappings` from
+    settings; returns a function display_number → URL or '' (no mapping)."""
+    raw = setting_model.get("gitea_url_mappings", "[]")
+    try:
+        mappings = json.loads(raw)
+    except (ValueError, TypeError):
+        mappings = []
+
+    def resolve(display_number):
+        if not display_number:
+            return ""
+        dn = str(display_number)
+        # Prefix match wins (longest prefix first).
+        for m in sorted(mappings, key=lambda m: -len(m.get("prefix") or "")):
+            prefix = m.get("prefix") or ""
+            if prefix and dn.upper().startswith(prefix.upper()):
+                return (m.get("url_template") or "").replace("{number}", dn[len(prefix):])
+        # Fallback: empty-prefix mapping for pure-numeric IDs.
+        if dn.isdigit():
+            for m in mappings:
+                if not m.get("prefix"):
+                    return (m.get("url_template") or "").replace("{number}", dn)
+        return ""
+
+    return resolve
+
+
+def _audit_export(filtered: bool, ongoing_n: int, closed_n: int):
+    """Audit log row for /export, so PII access is traceable."""
+    db = get_db()
+    db.execute(
+        """INSERT INTO audit_log (actor_user_id, action, target_type, target_id, details, created_at)
+           VALUES (?, ?, NULL, NULL, ?, ?)""",
+        (g.current_user["id"], "export_excel",
+         json.dumps({"filtered": filtered, "ongoing_n": ongoing_n,
+                     "closed_n": closed_n}, ensure_ascii=False),
+         datetime.now(timezone.utc).isoformat()),
+    )
+    db.commit()
+
+
 @bp.route("/export")
 @login_required
 def export_excel():
-    """匯出 Excel — 下載目前所有 ongoing + on_hold issues
+    """匯出 Excel — 下載 Ongoing + On Hold + Closed
     ---
     tags:
       - Export
+    parameters:
+      - name: filtered
+        in: query
+        type: integer
+        description: 1 = 套用 tracker 同名 query 參數做篩選後再匯出；省略 = 匯出全部
     produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
     responses:
       200:
-        description: 下載 .xlsx 檔案，包含 #號、狀態、Owner、各 Node 狀態、JIRA、UAT Path、Topic
+        description: 下載 .xlsx；含 Ongoing(+On Hold) 與 Closed 兩張 sheet；
+                     字體色標示狀態，紅線以上 UAT/TBD 紅字。
     """
-    import openpyxl
-    from openpyxl.styles import PatternFill, Font, Alignment
-
+    filtered = request.args.get("filtered", "").strip() in ("1", "true", "yes")
     nodes = node_model.get_all_active()
-    ongoing = issue_model.get_ongoing()
-    on_hold = issue_model.get_on_hold()
-    all_issues = list(ongoing) + list(on_hold)
-    all_ids = [i["id"] for i in all_issues]
-    all_states = state_model.get_all_states_for_issues(all_ids)
+    red_line_year, red_line_week = setting_model.get_red_line()
 
-    STATE_LABELS = {
-        "done": "Done", "uat_done": "UAT done", "uat": "UAT",
-        "developing": "Developing", "tbd": "TBD", "unneeded": "Unneeded",
-    }
+    ongoing = list(issue_model.get_ongoing())
+    on_hold = list(issue_model.get_on_hold())
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Ongoing"
+    if filtered and _has_any_tracker_filter(request.args):
+        ongoing, on_hold, all_states = _apply_tracker_filters_from_args(
+            ongoing, on_hold, nodes, request.args
+        )
+    else:
+        all_ids = [i["id"] for i in ongoing] + [i["id"] for i in on_hold]
+        all_states = state_model.get_all_states_for_issues(all_ids)
 
-    # Header
-    headers = ["#", "Status", "Owner"] + [n["display_name"] for n in nodes] + ["JIRA", "UAT Path", "Topic"]
-    ws.append(headers)
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
+    # Closed: never affected by the live tracker filter (it doesn't apply to
+    # the Closed page either). Always include all closed issues for context.
+    closed = list(issue_model.get_all_closed())
+    closed_states = state_model.get_all_states_for_issues([i["id"] for i in closed])
+    all_states = {**all_states, **closed_states}
 
-    current_week = None
-    for issue in all_issues:
-        wk = (issue["week_year"], issue["week_number"])
-        if wk != current_week:
-            current_week = wk
-            ws.append([f"wk{wk[0] - 2020}{wk[1]:02d}"])
+    user = g.current_user
+    exporter_display_name = user["display_name"] or user["username"]
 
-        row_data = [issue["display_number"], issue["status"], issue["requestor_name"] or ""]
-        states = all_states.get(issue["id"], {})
-        for node in nodes:
-            cell = states.get(node["id"])
-            if cell and cell["state"]:
-                label = STATE_LABELS.get(cell["state"], cell["state"])
-                if cell["check_in_date"]:
-                    label += f"\n{cell['check_in_date']}"
-                row_data.append(label)
-            else:
-                row_data.append("")
-        row_data.extend([issue["jira_ticket"] or "", issue["uat_path"] or "", issue["topic"]])
-        ws.append(row_data)
+    buf = excel_export.build_workbook(
+        ongoing_issues=ongoing,
+        on_hold_issues=on_hold,
+        closed_issues=closed,
+        nodes=[dict(n) for n in nodes],
+        all_states=all_states,
+        red_line_year=red_line_year,
+        red_line_week=red_line_week,
+        exporter_display_name=exporter_display_name,
+        exporter_username=user["username"],
+        filtered=filtered,
+        gitea_url_for=_gitea_url_resolver(),
+    )
 
-    # Auto-width
-    for col in ws.columns:
-        max_len = max((len(str(c.value or "")) for c in col), default=10)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+    _audit_export(filtered=filtered,
+                  ongoing_n=len(ongoing) + len(on_hold),
+                  closed_n=len(closed))
 
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-
-    filename = f"gitea_tracker_{date.today().isoformat()}.xlsx"
-    return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                     as_attachment=True, download_name=filename)
+    filename = f"gitea_tracker_{date.today().isoformat()}_{user['username']}.xlsx"
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 # ── Calendar ──

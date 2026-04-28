@@ -447,7 +447,38 @@
       <span class="new-badge">2026-04-21</span>：
       不會看到滿螢幕黃底。系統在你帳號啟用時會自動把基準點設為「帳號開通的當下」，之後才發生的變動才算「新」。</li>
   <li><strong>舊帳號</strong>：若從來沒按過「標記已讀」可能看不到任何黃底；按一次建立基準點就正常了。</li>
-  <li><strong>匯出 Excel</strong>：下載目前所有 ongoing + on hold 題目（含所有 node 狀態）到 <code>.xlsx</code>。</li>
+  <li><strong>匯出 Excel</strong>
+      <span class="new-badge">2026-04-29</span>：右上「匯出 Excel」按鈕變成下拉選單，兩個選項：
+      <ul style="margin-top:4px;">
+        <li><strong>匯出全部</strong>：所有 Ongoing / On Hold / Closed，不受畫面上的搜尋/進階條件影響</li>
+        <li><strong>匯出目前篩選結果</strong>：只匯出符合你目前 tracker 上已套用條件的題目（Closed 仍保留全部，當作參考）。沒套條件時這個選項會 disabled</li>
+      </ul>
+      檔名 <code>gitea_tracker_YYYY-MM-DD_&lt;username&gt;.xlsx</code>，多人匯出不會撞檔名。每次匯出會寫一筆 <code>audit_log</code>（PII 外流可追溯）。
+  </li>
+</ul>
+
+<h4 style="margin-top:18px;">匯出檔的長相
+  <span class="new-badge">2026-04-29</span></h4>
+<ul>
+  <li><strong>兩張 sheet</strong>：<code>Ongoing</code>（含 On Hold 混排）與 <code>Closed</code>。</li>
+  <li><strong>頂端 metadata 列 + 圖例</strong>：第 1 列「匯出時間 / 匯出者 / 紅線 / 範圍 / 題目數」；第 2 列狀態色圖例。第 3 列才是表頭。</li>
+  <li><strong>字體</strong>：英文 Calibri、中文微軟正黑體（Excel 自動依字元切換）。Cell 不填色，狀態用<strong>字體顏色</strong>區分。</li>
+  <li><strong>狀態配色</strong>：
+    Done <span style="color:#1e8449;font-weight:bold;">深綠粗</span> ／
+    UAT Done <span style="color:#2874a6;font-weight:bold;">藍粗</span> ／
+    UAT <span style="color:#d35400;font-weight:bold;">橘粗</span> ／
+    TBD <span style="color:#7d3c98;font-weight:bold;">紫粗</span> ／
+    Dev <span style="color:#566573;">中灰</span> ／
+    Unneeded <span style="color:#95a5a6;font-style:italic;">淺灰斜體</span>。
+  </li>
+  <li><strong>紅線以上的 UAT / TBD</strong>：字色覆蓋為 <span style="color:#c0392b;font-weight:bold;">紅色粗體</span>，方便一眼掃出久未消的老題。沒設紅線或無題目落在紅線以上時，就跟一般狀態一樣顯示。</li>
+  <li><strong>Status 欄</strong>：友善英文（<code>Ongoing</code> / <code>On Hold</code> / <code>Closed</code>）。pending close（Excel 匯入時被建議關單但 admin 還沒人工確認）會加上 <code>(待確認關單)</code> 後綴。</li>
+  <li><strong>Owner 欄</strong>：跟 tracker 上看到的一樣（資料來源：<code>requestor_name</code>，存的是開發者名字）。</li>
+  <li><strong># 欄</strong>：題號是 Gitea 超連結（藍底線），點下去直接開原 Gitea Issue。</li>
+  <li><strong>State cell 內容</strong>：三行 — <code>狀態名 / 上線日期 (YYYY-MM-DD) / 短備註</code>，沒有的行會省略。</li>
+  <li><strong>欄位</strong>：<code># / Status / Owner / 各 Node 狀態 / JIRA / UAT Path / Topic / ICV / Group Label</code>。</li>
+  <li><strong>凍結窗格</strong>：第 1-3 列（metadata + 圖例 + 表頭）+ 前 3 欄（#、Status、Owner）。捲動時這些都不會跑掉。</li>
+  <li><strong>wkXXX 週分隔列</strong>：每一週的題目前面有一條深灰粗體標籤，方便分組掃讀。</li>
 </ul>
 
 <h3>4.11 變動總表（Changes）<span class="new-badge">2026-04-24</span></h3>
@@ -809,7 +840,17 @@
 
 <h3>Q：匯出 Excel 的欄位和原 Excel 一樣嗎？</h3>
 <p>
-  一樣。重新匯入也能 round-trip（系統會用題號對現有題目做 diff preview，避免重覆建立）。
+  欄位差異：原 Excel 沒有 ICV 與 Group Label；新匯出比原 Excel 多這兩欄。其他都一樣，重新匯入仍可 round-trip
+  （系統會用題號對現有題目做 diff preview，避免重覆建立）。匯出的視覺樣式（字體色、紅線標記、wk 分隔列）是給人看的，
+  跟系統匯入邏輯無關，不影響再匯入。
+</p>
+
+<h3>Q：匯入 Excel 時 cell 寫的是「2/20」這種沒年份的日期，會存成幾年？
+  <span class="new-badge">2026-04-29</span></h3>
+<p>
+  系統會依該題的週次智慧推年份：MM-DD 落在該週 ISO Monday <strong>之後</strong> → 同一年；落在<strong>之前</strong> → 下一年（視為「下年初的計畫上線」）。
+  例：題目在 wk626（2026-06-22 那週），cell 寫 2/20 → 存成 <code>2027-02-20</code>；寫 8/15 → 存成 <code>2026-08-15</code>。
+  推錯了可在 Side Panel 直接改成正確的 YYYY-MM-DD。
 </p>
 
 <h3>Q：JIRA 票號打錯了，要怎麼改？
@@ -826,7 +867,7 @@
 </p>
 
 <div class="doc-footer">
-  Gitea Tracker User Guide &mdash; Last updated: 2026-04-21
+  Gitea Tracker User Guide &mdash; Last updated: 2026-04-29
 </div>
 
 </div><!-- /container -->

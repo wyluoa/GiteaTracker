@@ -50,9 +50,16 @@ CREATE TABLE IF NOT EXISTS issues (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     display_number        TEXT NOT NULL,
     topic                 TEXT NOT NULL,
-    requestor_user_id     INTEGER REFERENCES users(id),
-    requestor_name        TEXT,
-    owner_user_id         INTEGER REFERENCES users(id),
+    -- NAMING NOTE (do not be misled by the column names):
+    -- `requestor_name` actually stores the issue OWNER (developer/assignee) — the
+    -- Excel "Owner" column is imported into this field. The tracker UI's "Owner"
+    -- column reads `requestor_name`. Schema name is historical baggage from an
+    -- early design that planned a separate requestor/owner split; that split was
+    -- never implemented. `owner_user_id` exists but is always NULL (no UI ever
+    -- writes to it). Treat `requestor_name` as the canonical Owner field.
+    requestor_user_id     INTEGER REFERENCES users(id),  -- unused, always NULL
+    requestor_name        TEXT,                          -- ACTUAL OWNER (developer) — see note above
+    owner_user_id         INTEGER REFERENCES users(id),  -- unused, always NULL — reserved for future user-linked owner
     week_year             INTEGER NOT NULL,
     week_number           INTEGER NOT NULL,
     jira_ticket           TEXT,

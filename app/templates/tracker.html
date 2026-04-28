@@ -235,7 +235,31 @@
         {% if user.get('id') %}
         <button type="button" class="btn btn-sm btn-outline-secondary"
                 onclick="fetch('{{ url_for('main.mark_all_read') }}',{method:'POST',credentials:'same-origin'}).then(()=>location.reload())">標記已讀</button>
-        <a href="{{ url_for('main.export_excel') }}" class="btn btn-sm btn-outline-secondary">匯出 Excel</a>
+        <div class="dropdown">
+          <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                  data-bs-toggle="dropdown" aria-expanded="false">
+            匯出 Excel
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <a class="dropdown-item" href="{{ url_for('main.export_excel') }}">
+                匯出全部
+                <div class="text-muted small">所有 Ongoing / On Hold / Closed</div>
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item {{ '' if has_any_filter else 'disabled' }}"
+                 {% if has_any_filter %}
+                 href="{{ url_for('main.export_excel') }}?filtered=1{% if request.query_string %}&amp;{{ request.query_string.decode() }}{% endif %}"
+                 {% else %}
+                 aria-disabled="true" tabindex="-1"
+                 {% endif %}>
+                匯出目前篩選結果
+                <div class="text-muted small">套用上方搜尋/進階條件{% if not has_any_filter %}（目前無條件）{% endif %}</div>
+              </a>
+            </li>
+          </ul>
+        </div>
         {% if user.get('is_super_user') %}
         <a href="{{ url_for('admin.create_issue') }}" class="btn btn-sm btn-outline-success">+ 新增題目</a>
         <a href="{{ url_for('issues.meeting_mode', year=current_week_year, week=current_week_number) }}"

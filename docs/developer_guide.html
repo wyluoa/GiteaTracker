@@ -251,7 +251,8 @@
 │   ├── db.py              # SQLite connection + schema migration
 │   ├── schema.sql         # 建表語句（首次啟動時執行）
 │   ├── errors.py          # 錯誤處理
-│   ├── excel.py           # .xlsx 解析邏輯
+│   ├── excel.py           # .xlsx 解析邏輯（匯入；含 MM-DD → YYYY-MM-DD 智慧推年）
+│   ├── excel_export.py    # .xlsx 產生邏輯（匯出；theme + 狀態色 + 紅線）
 │   ├── mail.py            # SMTP / ddi_api 寄信
 │   ├── models/            # 各 entity 的 query helpers
 │   ├── routes/            # Flask blueprints
@@ -658,7 +659,72 @@ SNPS         http://gitea/Synopsys/issues/{number}</code></pre>
 
 <h3>7.4 CLI 匯入</h3>
 <pre><code>python import_from_excel.py control_table.xlsx</code></pre>
-<p>適合首次 seed。不走 diff preview，直接全量寫入（若題號已存在會跳過並警告）。</p>
+<p>適合首次 seed。不走 diff preview，直接全量寫入（若題號已存在會跳過並警告）。
+   CLI 的 <code>parse_cell</code> 自 2026-04-29 起改為 thin wrapper，呼叫 <code>app.excel.parse_cell</code>，與 web 匯入<strong>單一 source of truth</strong>。</p>
+
+<h3>7.5 Check-in date 智慧推年
+  <span class="role role-super">2026-04-29</span></h3>
+<p>
+  Excel cell 寫 <code>2/20</code> 這種沒年份的 check-in，匯入時 <code>app.excel.infer_check_in_year(month, day, week_year, week_number)</code>
+  會自動補上完整 <code>YYYY-MM-DD</code>：
+</p>
+<ul>
+  <li>MM-DD 落在該題 ISO Monday <strong>之後</strong>（含當日）→ 同一年（最常見：當年內的里程碑）</li>
+  <li>MM-DD 落在該題 ISO Monday <strong>之前</strong> → 下一年（rolling 進新年）</li>
+  <li>MM-DD 不合法（例 2/30）→ fall back to issue_week_year</li>
+</ul>
+<p>
+  例：題目 <code>week=(2026, 26)</code>（Monday 2026-06-22），<code>2/20</code> → 2027-02-20；<code>8/15</code> → 2026-08-15。
+</p>
+<p>
+  <strong>歷史資料不會自動回填</strong>。2026-04-29 之前已存在的 <code>MM-DD</code> 列維持原樣；export 時 <code>excel_export.format_check_in_date()</code> 會即時推年顯示為 YYYY-MM-DD，不污染 DB。
+</p>
+<p>
+  推錯時直接從 Side Panel 改成正確的 YYYY-MM-DD（UI 的日期 input 會 round-trip 為標準 ISO 格式）。
+</p>
+
+<!-- ═══ 7.6 Excel 匯出 ═══ -->
+<h3>7.6 Excel 匯出（<code>app/excel_export.py</code>）
+  <span class="role role-super">2026-04-29</span></h3>
+<p>路由 <code>GET /export</code>（<code>app/routes/main.py::export_excel</code>）；所有實際樣式邏輯在獨立模組 <code>app/excel_export.py</code>，便於單元測試（<code>tests/test_excel_export.py</code>）。</p>
+
+<table>
+  <tr><th style="width:220px;">參數</th><th>行為</th></tr>
+  <tr><td><code>?filtered=1</code></td>
+      <td>套用 tracker 同名 query 參數（<code>q</code>, <code>owner</code>, <code>node</code>, <code>state</code>, <code>week_from</code>, <code>week_to</code>, <code>adv_node_N</code>, <code>adv_state_N</code>, <code>adv_match</code>）做篩選。Closed sheet 不受影響仍全量。</td></tr>
+  <tr><td>無參數</td>
+      <td>匯全部 Ongoing + On Hold + Closed。</td></tr>
+</table>
+
+<h4>關鍵設計</h4>
+<ul>
+  <li><strong>字體</strong>：<code>apply_taiwan_theme(wb)</code> 替換 <code>xl/theme/theme1.xml</code>，把 minorFont 設為 Latin=Calibri、ea=Microsoft JhengHei；cells 用 <code>Font(scheme="minor")</code>，Excel 依字元自動切。</li>
+  <li><strong>狀態色</strong>：<code>STATE_STYLES</code> dict 統一管理，<code>state_font(state, above_red_line=...)</code> 回傳 <code>openpyxl.styles.Font</code>。改色只動這一處。</li>
+  <li><strong>紅線</strong>：<code>above_red_line(year, week, rl_year, rl_week)</code> → <code>(week_year, week_number) &lt;= (rl_year, rl_week)</code>。<code>state="uat" or "tbd"</code> 時 color 覆蓋為 <code>RED_LINE_COLOR</code>（其他狀態不變）。</li>
+  <li><strong>兩個 sheet</strong>：<code>build_workbook()</code> 各呼叫 <code>_populate_sheet()</code> 一次。column layout、metadata band、week separator 由 <code>FIXED_LEAD</code> / <code>FIXED_TAIL</code> / <code>NODE_WIDTH</code> 決定。</li>
+  <li><strong># 欄超連結</strong>：<code>_gitea_url_resolver()</code>（<code>main.py</code>）讀 <code>settings.gitea_url_mappings</code>，對 <code>display_number</code> 套 prefix → URL 規則；空字串 → 不附 hyperlink。</li>
+  <li><strong>Status 欄</strong>：<code>STATUS_LABELS</code> 對應 friendly 英文（<code>Ongoing/On Hold/Closed</code>），<code>pending_close=1</code> 加上 <code>(待確認關單)</code> 後綴。</li>
+  <li><strong>Owner 欄</strong>：直接讀 <code>requestor_name</code>，與 tracker UI 1:1 一致（<code>owner_user_id</code> schema 上保留但永遠 NULL，schema.sql 已加註解）。</li>
+  <li><strong>State cell 內容</strong>：<code>_state_cell_text()</code> 組三行 <code>label / YYYY-MM-DD / short_note</code>，沒有的行會省略。日期由 <code>format_check_in_date()</code> 對 MM-DD 推年。</li>
+  <li><strong>凍結窗格</strong>：固定 <code>D4</code>（rows 1-3 為 metadata + 圖例 + header；cols A-C 為 # / Status / Owner）。</li>
+  <li><strong>Audit log</strong>：每次匯出寫一筆 <code>action="export_excel"</code>，<code>details</code> 含 <code>filtered</code>、<code>ongoing_n</code>、<code>closed_n</code>。</li>
+  <li><strong>檔名</strong>：<code>gitea_tracker_YYYY-MM-DD_&lt;username&gt;.xlsx</code>。</li>
+</ul>
+
+<h4>UI 上的兩個按鈕（tracker.html）</h4>
+<p>
+  「匯出 Excel」改成 Bootstrap dropdown：
+  「匯出全部」 → <code>/export</code>；
+  「匯出目前篩選結果」 → <code>/export?filtered=1&amp;{request.query_string}</code>。
+  沒套任何 filter 時第二項 disabled，避免使用者點完後得到「跟全部一樣」的結果。
+</p>
+
+<h4>不在這次 scope 但提一下的事項</h4>
+<ul>
+  <li>列印設定（橫向、縮放、頁眉重複）— <em>本次不做</em>。</li>
+  <li>JIRA 欄超連結 — 沒有 JIRA base URL 設定，<em>不做</em>；要做時模式可參考 <code>_gitea_url_resolver()</code>。</li>
+  <li>把舊 <code>MM-DD</code> 列回填成 <code>YYYY-MM-DD</code> — <em>不做</em>，原始資料保留，僅顯示層即時推年。</li>
+</ul>
 
 <!-- ═══ 8. Permissions ═══ -->
 <h2 id="permissions">8. 權限與狀態守衛 <span class="role role-super">2026-04</span></h2>

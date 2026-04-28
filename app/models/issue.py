@@ -91,6 +91,17 @@ def get_closed(limit=50, offset=0):
     ).fetchall()
 
 
+def get_all_closed():
+    """All closed issues (no pagination), ordered by week for the Excel
+    export's Closed sheet. Sorted week-old → week-new to match Ongoing's
+    layout, since the export reader scans week by week."""
+    return get_db().execute(
+        """SELECT * FROM issues
+           WHERE status = 'closed' AND is_deleted = 0
+           ORDER BY week_year, week_number, CAST(display_number AS INTEGER)"""
+    ).fetchall()
+
+
 def count_closed():
     row = get_db().execute(
         "SELECT COUNT(*) as cnt FROM issues WHERE status = 'closed' AND is_deleted = 0"

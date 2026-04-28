@@ -5,6 +5,7 @@ Used by both the CLI import (import_from_excel.py) and the web-based
 Excel update feature (admin routes).
 """
 import re
+from datetime import date
 
 import openpyxl
 
@@ -50,14 +51,22 @@ DATE_PATTERN = re.compile(r"(\d{1,2})/(\d{1,2})")
 
 # ---------- Cell parsing ----------
 
-def parse_cell(raw_value):
+def parse_cell(raw_value, *, issue_week_year=None, issue_week_number=None):
     """Parse a cell value into (state, check_in_date, short_note).
 
-    Examples:
-        "Done"                         -> ("done", None, None)
-        "UAT done\\n2/20 Check in"     -> ("uat_done", "02-20", None)
-        "Developing added spec for N4" -> ("developing", None, "added spec for N4")
-        ""  / None                     -> (None, None, None)
+    `check_in_date` is returned as `YYYY-MM-DD` when issue_week_year +
+    issue_week_number are supplied (the typical import path) — the year is
+    inferred via `infer_check_in_year`. When week info is not provided
+    (e.g. from a stand-alone unit test), check_in_date falls back to
+    `MM-DD` so existing callers don't crash.
+
+    Examples (with week info):
+        "UAT done\\n2/20 Check in" + week (2026, 26)
+            -> ("uat_done", "2027-02-20", None)   # 2/20 is before wk626's
+                                                    Monday → next year
+
+    Examples (no week info, legacy):
+        "UAT done\\n2/20 Check in"  -> ("uat_done", "02-20", None)
     """
     if raw_value is None:
         return None, None, None
@@ -97,7 +106,11 @@ def parse_cell(raw_value):
         if date_match:
             month = int(date_match.group(1))
             day = int(date_match.group(2))
-            check_in_date = f"{month:02d}-{day:02d}"
+            if issue_week_year and issue_week_number:
+                year = infer_check_in_year(month, day, issue_week_year, issue_week_number)
+                check_in_date = f"{year:04d}-{month:02d}-{day:02d}"
+            else:
+                check_in_date = f"{month:02d}-{day:02d}"
         else:
             if short_note:
                 short_note += " " + line
@@ -105,6 +118,30 @@ def parse_cell(raw_value):
                 short_note = line
 
     return state, check_in_date, short_note
+
+
+def infer_check_in_year(month, day, issue_week_year, issue_week_number):
+    """Smart year inference for `MM-DD` check-in dates from Excel imports.
+
+    Rule (locked 2026-04-29, decision Q1=b): the check-in date typically
+    represents a planned go-live or milestone tied to the issue. So:
+
+      - If MM-DD falls ON OR AFTER the issue's ISO Monday → same year as
+        the issue (most common: milestone within the same year of work)
+      - If MM-DD falls BEFORE the issue's ISO Monday      → next year
+        (rolling into the new year — "we'll ship Feb of next year")
+
+    Falls back to issue_week_year when MM-DD is invalid (e.g. 2/30).
+    """
+    try:
+        candidate = date(issue_week_year, month, day)
+    except ValueError:
+        return issue_week_year
+    try:
+        iso_monday = date.fromisocalendar(issue_week_year, issue_week_number, 1)
+    except ValueError:
+        return issue_week_year
+    return issue_week_year if candidate >= iso_monday else issue_week_year + 1
 
 
 # ---------- Merged cells ----------
@@ -268,7 +305,11 @@ def parse_sheet(ws, node_lookup, is_closed_sheet=False):
         nodes = {}
         for col_idx, node_ids in node_columns.items():
             raw = cell_val(col_idx)
-            state, check_in_date, short_note = parse_cell(raw)
+            state, check_in_date, short_note = parse_cell(
+                raw,
+                issue_week_year=current_week_year,
+                issue_week_number=current_week_number,
+            )
             for node_id in node_ids:
                 nodes[node_id] = {
                     "state": state,

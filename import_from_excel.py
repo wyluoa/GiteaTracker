@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app import create_app
 from app.db import get_db
+from app.excel import parse_cell as _shared_parse_cell
 from app.models import node as node_model
 from app.models import user as user_model
 
@@ -61,69 +62,15 @@ WK_PATTERN = re.compile(r"^wk(\d+)$", re.IGNORECASE)
 DATE_PATTERN = re.compile(r"(\d{1,2})/(\d{1,2})")
 
 
-def parse_cell(raw_value):
-    """Parse a cell value into (state, check_in_date, short_note).
-
-    Examples:
-        "Done"                         -> ("done", None, None)
-        "UAT done\\n2/20 Check in"     -> ("uat_done", "02-20", None)
-        "Developing added spec for N4" -> ("developing", None, "added spec for N4")
-        ""  / None                     -> (None, None, None)
-    """
-    if raw_value is None:
-        return None, None, None
-
-    text = str(raw_value).strip()
-    if not text:
-        return None, None, None
-
-    # Split on newline — first part is state, rest may contain date/note
-    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-
-    state = None
-    check_in_date = None
-    short_note = None
-
-    if not lines:
-        return None, None, None
-
-    # Try to match the first line (or beginning of first line) to a known state
-    first_line = lines[0]
-    first_lower = first_line.lower()
-
-    # Check exact match first
-    if first_lower in STATE_MAP:
-        state = STATE_MAP[first_lower]
-    else:
-        # Try prefix match: "Developing added spec for N4 to N7"
-        for key in sorted(STATE_MAP.keys(), key=len, reverse=True):
-            if first_lower.startswith(key):
-                state = STATE_MAP[key]
-                remainder = first_line[len(key):].strip()
-                if remainder:
-                    short_note = remainder
-                break
-
-    if state is None:
-        # Could not parse state — store entire text as short_note
-        short_note = text
-        return None, None, short_note
-
-    # Check remaining lines for date
-    for line in lines[1:]:
-        date_match = DATE_PATTERN.search(line)
-        if date_match:
-            month = int(date_match.group(1))
-            day = int(date_match.group(2))
-            check_in_date = f"{month:02d}-{day:02d}"
-        else:
-            # Append to short_note
-            if short_note:
-                short_note += " " + line
-            else:
-                short_note = line
-
-    return state, check_in_date, short_note
+# parse_cell lives in app/excel.py — single source of truth shared with the
+# admin web import. CLI passes the issue's week so check_in_date is stored
+# as YYYY-MM-DD with the year smartly inferred (Q1=b, locked 2026-04-29).
+def parse_cell(raw_value, *, issue_week_year=None, issue_week_number=None):
+    return _shared_parse_cell(
+        raw_value,
+        issue_week_year=issue_week_year,
+        issue_week_number=issue_week_number,
+    )
 
 
 def expand_merged_cells(ws):
@@ -304,7 +251,11 @@ def import_sheet(ws, node_lookup, legacy_user_id, is_closed_sheet=False):
         # Process node states
         for col_idx, node_ids in node_columns.items():
             raw = cell_val(col_idx)
-            state, check_in_date, short_note = parse_cell(raw)
+            state, check_in_date, short_note = parse_cell(
+                raw,
+                issue_week_year=current_week_year,
+                issue_week_number=current_week_number,
+            )
 
             for node_id in node_ids:
                 existing_state = db.execute(

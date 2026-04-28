@@ -139,6 +139,37 @@
 
 四個類別不擴張(weekly_trend_data 仍是 UAT/TBD/Dev/Close),所以 `uat_done` priority 順序自然 fall-through 到 Dev——這在「已測完但未關單」的語意上略怪,但 (a) UAT/TBD 是要催的類別,Dev/Close 是「不需催」的類別,uat_done 屬於後者比較對;(b) 不需要 schema migration、不影響歷史資料結構。同樣的 trade-off 不適用 cell 顏色——cell 上 `uat_done` 仍是獨立的藍色狀態,跟 Dev 完全分開。
 
+### Q: 匯出 Excel 為什麼用「字體色」而不是 cell 填色? (2026-04-29)
+**A**: 使用者明確要求:「字體要上色,cell 不用填色」。實際好處:
+- 列印或灰階複印時填色塊會吃掉文字辨識度;字體色不會
+- 內網工具常被人複製貼到信件或文件,純色字保留語意,填色貼過去會被剝
+- 多狀態 cell 共存時(例:cell 主視覺 + 紅線警示)兩個顏色不會打架——填色二選一,字體色可以「色相 = 狀態,粗體 = 警示」分軸
+
+### Q: Excel 匯出英文 Calibri、中文微軟正黑體,為什麼不用一個字體就好? (2026-04-29)
+**A**: 數字和英文用 Calibri 比較銳利好讀,中文用微軟正黑體比較整齊,這是台灣 Excel 環境的「公司標準」配對。技術上靠改 `xl/theme/theme1.xml` 的 `<a:fontScheme>`:Latin=Calibri、East Asian=Microsoft JhengHei,cells 用 `Font(scheme="minor")` 讓 Excel 依字元自動切。
+
+替代方案(全 Calibri 倚賴 Excel 自動 fallback)會在不同 Excel 版本/locale 下顯示不一致;明確指定 East Asian 字體才能跨機器穩定。
+
+### Q: Owner 欄為什麼從 `requestor_name` 讀,而不是 `owner_user_id`? (2026-04-29)
+**A**: schema 命名跟實際語意不一致——`requestor_name` 這個欄位存的就是 Owner(開發者)。原因:
+- Excel "Owner" 欄(使用者實際使用的詞)從 import 一路被存進 `requestor_name`
+- Tracker UI 的 "Owner" 欄就是讀 `requestor_name`
+- `owner_user_id` 是早期設計的「user-linked owner」雙欄位 pattern,但從未實作,UI 沒入口、永遠是 NULL
+
+匯出採「所見即所得」原則 = tracker 顯示什麼,Excel 就匯什麼,所以也讀 `requestor_name`。schema.sql 有加 `NAMING NOTE` 註解避免後人誤解。要正名(rename column 或實作真的 owner_user_id)留待未來 schema overhaul 一起處理,單獨改不值得。
+
+### Q: 匯入 Excel 的 `MM-DD` check-in 為什麼要推年? (2026-04-29)
+**A**: 使用者要求 export 的 check-in date 全部 `YYYY-MM-DD`(F4=b)+ 匯入時也要帶年資訊(Q1)。Excel 的 cell 經常寫 "2/20" 沒年份,推年規則(Q1=b 鎖定):
+- MM-DD 落在該題 ISO Monday <strong>之後</strong>(含當日)→ 同一年(milestone within the same year)
+- MM-DD 落在該題 ISO Monday <strong>之前</strong> → 下一年(rolling 進新年)
+
+這個推法基於觀察:check-in 多半是計畫上線日,通常落在「題目開始之後」;少數推到下一年的多半是 Q4 開的題、Q1 上線的計畫。推錯時 Side Panel 直接改成正確 YYYY-MM-DD。
+
+歷史 `MM-DD` 不自動回填,export 時用同樣推年規則即時顯示為 YYYY-MM-DD,不污染 DB。
+
+### Q: 匯出檔名為什麼帶 username? (2026-04-29)
+**A**: F3=b 使用者要求。多人在同一天匯出時不會撞檔名(`gitea_tracker_2026-04-29_alice.xlsx` vs `_bob.xlsx`),信件附件、伺服器上排序、收件人區分都比較好。同時所有匯出寫 `audit_log`(action=`export_excel`),PII 外流可追溯。
+
 ---
 
 ## UI 與視覺
