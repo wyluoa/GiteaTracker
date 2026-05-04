@@ -288,6 +288,91 @@ def test_freeze_panes_header_plus_first_three_cols():
     assert wb["Closed"].freeze_panes == "D4"
 
 
+def _find_row_starting_with(ws, prefix):
+    for r in range(4, ws.max_row + 1):
+        v = ws.cell(r, 1).value
+        if v and str(v).startswith(prefix):
+            return r
+    return None
+
+
+def test_wk_separator_row_fills_all_columns_gray():
+    """Wk separator row gets a light-gray fill spanning every column,
+    not just col A — so the visual band runs the full width of the table."""
+    nodes = [{"id": 1, "display_name": "A10"}, {"id": 2, "display_name": "A12"}]
+    buf = _build_test_workbook(
+        ongoing=[_issue(id=1, display_number="X", week_year=2026, week_number=26)],
+        nodes=nodes, all_states={1: {}},
+        red_line=None,
+    )
+    wb = load_workbook(buf)
+    ws = wb["Ongoing"]
+    wk_row = _find_row_starting_with(ws, "wk")
+    assert wk_row is not None, "wk separator row not found"
+    total_cols = ws.max_column
+    assert total_cols >= 5
+    for col in range(1, total_cols + 1):
+        rgb = ws.cell(wk_row, col).fill.start_color.rgb
+        assert rgb == excel_export.WK_ROW_FILL_COLOR, (
+            f"col {col} fill {rgb} != gray {excel_export.WK_ROW_FILL_COLOR}"
+        )
+
+
+def test_red_line_row_inserted_at_boundary():
+    """When weeks cross the red line, an explicit divider row is inserted
+    between the last 'above' wk-group and the first 'below' wk-group."""
+    nodes = []
+    buf = _build_test_workbook(
+        ongoing=[
+            _issue(id=1, display_number="OLD", week_year=2024, week_number=20),
+            _issue(id=2, display_number="MID", week_year=2024, week_number=26),
+            _issue(id=3, display_number="NEW", week_year=2024, week_number=30),
+        ],
+        nodes=nodes, all_states={1: {}, 2: {}, 3: {}},
+        red_line=(2024, 26),
+    )
+    wb = load_workbook(buf)
+    ws = wb["Ongoing"]
+    rl_row = _find_row_starting_with(ws, "─── redline")
+    # (Label phrasing is intentionally neutral — no value judgment about
+    # the items above the line.)
+    assert rl_row is not None, "red-line marker row not found"
+    # The marker should sit between MID (above) and NEW (below).
+    mid_row = next(r for r in range(4, ws.max_row + 1) if ws.cell(r, 1).value == "MID")
+    new_row = next(r for r in range(4, ws.max_row + 1) if ws.cell(r, 1).value == "NEW")
+    assert mid_row < rl_row < new_row
+    # Fill is the soft-red color across all columns.
+    for col in range(1, ws.max_column + 1):
+        rgb = ws.cell(rl_row, col).fill.start_color.rgb
+        assert rgb == excel_export.RED_LINE_ROW_FILL_COLOR
+
+
+def test_no_red_line_row_when_all_above():
+    """If every issue is above the red line there's no boundary to mark."""
+    buf = _build_test_workbook(
+        ongoing=[
+            _issue(id=1, display_number="A", week_year=2024, week_number=10),
+            _issue(id=2, display_number="B", week_year=2024, week_number=20),
+        ],
+        red_line=(2024, 26),
+    )
+    wb = load_workbook(buf)
+    assert _find_row_starting_with(wb["Ongoing"], "─── 紅線") is None
+
+
+def test_no_red_line_row_when_red_line_unset():
+    """No red line configured → no marker row even with mixed weeks."""
+    buf = _build_test_workbook(
+        ongoing=[
+            _issue(id=1, display_number="A", week_year=2024, week_number=10),
+            _issue(id=2, display_number="B", week_year=2024, week_number=30),
+        ],
+        red_line=None,
+    )
+    wb = load_workbook(buf)
+    assert _find_row_starting_with(wb["Ongoing"], "─── 紅線") is None
+
+
 def test_owner_falls_back_to_requestor_name():
     """LOCKED 'matches tracker UI': Owner column = requestor_name verbatim."""
     nodes = []

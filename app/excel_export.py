@@ -19,7 +19,7 @@ from datetime import date, datetime, timezone
 from io import BytesIO
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.hyperlink import Hyperlink
 
@@ -127,6 +127,13 @@ META_COLOR = "FF6C757D"     # muted gray
 # Hyperlink style for the # column.
 HYPERLINK_COLOR = "FF0563C1"
 
+# Wk separator row — light gray fill across all columns.
+WK_ROW_FILL_COLOR = "FFE8E8E8"
+
+# Red-line marker row — soft red fill, bold dark-red text, spans all columns.
+RED_LINE_ROW_FILL_COLOR = "FFFCE5E5"
+RED_LINE_ROW_TEXT_COLOR = "FFC0392B"
+
 
 # ─── Style builders ────────────────────────────────────────────────────
 
@@ -152,6 +159,20 @@ def week_separator_font() -> Font:
 
 def week_separator_border() -> Border:
     return Border(top=Side(style="thin", color="FFBFBFBF"))
+
+
+def week_separator_fill() -> PatternFill:
+    return PatternFill(fill_type="solid", start_color=WK_ROW_FILL_COLOR,
+                       end_color=WK_ROW_FILL_COLOR)
+
+
+def red_line_row_font() -> Font:
+    return Font(scheme="minor", size=11, bold=True, color=RED_LINE_ROW_TEXT_COLOR)
+
+
+def red_line_row_fill() -> PatternFill:
+    return PatternFill(fill_type="solid", start_color=RED_LINE_ROW_FILL_COLOR,
+                       end_color=RED_LINE_ROW_FILL_COLOR)
 
 
 def hyperlink_font() -> Font:
@@ -377,26 +398,68 @@ def _populate_sheet(ws, *, title, issues, nodes, all_states,
         ws.column_dimensions[get_column_letter(i)].width = w
 
     # ── Body rows, grouped by week with a wkXXX separator ────────────
+    total_cols = len(headers)
     row_idx = HEADER_ROW + 1
     current_week = None
+    prev_above_red_line = None
     for issue in issues:
         wk_key = (issue["week_year"], issue["week_number"])
+        issue_above = above_red_line(wk_key[0], wk_key[1],
+                                     red_line_year, red_line_week)
+
         if wk_key != current_week:
+            # Red-line marker: insert between the last "above" wk-group and the
+            # first "below" wk-group, so the divider sits right where the
+            # threshold falls.
+            if (red_line_year and red_line_week
+                    and prev_above_red_line is True
+                    and issue_above is False):
+                _write_red_line_row(ws, row_idx, total_cols,
+                                    red_line_year, red_line_week)
+                row_idx += 1
+
+            _write_wk_separator(ws, row_idx, wk_key, total_cols)
             current_week = wk_key
-            wk_label = f"wk{wk_key[0] - 2020}{wk_key[1]:02d}"
-            cell = ws.cell(row=row_idx, column=1, value=wk_label)
-            cell.font = week_separator_font()
-            cell.border = week_separator_border()
             row_idx += 1
 
         _write_issue_row(ws, row_idx, issue, nodes, all_states,
                          red_line_year, red_line_week, gitea_url_for)
         row_idx += 1
+        prev_above_red_line = issue_above
 
     # ── Frozen panes: header + first 3 cols ──────────────────────────
     # Freeze at D{HEADER_ROW+1} → rows 1..HEADER_ROW frozen at top, cols A..C
     # frozen on the left.
     ws.freeze_panes = ws.cell(row=HEADER_ROW + 1, column=4)
+
+
+def _write_wk_separator(ws, row_idx, wk_key, total_cols):
+    """Light-gray band across the whole row with the wk label in col 1."""
+    wk_label = f"wk{wk_key[0] - 2020}{wk_key[1]:02d}"
+    fill = week_separator_fill()
+    border = week_separator_border()
+    for col in range(1, total_cols + 1):
+        cell = ws.cell(row=row_idx, column=col,
+                       value=wk_label if col == 1 else None)
+        cell.fill = fill
+        cell.border = border
+        if col == 1:
+            cell.font = week_separator_font()
+
+
+def _write_red_line_row(ws, row_idx, total_cols, red_line_year, red_line_week):
+    """Red-tinted band marking the red-line boundary. Spans all columns; label
+    sits in col 1 so it's visible in narrow viewports too."""
+    rl_label = f"wk{red_line_year - 2020}{red_line_week:02d}"
+    label = f"─── redline {rl_label} ───"
+    fill = red_line_row_fill()
+    font = red_line_row_font()
+    for col in range(1, total_cols + 1):
+        cell = ws.cell(row=row_idx, column=col,
+                       value=label if col == 1 else None)
+        cell.fill = fill
+        if col == 1:
+            cell.font = font
 
 
 def _write_issue_row(ws, row_idx, issue, nodes, all_states,
