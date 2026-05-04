@@ -123,9 +123,11 @@
             <td class="cal-cell {{ 'cal-other-month' if not in_month }} {{ 'cal-today' if is_today }}">
               <div class="cal-date {{ 'fw-bold' if is_today }}">{{ day.day }}</div>
               {% if events and in_month %}
-                <div class="cal-events">
-                  {% for ev in events[:5] %}
-                    <div class="cal-event" x-data="{ done: {{ 'true' if ev.state == 'done' else 'false' }} }">
+                <div class="cal-events" x-data="{ expanded: false }">
+                  {% for ev in events %}
+                    <div class="cal-event"
+                         {% if loop.index0 >= 5 %}x-show="expanded" x-cloak{% endif %}
+                         x-data="{ done: {{ 'true' if ev.state == 'done' else 'false' }} }">
                       <span class="cal-event-dot"
                             style="background:{{ STATE_COLORS.get(ev.state, '#ccc') }};"
                             x-bind:style="done ? 'background:#27ae60' : 'background:{{ STATE_COLORS.get(ev.state, '#ccc') }}'"></span>
@@ -144,7 +146,9 @@
                     </div>
                   {% endfor %}
                   {% if events|length > 5 %}
-                    <div class="cal-event-more text-muted">+{{ events|length - 5 }} more</div>
+                    <a href="#" class="cal-event-more text-muted"
+                       @click.prevent="expanded = !expanded"
+                       x-text="expanded ? '收起' : '+{{ events|length - 5 }} more'"></a>
                   {% endif %}
                 </div>
               {% endif %}

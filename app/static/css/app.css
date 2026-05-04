@@ -345,7 +345,7 @@ body {
   table-layout: fixed;
 }
 .cal-cell {
-  height: 100px;
+  min-height: 100px;
   vertical-align: top;
   padding: 4px 6px !important;
   font-size: 12px;
@@ -404,6 +404,11 @@ body {
 }
 .cal-event-more {
   font-size: 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.cal-event-more:hover {
+  text-decoration: underline;
 }
 
 /* ── Dialog (for close/reopen modals) ── */
